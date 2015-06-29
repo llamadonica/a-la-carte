@@ -1,0 +1,164 @@
+@import 'dgs-theme';
+
+:host {
+  display: block;
+}
+
+#main-action {
+  position: absolute;
+  right: 16px;
+  bottom: -29px;
+  z-index: 1;
+  pointer-events: auto;
+}
+
+[drawer] {
+  @include box-shadow(1px 0 1px rgba(0, 0, 0, .1));
+  background-color: transparent;
+}
+
+[main] {
+  height: 100%;
+}
+
+#menu-button {
+  @include inline-block();
+  @include transition(margin .25s linear .25s, padding .25s linear .25s, transform .25s linear);
+  @include transform(scaleX(0));
+  margin: 0;
+  padding: 0;
+  z-index: 2;
+}
+
+#drawer-panel {
+  core-toolbar {
+    margin-left: $drawer-width;
+  }
+  
+  &[narrow] {
+    core-toolbar {
+      margin-left: 0;
+    }
+    #menu-button {
+      @include inline-block();
+      @include transform(none);
+      margin: 0 8px;
+      padding: 7px;
+    }
+    &[selected="drawer"] {
+      #scroll-track {
+        right: -$dgs-scrollbar-width;
+      }
+      #condensed-header-bg-overlay {
+        @include opaque;
+      }
+      /deep/ #scrim {
+        @include transform(translateX(256px));
+      }
+      #header-container {
+        pointer-events: auto;
+      }
+    }
+    /deep/ #drawer {
+      bottom: 0;
+      height: auto;
+      top: 64px;
+    }
+  }
+  /deep/ #scrim {
+    @include box-shadow(inset 0px 3px 12px 0px rgba(0, 0, 0, .4));
+    @include transition(transform .3s ease-in-out, opacity ease-in-out 0.38s, visibility ease-in-out 0.38s);
+    top: 64px;
+    z-index: 3;
+  }
+}
+
+#main-container {
+  @extend %fit-box;
+  @include box-sizing(border-box);
+  @include overflow-scrolling-touch;
+  overflow: {
+    x: hidden;
+    y: auto;
+  }
+  padding-top: 192px;
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+#header-container {
+  @include box-shadow(2px 2px 4px rgba(0, 0, 0, .15));
+  position: fixed;
+  top: 0;
+  right: 0;
+  left: 0;
+  height: 192px;
+  pointer-events: none;
+}
+#scroll-track {
+  @include transition(right .25s ease-out);
+  bottom: 0;
+  position: absolute;
+  right: 0;
+  top: 0;
+  width: $dgs-scrollbar-width;
+  &[disabled] {
+    right: -$dgs-scrollbar-width;
+  }
+}
+
+#scroll-thumb {
+  @include dgs-scrollbar-theme;
+  position: absolute;
+}
+
+#scroll-header .bg-container {
+  @extend %fit;
+  overflow: visible;
+}
+
+#header-bg {
+  @extend %fit;
+  background: {
+    repeat: no-repeat;
+    size: cover;
+    position: center center;
+  }
+}
+
+#condensed-header-bg {
+  @extend #header-bg;
+  background-color: $primary-color;
+}
+
+#condensed-header-bg-overlay {
+  @extend #condensed-header-bg;
+  @include transparent;
+  @include transition (opacity ease-in-out .38s);
+  height: 64px - 24px - 24px;
+  z-index: 1;
+  padding: {
+    top: 24px;
+    left: 70px;
+    bottom: 24px;
+  }
+}
+
+#scaffold-tool-bar {
+  background-color: transparent;
+  @include transition(margin .3s ease-in-out, padding .3s ease-in-out, transform .3s ease-in-out);
+}
+
+#toolbar-title{
+  @include transform-origin(0, -312px);
+  font-size: 40px;
+  position: relative;
+  top: 128px;
+  z-index: 0;
+}
+
+#overlay-title {
+  z-index: 2;
+  font-size: 24px;
+  color: $primary-color-text;
+}

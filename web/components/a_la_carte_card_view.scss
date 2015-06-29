@@ -1,0 +1,35 @@
+@import 'dgs-card-common';
+
+paper-button::shadow #content > span {
+  padding: {
+    bottom: 5px;
+    top: 5px;
+  }
+}
+
+paper-button:last-child {
+  margin-bottom: 0;
+}
+
+.table-style {
+  width: 100%;
+  display: table;
+  .table-body {
+    display: table-row-group;
+  }
+  .header-row, .table-body-row, .footer-row {
+    display: table-row;
+  }
+  .header-cell, .footer-cell, .table-body-cell {
+    padding: 4px;
+    display: table-cell;
+  }
+}
+tfoot {
+  #loading {
+    background-color: $color-grey-200;
+    text-align: center;
+    color: $color-grey-800;
+  }
+  font-weight: bold;
+}

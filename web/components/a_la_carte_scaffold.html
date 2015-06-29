@@ -1,0 +1,62 @@
+<link rel="import" href="packages/core_elements/core_toolbar.html">
+<link rel="import" href="packages/core_elements/core_drawer_panel.html">
+<link rel="import" href="packages/core_elements/core_scroll_header_panel.html">
+<link rel="import" href="packages/core_elements/core_icon_button.html">
+<link rel="import" href="packages/paper_elements/paper_fab.html">
+<link rel="import" href="menu-animation.svg.html">
+
+<polymer-element name="a-la-carte-scaffold" attributes="fabIcon responsiveWidth narrow titleOverride">
+<template>
+  <link rel="stylesheet" href="a_la_carte_scaffold.css">
+  <core-drawer-panel 
+      id="drawer-panel" 
+      narrow?="{{narrow}}" 
+      responsiveWidth="{{responsiveWidth}}"
+      disableSwipe>
+    <div vertical layout drawer>
+      <content select="[navigation], nav"></content>
+    </div>
+    <div main id="scroll-header">
+      <div id="main-container">
+        <content id="main-content" select="[content], .content"></content>
+      </div>
+  
+      <div id="header-container">
+  
+        <div class="bg-container">
+           <div fit id="condensed-header-bg"></div>
+           <div fit id="header-bg"></div>
+           <paper-fab 
+               id="main-action" 
+               icon="{{paperFabInternal}}" 
+               on-tap="{{doMainFabAction}}"
+               showing?="{{docked && fabShowing && fabIcon != '' && fabIcon != null}}">
+           </paper-fab>
+           <div id="condensed-header-bg-overlay">
+             <div id="overlay-title" flex>{{title}}</div>
+           </div>
+        </div>
+        <core-toolbar id="scaffold-tool-bar">
+          <core-icon-button 
+              id="menu-button" 
+              icon="menu-animation:menu-transition-to-arrow" 
+              on-tap="{{togglePanel}}">
+          </core-icon-button>
+          <div id="toolbar-title" flex>{{titleOverride}}</div>
+          <content select="tool"></content>
+        </core-toolbar>
+      </div>
+      <div id="scroll-track">
+        <div 
+            id="scroll-thumb" 
+            touch-action="none" 
+            on-trackstart="{{trackStartScrollerThumb}}" 
+            on-trackend="{{trackEndScrollerThumb}}" 
+            on-track="{{trackScrollerThumb}}">
+        </div>
+      </div>
+    </div>
+  </core-drawer-panel>
+</template>
+<script  type="application/dart" src="a_la_carte_scaffold.dart"></script>
+</polymer-element>

@@ -1,0 +1,63 @@
+{
+  "_ROOT_": [
+    {
+      "name": "Parking",
+      "id": "PK",
+      "description": "Parking Areas",
+      "icon": "maps:local-parking"
+    },
+    {
+      "name": "Passenger Loading Zones",
+      "id": "PZ",
+      "description": "Passenger Loading Zones",
+      "icon": "maps:directions-car"
+    },
+    {
+      "name": "Exterior Routes",
+      "id": "EP",
+      "description": "Exterior Paths of Travel",
+      "icon": "maps:directions-walk"
+    },
+    {
+      "name": "Entrances",
+      "id": "EN",
+      "description": "Building Entrances",
+      "icon": "exit-to-app"
+    },
+    {
+      "name": "Interior Routes",
+      "id": "IP",
+      "description": "Interior Paths of Travel",
+      "icon": "maps:directions-walk"
+    },
+    {
+      "name": "Rooms and Spaces",
+      "id": "RS",
+      "description": "Rooms and Spaces",
+      "icon": "maps:place"
+    },
+    {
+      "name": "Toilet Rooms",
+      "id": "TR",
+      "description": "Toilet Rooms"
+    },
+    {
+      "name": "Assembly Areas",
+      "id": "AA",
+      "description": "Assembly Areas",
+      "icon": "communication:forum"
+    },
+    {
+      "name": "Alarms",
+      "id": "AL",
+      "description": "Building Alarms",
+      "icon": "device:access-alarms"
+    },
+    {
+      "name": "Hazards",
+      "id": "HZ",
+      "description": "Other Hazards",
+      "icon": "warning"
+    }
+  ]
+}

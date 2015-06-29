@@ -1,0 +1,16 @@
+@import 'dgs-theme';
+
+core-header-panel::shadow {
+  #mainContainer {
+    overflow: {
+      x: hidden;
+      y: hidden;
+    }
+  }
+}
+
+#nav-menu-box {
+  @extend %fit-box;
+  background-color: #fff;
+  overflow-y: auto;
+}

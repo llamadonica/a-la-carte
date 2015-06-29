@@ -1,0 +1,39 @@
+<link rel="import" href="packages/paper_elements/paper_fab.html" />
+<link rel="import" href="packages/paper_elements/paper_button.html" />
+<link rel="import" href="packages/paper_elements/paper_input.html" />
+<link rel="import" href="packages/paper_elements/paper_spinner.html" />
+<link rel="import" href="packages/core_elements/core_icons.html" />
+
+<polymer-element name="a-la-carte-card-view" attributes="appSelected prevAppSelected projects project wide" vertical layout center>
+  <template>
+    <link rel="stylesheet" href="a_la_carte_card_view.css" />
+    <div class="tabbed-page" layout vertical fit>
+      <div class="page-contents">
+        <section class="indent">
+          <h4 cross-fade?="{{appSelected == 'new-project' || prevAppSelected == 'new-project'}}">Select Project</h4>
+          <br /><paper-shadow>
+          <div class="table-style">
+            <div class="header-row">
+              <div class="header-cell"></div>
+              <div class="header-cell">Job Name</div>
+              <div class="header-cell">Address</div>
+            </div>
+            <div class="table-body">
+              <template repeat="{{ p in projects }}">
+                <div class="table-body-row">
+                <div class="table-body-cell">{{p.jobNumber}}</div>
+                <div class="table-body-cell">{{p.name}}</div>
+                <div class="table-body-cell">{{p.streetAddress}}</div></div>
+              </template>
+            </div>
+            <div class="footer-rows">
+              <div class="footer-row" id="loading" colspan="3"><div class="footer-cell"><paper-spinner id="loading-spinner" alt="" active></paper-spinner></div></div>
+              <div class="footer-row" id="no-projects" colspan="3" hidden><div class="footer-cell">No projects found</div></div>
+            </div>
+          </div></div></paper-shadow>
+        </section>
+      </div>
+    </div>
+  </template>
+  <script type="application/dart" src="a_la_carte_card_view.dart"></script>
+</polymer-element>

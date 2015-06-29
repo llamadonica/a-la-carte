@@ -1,0 +1,8 @@
+{
+   "_id": "_design/projects",
+   "views": {
+       "all_by_job_number": {
+           "map": "function(doc){if (doc.type == \"project\") { emit(doc.jobNumber, {jobNumber: doc.jobNumber, name: doc.name, streetAddress: doc.streetAddress, isActive: doc.isActive})}}"
+       }
+   }
+}

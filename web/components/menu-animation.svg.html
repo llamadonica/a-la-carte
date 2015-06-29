@@ -1,0 +1,42 @@
+<link rel="import" href="packages/core_elements/core_iconset_svg.html">
+<style>
+  #menu-transition-to-arrow path {
+    transform-origin: 12px 12px;
+    transition: transform ease-out .25s;
+  }
+  
+  #menu-transition-to-arrow.arrow #bottom-bar {
+    transform: rotate(135deg) translateY(-.33px) scaleX(.629);
+  }
+  
+  #menu-transition-to-arrow.arrow #middle-bar {
+    transform: rotate(180deg) translateX(-1px) scaleX(.889);
+  }
+  
+  #menu-transition-to-arrow.arrow #top-bar {
+    transform: rotate(225deg) translateY(.33px) scaleX(.629);
+  }
+  
+  #menu-transition-to-arrow.menu #bottom-bar {
+    transform: rotate(360deg) translateY(0) scaleX(1);
+  }
+  
+  #menu-transition-to-arrow.menu #middle-bar {
+    transform: rotate(360deg) translateY(0) scaleX(1);
+  }
+  
+  #menu-transition-to-arrow.menu #top-bar {
+    transform: rotate(360deg) translateY(0) scaleX(1);
+  }  
+</style>
+<core-iconset-svg id="menu-animation" iconSize="24">
+  <svg>
+    <defs>
+      <g id="menu-transition-to-arrow">
+        <path d="M3,18h18v-2H3V18z" id="bottom-bar"></path>
+        <path d="M3,13h18v-2H3V13z" id="middle-bar"></path>
+        <path d="M3,6v2h18V6H3z" id="top-bar"></path>
+      </g>
+    </defs>
+  </svg>
+</core-iconset-svg>

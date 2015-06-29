@@ -1,0 +1,66 @@
+@import 'dgs-theme';
+
+core-toolbar {
+  background-color: none;
+}
+    
+div[scroll-box] {
+  overflow-y: auto;
+}
+
+.card {
+  @include box-sizing(border-box);
+  background-color: #fff;
+  padding: 20px 16px;
+  
+  &.wide {
+    @include box-shadow(0 2px 5px 0 rgba(0, 0, 0, .26));
+    @include border-radius(2px);
+    margin-top: 64px;
+    max-width: 512px;
+    position: relative;
+  }
+}
+
+.header {
+  color: $primary-color;
+  font: { 
+    size: 1.5em;
+    weight: lighter;
+  }
+  margin-bottom: 16px;
+
+  span {
+    @include transition(opacity 0 ease 2s);
+      
+    &[delayshow] {
+      @include opacity(0);
+    }
+  }
+  
+  &.spaced {
+    margin-top: 16px;
+  }
+}
+
+.indent {
+  padding: 0 2px;
+}
+    
+.main {
+  @extend %fit-box;
+  
+  background-color: $divider-color;
+  
+  &.wide {
+    position: relative;
+  }
+}
+    
+.bg {
+  background-color: $divider-color;
+}
+
+:host([animate]:not(.core-selected)) .bg {
+  z-index: -1;
+}

@@ -1,0 +1,50 @@
+<link rel="import" href="packages/core_elements/core_header_panel.html">
+<link rel="import" href="packages/core_elements/core_icon.html">
+<link rel="import" href="packages/core_elements/core_toolbar.html">
+<link rel="import" href="packages/core_elements/core_item.html">
+<link rel="import" href="packages/core_elements/core_menu.html">
+<link rel="import" href="packages/core_elements/core_pages.html">
+
+<link rel="import" href="packages/core_elements/src/core-icons/core-icons.html">
+<link rel="import" href="packages/core_elements/src/core-icons/av-icons.html">
+<link rel="import" href="packages/core_elements/src/core-icons/communication-icons.html">
+<link rel="import" href="packages/core_elements/src/core-icons/device-icons.html">
+<link rel="import" href="packages/core_elements/src/core-icons/editor-icons.html">
+<link rel="import" href="packages/core_elements/src/core-icons/hardware-icons.html">
+<link rel="import" href="packages/core_elements/src/core-icons/image-icons.html">
+<link rel="import" href="packages/core_elements/src/core-icons/maps-icons.html">
+<link rel="import" href="packages/core_elements/src/core-icons/notification-icons.html">
+<link rel="import" href="packages/core_elements/src/core-icons/social-icons.html">
+
+<link rel="import" href="a_la_carte_scaffold.html">
+<link rel="import" href="a_la_carte_project_info_page.html">
+<link rel="import" href="a_la_carte_card_view.html">
+
+<polymer-element name="a-la-carte-main-view" attributes="project projects wide appSelected prevAppSelected responsiveWidth" vertical layout>
+  <template bind>
+    <link rel="stylesheet" href="a_la_carte_main_view.css">
+    <a-la-carte-scaffold
+        fabIcon="{{currentPage == null ?'': currentPage.fabIcon}}"
+        titleOverride="A La Carte"
+        backgroundImage="{{currentPage == null ?'': currentPage.backgroundImage}}" 
+        cross-fade-delayed
+        narrow="{{!wide}}"
+        responsiveWidth="{{responsiveWidth}}"
+        on-dgs-fab-action="{{routeFabAction}}">
+      <core-header-panel navigation flex mode="seamed">
+        <div id="nav-menu-box">
+        <core-menu selected="{{selected}}" theme="core-light-theme">
+          <core-item id="basic-info-menu-item" icon="settings" label="Basic Info" active></core-item>
+          <core-item id="add-form-menu-item" icon="add-circle" label="Add a Form"></core-item>
+          <core-item id="manage-resources-menu-item" icon="folder" label="Manage Resources"></core-item>
+        </core-menu>
+        </div>
+      </core-header-panel>
+      <core-pages class="content" selected="{{selected}}">
+        <a-la-carte-card-view project="{{project}}" projects="{{projects}}"></a-la-carte-card-view>
+        <a-la-carte-project-info-page project="{{project}}"></a-la-carte-project-info-page>
+      </core-pages>
+    </a-la-carte-scaffold>
+  </template>
+  <script type="application/dart" src="a_la_carte_main_view.dart"></script>
+</polymer-element>

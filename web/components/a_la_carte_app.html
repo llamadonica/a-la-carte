@@ -1,0 +1,44 @@
+<link rel="import" href="packages/core_elements/core_animated_pages.html" />
+<link rel="import" href="packages/core_elements/core_media_query.html" />
+<link rel="import" href="packages/core_elements/core_ajax_dart.html" />
+<link rel="import" href="packages/paper_elements/paper_toast.html" />
+<link 
+    rel="import" 
+    href="packages/core_elements/src/core-animated-pages/transitions/slide-up.html" />
+<link 
+    rel="import" 
+    href="packages/core_elements/src/core-animated-pages/transitions/scale-up.html" />
+<link rel="import" href="a_la_carte_main_view.html" />
+
+<polymer-element name="a-la-carte-app" attributes="templateUrl" vertical layout>
+  <template bind>
+    <link rel="stylesheet" href="a_la_carte_app.css" />
+    <core-animated-pages 
+        on-core-animated-pages-transition-prepare="{{
+          prepareAnimatedTransition}}" 
+        selected="{{selected}}" 
+        transitions="
+         hero-transition cross-fade-delayed cross-fade slide-up-offscreen 
+         scale-up" 
+        flex>
+      <a-la-carte-main-view
+          appSelected="{{selected}}"
+          prevAppSelected="{{prevSelected}}"
+          id="categories" 
+          name="categories"
+          project="{{project}}"
+          projects="{{projects}}"
+          wide="{{wide}}" 
+          responsiveWidth="{{RESPONSIVE_WIDTH - 1}}px">
+      </a-la-carte-main-view>
+    </core-animated-pages>
+    <paper-toast duration="600000" autoCloseDisabled id="toast-connectivity" text="{{connectivityErrorMessage}}">
+      <div class="toast-connectivity-retry" on-tap="{{getProjectsData}}">Retry</div>
+    </paper-toast>
+    <core-media-query 
+        query="min-width: {{RESPONSIVE_WIDTH}}px" 
+        queryMatches="{{wide}}">
+    </core-media-query>
+  </template>
+  <script type="application/dart" src="a_la_carte_app.dart"></script>
+</polymer-element>

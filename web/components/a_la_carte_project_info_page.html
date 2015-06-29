@@ -1,0 +1,56 @@
+<link rel="import" href="packages/paper_elements/paper_autogrow_textarea.html" />
+<link rel="import" href="packages/paper_elements/paper_checkbox.html" />
+<link rel="import" href="packages/paper_elements/paper_dropdown_menu.html" />
+<link rel="import" href="packages/paper_elements/paper_input.html" />
+<link rel="import" href="packages/paper_elements/paper_input_decorator.html" />
+<link rel="import" href="packages/paper_elements/paper_icon_button.html" />
+<link rel="import" href="packages/paper_elements/paper_item.html" />
+<link rel="import" href="packages/paper_elements/paper_tabs.html" />
+<link rel="import" href="packages/paper_elements/paper_shadow.html" />
+<link rel="import" href="packages/core_elements/core_input.html" />
+<link rel="import" href="packages/core_elements/core_label.html" />
+<link rel="import" href="packages/core_elements/core_pages.html" />
+
+<polymer-element 
+    name="a-la-carte-project-info-page" 
+    attributes="project" 
+    vertical
+    layout>
+  <template bind>
+    <link rel="stylesheet" href="a_la_carte_project_info_page.css" />
+    <div class="tabbed-page" layout vertical fit>
+      <div class="page-contents">
+        <h4>General Options</h4>
+        <paper-input-decorator
+            label="Job #" 
+            id="jobNumber"
+            value="{{project.jobNumber}}">
+          <input 
+            is="core-input" 
+            placeholder
+            type="number"
+            preventInvalidInput>
+        </paper-input-decorator>
+        <paper-input 
+            label="Project Name" 
+            id="name"
+            required 
+            error="Please enter a project name"
+            value="{{project.name}}">
+        </paper-input>
+        <paper-input-decorator id="streetAddress" label="Street Address">
+          <paper-autogrow-textarea>
+            <textarea></textarea>
+          </paper-autogrow-textarea>
+        </paper-input-decorator>
+        <core-label horizontal layout>
+          <paper-checkbox
+            checked?="{{project.isActive}}">
+          </paper-checkbox>
+          <h4>Active job?</h4>
+        </core-label>
+      </div>
+    </div>
+  </template>
+  <script type="application/dart" src="a_la_carte_project_info_page.dart"></script>
+</polymer-element>

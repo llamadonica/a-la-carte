@@ -1,0 +1,65 @@
+@import 'dgs-theme-colors';
+
+$debug-browser-support: true;
+//$browser-minimum-versions: (ie: '10');
+
+@import "compass/css3";
+@import "compass/css3/user-interface";
+
+$primary-color: $color-blue;
+$primary-color-text: transparentize($color-grey-0, .13);
+
+$primary-color-lighter: $color-blue-300;
+$primary-color-lighter-text: transparentize($color-grey-1000, .13);
+
+$accent-color: $color-amber-A700;
+$accent-color-text: transparentize($color-grey-1000, .13);
+$accent-color-text-alpha: transparentize($color-grey-1000, .46);
+
+$accent-color-lighter: $color-amber-A100;
+$accent-color-lighter-text: transparentize($color-grey-1000, .13);
+
+$divider-color: $color-grey-200;
+
+$primary-font: Roboto, sans-serif;
+
+$drawer-width: 256px;
+
+$dgs-scrollbar-width: 6px;
+
+@mixin dgs-scrollbar-theme {
+  background-color: rgba(0,0,0, .17);
+  border-radius: 3px;
+  &:hover, &[dragging] {
+    background-color: rgba(0,0,0, .35);
+  }
+  &:not(:vertical) {
+    height: 100%;
+  } 
+  &:not(:horizontal) {
+    width: 100%;
+  }
+}
+
+@mixin overflow-scrolling-touch {
+  -webkit-overflow-scrolling: touch;
+  @supports(-webkit-overflow-scrolling: touch) {
+    overflow-y: scroll;
+  }
+}
+
+%fit {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+}
+
+%fit-box {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+}

@@ -1,0 +1,85 @@
+@import 'dgs-theme';
+
+.page-tab-bar {
+  background-color: $primary-color;
+  color: $primary-color-text;
+  position: relative;
+}
+
+.tabbed-page {
+  background-color: $color-grey-0;
+  
+  .page-contents {
+    min-height: 100%;
+    padding-left: 12px;
+  }
+  
+  core-pages {
+    .page {
+      padding: 1em;
+      
+      .page-contents {
+        @include inline-block();
+        @include opacity(0);
+        @include transform (translateX(-400px) scale(.9));
+      }
+      
+      &.core-selected {
+        overflow-y: auto;
+        
+        .page-contents {
+          @include opaque;
+          @include transform (none);
+        }
+      }
+    }
+    
+    &.animate {
+      .page {
+        visibility: visible;
+        z-index: auto;
+      }
+    }
+    
+    &.animate:not(.dragging) {
+      @include transition(box-shadow .2s);
+    }
+    
+    &:not(.dragging) {
+      .page {
+        &.core-selected {
+          overflow-x: auto;
+          
+          .page-contents {
+            @include opaque;
+            @include transform(translateX(0));
+          }
+          
+          + .page {
+            .page-contents {
+              @include transform(translateX(400px) scale(.9));
+            }
+          }
+        }
+        
+        .page-contents {
+          @include transition(all .2s ease-in 0);
+        }
+      }
+    }
+  } 
+}
+
+paper-input[multiline]::shadow textarea {
+  overflow: hidden;
+  padding-bottom: 2px;
+}
+
+paper-dropdown-menu {
+  background-color: transparent;
+  min-width: 140px;
+  padding: {
+    bottom: 10px;
+    right: 10px;
+  }
+}

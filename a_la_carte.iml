@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<module type="WEB_MODULE" version="4">
+  <component name="NewModuleRootManager" inherit-compiler-output="true">
+    <exclude-output />
+    <content url="file://$MODULE_DIR$">
+      <excludeFolder url="file://$MODULE_DIR$/.pub" />
+      <excludeFolder url="file://$MODULE_DIR$/bin/packages" />
+      <excludeFolder url="file://$MODULE_DIR$/build" />
+      <excludeFolder url="file://$MODULE_DIR$/packages/a_la_carte" />
+      <excludeFolder url="file://$MODULE_DIR$/web/components/packages" />
+      <excludeFolder url="file://$MODULE_DIR$/web/model/packages" />
+      <excludeFolder url="file://$MODULE_DIR$/web/packages" />
+      <excludeFolder url="file://$MODULE_DIR$/web/resources/couchdb/_design/packages" />
+      <excludeFolder url="file://$MODULE_DIR$/web/resources/couchdb/packages" />
+      <excludeFolder url="file://$MODULE_DIR$/web/resources/packages" />
+    </content>
+    <orderEntry type="sourceFolder" forTests="false" />
+    <orderEntry type="library" name="Dart SDK" level="application" />
+  </component>
+</module>

@@ -1,0 +1,19 @@
+@import 'dgs-theme';
+
+:host {
+  overflow: hidden;
+}
+
+.splash {
+  background: {
+    color: $divider-color;
+    repeat: no-repeat;
+    position: 50%;
+  }
+  font-family: $primary-font;
+  text-align: center;
+  
+  &.wide {
+    background-size: 512px;
+  }
+}

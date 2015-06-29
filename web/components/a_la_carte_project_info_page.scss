@@ -1,0 +1,24 @@
+@import 'dgs-pages-common';
+
+#contact-info {
+  .contact-info-line {
+    transition: height .25s linear 0, opacity .5s ease-in 0;
+
+    &.removing {
+      @include transparent;
+      left: 0;
+      overflow: hidden;
+      position: relative;
+      top: 0;
+    }
+  }
+  
+  &.inserting .contact-info-line.new {
+    @include opacity(.33);
+    height: 0;
+    left: 0;
+    overflow: hidden;
+    position: relative;
+    top: 0;
+  }
+}
