@@ -29,6 +29,7 @@ class ALaCarteApp extends PolymerElement {
   @observable bool wide;
   @observable Project project;
   @observable bool projectsAreLoaded = false;
+  @observable bool noProjectsFound = false;
   @observable ObservableList<Project> projects = new ObservableList() ;
 
   HttpRequest _request;
@@ -84,7 +85,7 @@ class ALaCarteApp extends PolymerElement {
     if (fetch == null) {
       _request = new HttpRequest();
       _request.open('GET',
-          'http://localhost:8080/a_la_carte/_design/projects/_view/all_by_job_number?descending=true');
+          '/a_la_carte/_design/projects/_view/all_by_job_number?descending=true');
       _request.setRequestHeader('Accept', 'application/json');
 
       _request.onLoad.listen(jsonHandler.httpRequestListener);
@@ -92,7 +93,7 @@ class ALaCarteApp extends PolymerElement {
 
       _request.send();
     } else {
-      fetch('http://localhost:8080/a_la_carte/_design/projects/_view/all_by_job_number?descending=true',
+      fetch('/a_la_carte/_design/projects/_view/all_by_job_number?descending=true',
           headers: {'Accept': 'application/json'})
       .then((object) {
         jsonHandler.setStreamStateFromResponse(object);
@@ -127,5 +128,8 @@ class ALaCarteApp extends PolymerElement {
       return;
     }
     projectsAreLoaded = true;
+    if (projects.length == 0) {
+      noProjectsFound = true;
+    }
   }
 }

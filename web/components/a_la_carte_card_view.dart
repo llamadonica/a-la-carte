@@ -15,6 +15,8 @@ class ALaCarteCardView extends PolymerElement {
   @published bool wide;
   @published ObservableList<Project> projects;
   @published Project project;
+  @published bool projectsAreLoaded;
+  @published bool noProjectsFound;
 
   @published String appSelected;
   @published String prevAppSelected;

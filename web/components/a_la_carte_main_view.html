@@ -20,7 +20,10 @@
 <link rel="import" href="a_la_carte_project_info_page.html">
 <link rel="import" href="a_la_carte_card_view.html">
 
-<polymer-element name="a-la-carte-main-view" attributes="project projects wide appSelected prevAppSelected responsiveWidth" vertical layout>
+<polymer-element name="a-la-carte-main-view"
+                 attributes="project projects wide appSelected prevAppSelected responsiveWidth projectsAreLoaded noProjectsFound"
+                 vertical
+                 layout>
   <template bind>
     <link rel="stylesheet" href="a_la_carte_main_view.css">
     <a-la-carte-scaffold
@@ -41,7 +44,9 @@
         </div>
       </core-header-panel>
       <core-pages class="content" selected="{{selected}}">
-        <a-la-carte-card-view project="{{project}}" projects="{{projects}}"></a-la-carte-card-view>
+        <a-la-carte-card-view project="{{project}}" projects="{{projects}}"
+                              projectsAreLoaded="{{projectsAreLoaded}}"
+                              noProjectsFound="{{noProjectsFound}}"></a-la-carte-card-view>
         <a-la-carte-project-info-page project="{{project}}"></a-la-carte-project-info-page>
       </core-pages>
     </a-la-carte-scaffold>

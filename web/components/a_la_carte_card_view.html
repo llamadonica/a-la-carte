@@ -4,7 +4,9 @@
 <link rel="import" href="packages/paper_elements/paper_spinner.html" />
 <link rel="import" href="packages/core_elements/core_icons.html" />
 
-<polymer-element name="a-la-carte-card-view" attributes="appSelected prevAppSelected projects project wide" vertical layout center>
+<polymer-element name="a-la-carte-card-view"
+                 attributes="appSelected prevAppSelected projects project wide projectsAreLoaded noProjectsFound"
+                 vertical layout center>
   <template>
     <link rel="stylesheet" href="a_la_carte_card_view.css" />
     <div class="tabbed-page" layout vertical fit>
@@ -25,12 +27,21 @@
                 <div class="table-body-cell">{{p.name}}</div>
                 <div class="table-body-cell">{{p.streetAddress}}</div></div>
               </template>
-            </div>
+            </div></div>
+          <div class="table-style">
             <div class="footer-rows">
-              <div class="footer-row" id="loading" colspan="3"><div class="footer-cell"><paper-spinner id="loading-spinner" alt="" active></paper-spinner></div></div>
-              <div class="footer-row" id="no-projects" colspan="3" hidden><div class="footer-cell">No projects found</div></div>
+              <div class="footer-row" id="loading">
+                <div class="footer-cell{{projectsAreLoaded?' hide':''}}">
+                  <paper-spinner id="loading-spinner" alt=""
+                                 active?="{{!projectsAreLoaded}}"></paper-spinner>
+                </div>
+              </div>
+              <div class="footer-row{{noProjectsFound?'':' hide'}}" id="no-projects">
+                <div
+                  class="footer-cell">No projects found</div></div>
             </div>
-          </div></div></paper-shadow>
+            </div>
+          </paper-shadow>
         </section>
       </div>
     </div>
