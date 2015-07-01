@@ -16,7 +16,6 @@ dependencies:
   uuid: any
 transformers:
 - sass:
-    executable: C:\Ruby22-x64\bin\sass.bat
     compass: true
 - polymer:
     entry_points: web/index.html
