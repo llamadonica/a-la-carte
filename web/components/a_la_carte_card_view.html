@@ -32,13 +32,17 @@
             <div class="footer-rows">
               <div class="footer-row" id="loading">
                 <div class="footer-cell{{projectsAreLoaded?' hide':''}}">
+                  <div>
                   <paper-spinner id="loading-spinner" alt=""
                                  active?="{{!projectsAreLoaded}}"></paper-spinner>
+                  </div>
                 </div>
               </div>
-              <div class="footer-row{{noProjectsFound?'':' hide'}}" id="no-projects">
-                <div
-                  class="footer-cell">No projects found</div></div>
+              <div class="footer-row" id="no-projects">
+                <div class="footer-cell{{noProjectsFound?'':' hide'}}">
+                <div>
+                  No projects found
+                </div></div></div>
             </div>
             </div>
           </paper-shadow>
