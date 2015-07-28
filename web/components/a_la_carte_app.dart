@@ -30,6 +30,7 @@ class ALaCarteApp extends PolymerElement {
   @observable Project project;
   @observable bool projectsAreLoaded = false;
   @observable bool noProjectsFound = false;
+  @observable bool isError = false;
   @observable ObservableList<Project> projects = new ObservableList() ;
 
   HttpRequest _request;
@@ -79,6 +80,7 @@ class ALaCarteApp extends PolymerElement {
 
   void getProjectsData() {
     var jsonHandler = new JsonStreamingParser();
+    connectivityErrorMessage = null;
     jsonHandler.onSymbolComplete
         .listen(routeProjectLoadingEvent);
 
@@ -119,7 +121,32 @@ class ALaCarteApp extends PolymerElement {
   }
 
   void routeProjectLoadingEvent(JsonStreamingEvent event) {
-    if (event.path.length < 1 || event.path[0] != 'rows') return;
+    if (event.path.length == 1 && event.path[0] == 'error') {
+      isError = true;
+      if (connectivityErrorMessage == null) {
+        connectivityErrorMessage = errorMessages[event.symbol];
+      } else {
+        PaperToast connectivityToast = $['toast-connectivity'];
+        connectivityToast.show();
+        projectsAreLoaded = true;
+        noProjectsFound = true;
+      }
+      return;
+    }
+    else if (event.path.length == 1 && event.path[0] == 'message') {
+      connectivityErrorMessage = event.symbol;
+      return;
+    }
+    else if (event.path.length == 0) {
+      if (isError && !projectsAreLoaded) {
+        PaperToast connectivityToast = $['toast-connectivity'];
+        connectivityToast.show();
+        projectsAreLoaded = true;
+        noProjectsFound = true;
+      }
+      return;
+    }
+    else if (event.path[0] != 'rows') return;
     if (event.path.length > 2) return;
     if (event.path.length == 2) {
       final project = new Project(event.symbol['id']);
