@@ -25,13 +25,21 @@ class ALaCarteCardView extends PolymerElement {
   ALaCarteCardView.created() : super.created();
 
   @override void domReady() {
-    var subscription = $['loading-cell'].onTransitionEnd.listen((transition) {
+    $['loading-cell'].onTransitionEnd.listen((transition) {
       if (projectsAreLoaded) {
         transition.target.classes.add('hidden');
       }
       else {
         transition.target.classes.remove('hidden');
         showSpinner = true;
+      }
+    });
+    $['no-projects-cell'].onTransitionEnd.listen((transition) {
+      if (noProjectsFound) {
+        transition.target.classes.remove('hidden');
+      }
+      else {
+        transition.target.classes.add('hidden');
       }
     });
   }

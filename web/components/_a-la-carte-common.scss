@@ -56,7 +56,8 @@
     @return ($x1 $x12 $x123 $x1234, $x1234 $x234 $x34 $x4);
 }
 
-@mixin split-transition-at-position($transition-curve, $begin-value, $end-value, $total-value, $hint: "", $additional-transitions: ()) {
+@function split-transition-at-position($transition-curve, $begin-value, $end-value, $total-value,
+$hint: "", $additional-transitions: ()) {
   $transition-name: "all";
   $transition-function: "ease";
   $transition-time: 0s;
@@ -203,6 +204,6 @@
      $transition-delay: $transition-delay + $transition-delay-t*$transition-time;
      $transition-time: $new-transition-t*$transition-time;
      $transition-function: cubic-bezier(#{$x1}, #{$y1}, #{$x2}, #{$y2});
-     transition: $transition-name $transition-time $transition-function $transition-delay;
+     @return $transition-name $transition-time $transition-function $transition-delay;
   }
 }
