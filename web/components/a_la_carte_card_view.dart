@@ -17,16 +17,35 @@ class ALaCarteCardView extends PolymerElement {
   @published Project project;
   @published bool projectsAreLoaded;
   @published bool noProjectsFound;
+  @observable bool showSpinner = true;
 
   @published String appSelected;
   @published String prevAppSelected;
 
   ALaCarteCardView.created() : super.created();
+
+  @override void domReady() {
+    var subscription = $['loading-cell'].onTransitionEnd.listen((transition) {
+      if (projectsAreLoaded) {
+        transition.target.classes.add('hidden');
+      }
+      else {
+        transition.target.classes.remove('hidden');
+        showSpinner = true;
+      }
+    });
+  }
+
   void handleSelect(Event ev) {
     var openCode = (ev.target as PaperButton).getAttribute('data-project-id');
     if (openCode != null) {
       project = projects[openCode];
       (parentNode as CoreAnimatedPages).selected = 'categories';
+    }
+  }
+  void projectsAreLoadedChanged(bool oldValue) {
+    if (projectsAreLoaded) {
+      showSpinner = false;
     }
   }
 }

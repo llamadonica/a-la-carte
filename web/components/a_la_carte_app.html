@@ -35,7 +35,8 @@
       </a-la-carte-main-view>
     </core-animated-pages>
     <paper-toast duration="600000" autoCloseDisabled id="toast-connectivity" text="{{connectivityErrorMessage}}">
-      <div class="toast-connectivity-retry" on-tap="{{getProjectsData}}">Retry</div>
+      <div class="toast-connectivity-retry" on-tap="{{retryProjectsData}}">Retry
+      </div>
     </paper-toast>
     <core-media-query 
         query="min-width: {{RESPONSIVE_WIDTH}}px" 

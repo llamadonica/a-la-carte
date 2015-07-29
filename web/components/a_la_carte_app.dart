@@ -72,9 +72,13 @@ class ALaCarteApp extends PolymerElement {
     }, minDuration);
   }
 
-  void regetProjectsData() {
+  void retryProjectsData() {
     PaperToast connectivityToast = $['toast-connectivity'];
     connectivityToast.dismiss();
+    isError = false;
+    noProjectsFound = false;
+    projectsAreLoaded = false;
+    connectivityErrorMessage = null;
     getProjectsData();
   }
 

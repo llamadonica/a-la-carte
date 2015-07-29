@@ -1,0 +1,208 @@
+@function number($string) {
+  $minus: false;
+  $result: 0;
+  $divider: 0;
+
+  $strings: '0' '1' '2' '3' '4' '5' '6' '7' '8' '9';
+  $numbers:  0   1   2   3   4   5   6   7   8   9;
+
+  @for $i from 1 through str-length($string) {
+    $character: str-slice($string, $i, $i);
+    $index: index($strings, $character);
+    @if $character == ' ' {
+    }
+    @else if $character == '-' and $i == 1 {
+      $minus: true;
+    }
+    @else if $character == '.' and $divider == 0 {
+      $divider: 1;
+    }
+    @else if not $index {
+      @warn "Unknown character `#{$character}`.";
+      @return false;
+    }
+    @else {
+      $number: nth($numbers, $index);
+      @if $divider == 0 {
+        $result: $result * 10;
+      }
+      @else {
+        $divider: $divider * 10;
+        $number: $number / $divider;
+      }
+      $result: $result + $number;
+    }
+  }
+  @return if($minus, $result * -1, $result);
+}
+
+@function slice-bezier-at($points, $t) {
+    $x1: nth($points,1);
+    $x2: nth($points,2);
+    $x3: nth($points,3);
+    $x4: nth($points,4);
+
+    $x12: ($x2 - $x1)*$t+$x1;
+
+    $x23: ($x3 - $x2)*$t+$x2;
+
+    $x34: ($x4 - $x3)*$t+$x3;
+
+    $x123: ($x23 - $x12)*$t+$x12;
+
+    $x234: ($x34 - $x23)*$t+$x23;
+
+    $x1234: ($x234 - $x123)*$t+$x123;
+    @return ($x1 $x12 $x123 $x1234, $x1234 $x234 $x34 $x4);
+}
+
+@mixin split-transition-at-position($transition-curve, $begin-value, $end-value, $total-value, $hint: "", $additional-transitions: ()) {
+  $transition-name: "all";
+  $transition-function: "ease";
+  $transition-time: 0s;
+  $transition-delay: 0s;
+  $valid: true;
+  @if length($transition-curve) > 0 {
+    $transition-name: nth($transition-curve, 1);
+  }
+  @if length($transition-curve) > 1 {
+    $transition-time: nth($transition-curve, 2);
+  }
+  @if length($transition-curve) > 2 {
+    $transition-function: nth($transition-curve, 3);
+  }
+  @if length($transition-delay) > 3 {
+    $transition-delay: nth($transition-curve, 4);
+  }
+  @if $hint == "" {
+    $hint: 0 1;
+  }
+  $x1: 0;
+  $x2: 1;
+  $y1: 0;
+  $y2: 1;
+  @if $transition-function == "linear" {
+  }
+  @else if $transition-function == "ease" {
+    $x1: 0.25;
+    $x2: 0.25;
+    $y1: 0.1;
+    $y2: 1.0;
+  }
+  @else if $transition-function == "ease-in" {
+    $x1: 0.42;
+    $x2: 1.0;
+    $y1: 0.0;
+    $y2: 1.0;
+  }
+  @else if $transition-function == "ease-out" {
+    $x1: 0.0;
+    $x2: 0.58;
+    $y1: 0.0;
+    $y2: 1.0;
+  }
+  @else if $transition-function == "ease-in-out" {
+    $x1: 0.42;
+    $x2: 0.58;
+    $y1: 0.0;
+    $y2: 1.0;
+  }
+  @else if str-slice($transition-function, 1, 12) == "cubic-bezier" {
+    $transition-equation: str-slice($transition-function, 14);
+    @for $i from 1 through 4 {
+      $initial-character: str-slice($transition-equation, 1, 2);
+      $next-comma: str-index($transition-equation, ",");
+      @if not $next-comma {
+        $next-comma: str-index($transition-equation, ")");
+      }
+      @if not $next-comma {
+        @warn "Unknown transition curve `#{$transition-function}`.";
+        $valid: false;
+      }
+      $number: number(str-slice($transition-equation, 1, $next-comma - 1));
+      @if type-of($number) != "number" {
+        @warn "Unknown transition curve `#{$transition-function}`, could not parse at `#{$transition-equation}.";
+        $valid: false;
+      }
+      $transition-equation: str-slice($transition-equation, $next-comma + 1);
+      @if $i == 1 {
+        $x1: $number;
+      }
+      @else if $i == 2 {
+        $y1: $number;
+      }
+      @else if $i == 3 {
+        $x2: $number;
+      }
+      @else {
+        $y2: $number;
+      }
+    }
+  }
+  @else {
+    @warn "Unknown transition curve `#{$transition-function}`.";
+    $valid: false;
+  }
+  @if $valid {
+     $start-t: 0;
+     $end-t: 1;
+     @if $begin-value != 0 {
+       $min-t: nth($hint, 1);
+       $max-t: nth($hint, 2);
+       $match-value: $begin-value;
+       @while ($max-t - $min-t) < 0.01 {
+         $middle-t: ($min-t + $max-t) / 2;
+         $inv-middle-t: 1 - $middle-t;
+         $value-at-middle: 3*$middle-t*$inv-middle-t*$inv-middle-t*$y1*$total-value + 3*$middle-t*$middle-t*$inv-middle-t*$y2*$total-value + $middle-t*$middle-t*$middle-t*$total-value;
+         @if $value-at-middle < $match-value {
+           $min-t: $middle-t;
+         }
+         @else {
+           $max-t: $middle-t;
+         }
+       }
+       $start-t: ($min-t + $max-t) / 2;
+     }
+     @if $end-value != $total-value {
+       $min-t: nth($hint, 1);
+       $max-t: nth($hint, 2);
+       $match-value: $end-value;
+       @while ($max-t - $min-t) < 0.01 {
+         $middle-t: ($min-t + $max-t) / 2;
+         $inv-middle-t: 1 - $middle-t;
+         $value-at-middle: 3*$middle-t*$inv-middle-t*$inv-middle-t*$y1*$total-value + 3*$middle-t*$middle-t*$inv-middle-t*$y2*$total-value + $middle-t*$middle-t*$middle-t*$total-value;
+         @if $value-at-middle < $match-value {
+           $min-t: $middle-t;
+         }
+         @else {
+           $max-t: $middle-t;
+         }
+       }
+       $end-t: ($min-t + $max-t) / 2;
+     }
+     $inv-start-t: 1 - $start-t;
+     $inv-end-t: 1 - $end-t;
+
+     $end-t-prime: ($end-t - $start-t)/(1 - $start-t);
+
+     $first-and-second-time-slices: slice-bezier-at(0 $x1 $x2 1, $start-t);
+     $second-and-third-time-slices: slice-bezier-at(nth($first-and-second-time-slices,2), $end-t-prime);
+     $transition-delay-t: nth(nth($second-and-third-time-slices,1),1);
+     $new-transition-t: nth(nth($second-and-third-time-slices,1),4) - $transition-delay-t;
+
+     $x1: (nth(nth($second-and-third-time-slices,1),2) - $transition-delay-t)/$new-transition-t;
+     $x2: (nth(nth($second-and-third-time-slices,1),3) - $transition-delay-t)/$new-transition-t;
+
+     $first-and-second-space-slices: slice-bezier-at(0 $y1 $y2 1, $start-t);
+     $second-and-third-space-slices: slice-bezier-at(nth($first-and-second-space-slices,2), $end-t-prime);
+     $transition-delay-p: nth(nth($second-and-third-space-slices,1),1);
+     $new-transition-p: nth(nth($second-and-third-space-slices,1),4) - $transition-delay-p;
+     $y1: (nth(nth($second-and-third-space-slices,1),2) - $transition-delay-p)/$new-transition-p;
+     $y2: (nth(nth($second-and-third-space-slices,1),3) - $transition-delay-p)/$new-transition-p;
+
+     $transition-delay: $transition-delay + $transition-delay-t*$transition-time;
+     $transition-time: $new-transition-t*$transition-time;
+     $transition-function: cubic-bezier(#{$x1}, #{$y1}, #{$x2}, #{$y2});
+     transition: $transition-name $transition-time $transition-function $transition-delay;
+  }
+}
