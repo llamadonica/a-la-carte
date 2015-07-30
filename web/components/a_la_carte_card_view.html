@@ -1,6 +1,7 @@
 <link rel="import" href="packages/paper_elements/paper_fab.html" />
 <link rel="import" href="packages/paper_elements/paper_button.html" />
 <link rel="import" href="packages/paper_elements/paper_input.html" />
+<link rel="import" href="packages/paper_elements/paper_ripple.html" />
 <link rel="import" href="packages/paper_elements/paper_spinner.html" />
 <link rel="import" href="packages/core_elements/core_icons.html" />
 
@@ -22,16 +23,16 @@
             </div>
             <div class="table-body">
               <template repeat="{{ p in projects }}">
-                <div class="table-body-row">
+                <paper-ripple class="table-body-row">
                 <div class="table-body-cell">{{p.jobNumber}}</div>
                 <div class="table-body-cell">{{p.name}}</div>
-                <div class="table-body-cell">{{p.streetAddress}}</div></div>
+                <div class="table-body-cell">{{p.streetAddress}}</div></paper-ripple>
               </template>
             </div></div>
           <div class="table-style">
             <div class="footer-rows">
               <div class="footer-row" id="loading">
-                <div id="loading-cell" class="footer-cell{{projectsAreLoaded?' hide':''}}">
+                <div id="loading-cell" class="footer-cell">
                   <div>
                   <paper-spinner id="loading-spinner" alt=""
                                  active?="{{showSpinner}}"></paper-spinner>
@@ -39,7 +40,7 @@
                 </div>
               </div>
               <div class="footer-row" id="no-projects">
-                <div id="no-projects-cell" class="hidden footer-cell{{noProjectsFound?'':' hide'}}">
+                <div id="no-projects-cell" class="hidden footer-cell hide">
                 <div>
                   No projects found
                 </div></div></div>

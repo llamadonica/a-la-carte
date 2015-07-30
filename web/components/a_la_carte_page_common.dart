@@ -24,6 +24,8 @@ abstract class ALaCartePageCommon extends PolymerElement {
   int track;
   double trackSpeed;
   double lastTimestamp;
+
+  var pageList;
   
   static const double MIN_SCALE = 0.9;
   static const double FLING_FACTOR = 10.0;

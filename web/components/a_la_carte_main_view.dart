@@ -34,7 +34,13 @@ class ALaCarteMainView extends PolymerElement {
   ready() {
     pages = new ObservableList.from(
         shadowRoot.querySelectorAll('core-pages.content > *')
-        .where((e) => e is ALaCartePageCommon));
+        .where((e) {
+          if (e is ALaCartePageCommon) {
+            e.pageList = this;
+            return true;
+          }
+          return false;
+        }));
     if (selected >= pages.length) {
       currentPage = null;
     } else {
