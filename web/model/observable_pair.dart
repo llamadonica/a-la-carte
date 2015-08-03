@@ -1,4 +1,4 @@
-part of dgs.models;
+part of a_la_carte_models;
 
 class ObservablePair extends ChangeNotifier implements JsonIInit, JsonIGet {
   @observable String first;

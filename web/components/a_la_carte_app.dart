@@ -7,14 +7,16 @@ import 'package:polymer/polymer.dart';
 import 'package:paper_elements/paper_toast.dart';
 import 'package:a_la_carte/json_streaming.dart';
 import 'package:a_la_carte/fetch_interop.dart';
+import 'package:uuid/uuid.dart';
 
 import '../models.dart';
+// import 'a_la_carte_main_view.dart';
 
 /**
  * A Polymer click counter element.
  */
 @CustomTag('a-la-carte-app')
-class ALaCarteApp extends PolymerElement {
+class ALaCarteApp extends PolymerElement implements AppRouter {
   static const Duration minDuration = const Duration(seconds: 1);
   static const Map<String, String> errorMessages = const <String, String>{
     'not_found':
@@ -22,10 +24,10 @@ class ALaCarteApp extends PolymerElement {
   };
 
   @published String templateUrl;
-  @observable String selected = 'categories';
+  @observable String selected = 'main-view';
   @observable String prevSelected = null;
   @observable String connectivityErrorMessage = null;
-  int RESPONSIVE_WIDTH = 600;
+  int responsiveWidth = 600;
   @observable bool wide;
   @observable Project project;
   @observable bool projectsAreLoaded = false;
@@ -33,27 +35,42 @@ class ALaCarteApp extends PolymerElement {
   @observable bool isError = false;
   @observable ObservableList<Project> projects = new ObservableList() ;
 
+  AppRouter get router => this;
+  StreamController<List<String>> _onAppNavigationEvent = new StreamController<List<String>>();
+
+
   HttpRequest _request;
   int _endOfLastRequest = 0;
   int _startOfLastProject = 0;
 
   AppDelegate __appDelegate;
   DateTime readyTime;
+  bool _useFragment = true;
 
-  ALaCarteApp.created() : super.created();
+  ALaCarteApp.created() : super.created() {
+     _useFragment = !History.supportsState;
+  }
   AppDelegate get _appDelegate {
     if (__appDelegate == null) __appDelegate = new AppDelegate();
     return __appDelegate;
   }
   finishStartup() {
-    this.selected = 'new-project';
+    if (window.location.hash == '') {
+      setUrl('/+all', '');
+      this.selected = 'all';
+    } else {
+      var regExp = new RegExp(r'^#');
+      var url = window.location.hash.replaceFirst(regExp, '/');
+      goToUrl(url, setPathFromFragment: true);
+    }
+    project = new Project(new Uuid().v4());
+    window.onPopState.listen(popState);
   }
 
   handleTemplateError(CustomEvent ev) {}
 
   void popState(PopStateEvent e) {
-    if (window.history.state == null) window.history.pushState(
-        {'app': 'dgs'}, '');
+    goToUrl(window.location.pathname);
   }
   prepareAnimatedTransition(CustomEvent ev) {
     window.console.log("Preparing transition.");
@@ -70,6 +87,13 @@ class ALaCarteApp extends PolymerElement {
     asyncTimer(() {
       finishStartup();
     }, minDuration);
+  }
+
+  void goToUrl(String path, {bool setPathFromFragment: false}) {
+    _onAppNavigationEvent.add(path.split('/')..removeAt(0));
+    if (setPathFromFragment) {
+      setUrl(path, '', pushNewState: false);
+    }
   }
 
   void retryProjectsData() {
@@ -123,6 +147,21 @@ class ALaCarteApp extends PolymerElement {
   void selectedChanged(String oldSelected) {
     if (oldSelected != selected) prevSelected = oldSelected;
   }
+
+  setUrl(String url, String title, {bool pushNewState: true}) {
+    if (_useFragment) {
+      var regExp = new RegExp(r'^/');
+      url = url.replaceFirst(regExp, '#');
+      window.location.assign(url);
+      (window.document as HtmlDocument).title = title;
+    } else if (pushNewState) {
+      window.history.pushState(null, title, url);
+    } else {
+      window.history.replaceState(null, title, url);
+    }
+  }
+
+  Stream<List<String>> get onAppNavigationEvent => _onAppNavigationEvent.stream;
 
   void routeProjectLoadingEvent(JsonStreamingEvent event) {
     if (event.path.length == 1 && event.path[0] == 'error') {

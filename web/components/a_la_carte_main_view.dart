@@ -1,4 +1,5 @@
 import 'dart:html';
+import 'dart:async';
 
 import 'package:core_elements/core_animated_pages.dart';
 import 'package:paper_elements/paper_input.dart';
@@ -19,28 +20,33 @@ class ALaCarteMainView extends PolymerElement {
   @published bool projectsAreLoaded;
   @published bool noProjectsFound;
 
-  @published String appSelected;
   @published String prevAppSelected;
+  List<String> appAllSelectable = ['+all', '+new'];
   @published String responsiveWidth;
   
   @observable String navigation = "Basic Settings";
-  @observable int selected = 0;
-  
+
   @observable ALaCartePageCommon currentPage;
   @observable ObservableList<ALaCartePageCommon> pages;
-    
+  @PublishedProperty(reflect: true) int selected = 0;
+
+  @published AppRouter appRouter;
+  StreamSubscription<List<String>> _appRouterNavigationSubscription;
+  List<String> allSelectable = <String>['+all', '+new'];
+
+  void appRouterChanged(AppRouter oldAppRouter) {
+    if (_appRouterNavigationSubscription != null) {
+      _appRouterNavigationSubscription.cancel();
+    }
+    appRouter.onAppNavigationEvent.listen(onAppNavigationEvent);
+  }
+
   ALaCarteMainView.created() : super.created();
   
   ready() {
     pages = new ObservableList.from(
         shadowRoot.querySelectorAll('core-pages.content > *')
-        .where((e) {
-          if (e is ALaCartePageCommon) {
-            e.pageList = this;
-            return true;
-          }
-          return false;
-        }));
+        .where((e) => e is ALaCartePageCommon));
     if (selected >= pages.length) {
       currentPage = null;
     } else {
@@ -54,10 +60,30 @@ class ALaCarteMainView extends PolymerElement {
   }
   
   selectedChanged(int oldValue) {
+    window.console.log(selected);
+    appRouter.setUrl('/${appAllSelectable[selected]}','');
     if (selected >= pages.length) {
       currentPage = null;
     } else {
       currentPage = pages[selected];
     }
+  }
+
+  void onAppNavigationEvent(List<String> event) {
+    window.console.log(event.toString());
+    if (event.length < 1) {
+      appRouter.setUrl('/+all','');
+      return;
+    }
+    switch (event[0]) {
+      case '+all':
+        selected = 0;
+        break;
+      case '+new':
+        selected = 1;
+        project = new Project(new Uuid().v4());
+        break;
+    }
+
   }
 }

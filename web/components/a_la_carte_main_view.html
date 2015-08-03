@@ -21,7 +21,7 @@
 <link rel="import" href="a_la_carte_card_view.html">
 
 <polymer-element name="a-la-carte-main-view"
-                 attributes="project projects wide appSelected prevAppSelected responsiveWidth projectsAreLoaded noProjectsFound"
+                 attributes="project projects wide appSelected prevAppSelected responsiveWidth projectsAreLoaded noProjectsFound selected appRouter"
                  vertical
                  layout>
   <template bind>
@@ -33,12 +33,13 @@
         cross-fade-delayed
         narrow="{{!wide}}"
         responsiveWidth="{{responsiveWidth}}"
-        on-a-la-carte-fab-action="{{routeFabAction}}">
+        on-dgs-fab-action="{{routeFabAction}}">
       <core-header-panel navigation flex mode="seamed">
         <div id="nav-menu-box">
         <core-menu selected="{{selected}}" theme="core-light-theme">
-          <core-item id="basic-info-menu-item" icon="settings" label="All Projects" active></core-item>
-          <core-item id="add-form-menu-item" icon="add-circle" label="Add a Project"></core-item>
+          <core-item id="basic-info-menu-item" icon="settings" label="Basic Info" active></core-item>
+          <core-item id="add-form-menu-item" icon="add-circle" label="Add a Form"></core-item>
+          <core-item id="manage-resources-menu-item" icon="folder" label="Manage Resources"></core-item>
         </core-menu>
         </div>
       </core-header-panel>

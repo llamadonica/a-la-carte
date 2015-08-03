@@ -24,14 +24,15 @@
       <a-la-carte-main-view
           appSelected="{{selected}}"
           prevAppSelected="{{prevSelected}}"
-          id="categories" 
-          name="categories"
+          id="main-view"
+          name="main-view"
           project="{{project}}"
           projects="{{projects}}"
           projectsAreLoaded="{{projectsAreLoaded}}"
           noProjectsFound="{{noProjectsFound}}"
           wide="{{wide}}" 
-          responsiveWidth="{{RESPONSIVE_WIDTH - 1}}px">
+          responsiveWidth="{{responsiveWidth - 1}}px"
+          appRouter="{{this}}">
       </a-la-carte-main-view>
     </core-animated-pages>
     <paper-toast duration="600000" autoCloseDisabled id="toast-connectivity" text="{{connectivityErrorMessage}}">
@@ -39,7 +40,7 @@
       </div>
     </paper-toast>
     <core-media-query 
-        query="min-width: {{RESPONSIVE_WIDTH}}px" 
+        query="min-width: {{responsiveWidth}}px"
         queryMatches="{{wide}}">
     </core-media-query>
   </template>

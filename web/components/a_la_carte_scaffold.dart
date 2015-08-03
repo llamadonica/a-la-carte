@@ -50,7 +50,7 @@ class ALaCarteScaffold extends PolymerElement {
   }
   
   void doMainFabAction(ev) {
-    fire('a-la-carte-fab-action');
+    fire('dgs-fab-action');
   }
   
   void dockedChanged(bool oldValue) {

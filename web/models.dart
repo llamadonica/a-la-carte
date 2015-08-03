@@ -1,4 +1,4 @@
-library dgs.models;
+library a_la_carte_models;
 
 import 'dart:convert';
 import 'dart:async';
@@ -15,3 +15,4 @@ part 'model/ref.dart';
 part 'model/contact_info.dart';
 part 'model/observable_pair.dart';
 part 'model/repository.dart';
+part 'model/app_router.dart';

@@ -1,4 +1,4 @@
-part of dgs.models;
+part of a_la_carte_models;
 
 abstract class JsonCanSync extends ChangeNotifier implements JsonIInit, JsonIGet
     {
