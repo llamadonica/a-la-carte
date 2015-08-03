@@ -29,7 +29,7 @@
     <a-la-carte-scaffold
         fabIcon="{{currentPage == null ?'': currentPage.fabIcon}}"
         titleOverride="A La Carte"
-        backgroundImage="{{currentPage == null ?'': currentPage.backgroundImage}}" 
+        backgroundImage="{{currentPage == null ?'': currentPage.backgroundImage}}"
         cross-fade-delayed
         narrow="{{!wide}}"
         responsiveWidth="{{responsiveWidth}}"
@@ -37,16 +37,16 @@
       <core-header-panel navigation flex mode="seamed">
         <div id="nav-menu-box">
         <core-menu selected="{{selected}}" theme="core-light-theme">
-          <core-item id="basic-info-menu-item" icon="settings" label="Basic Info" active></core-item>
-          <core-item id="add-form-menu-item" icon="add-circle" label="Add a Form"></core-item>
-          <core-item id="manage-resources-menu-item" icon="folder" label="Manage Resources"></core-item>
+          <core-item id="basic-info-menu-item" icon="settings" label="All projects" active></core-item>
+          <core-item id="add-form-menu-item" icon="add-circle" label="Add a project"></core-item>
         </core-menu>
         </div>
       </core-header-panel>
       <core-pages class="content" selected="{{selected}}">
         <a-la-carte-card-view project="{{project}}" projects="{{projects}}"
                               projectsAreLoaded="{{projectsAreLoaded}}"
-                              noProjectsFound="{{noProjectsFound}}"></a-la-carte-card-view>
+                              noProjectsFound="{{noProjectsFound}}"
+                              appPager="{{this}}"></a-la-carte-card-view>
         <a-la-carte-project-info-page project="{{project}}"></a-la-carte-project-info-page>
       </core-pages>
     </a-la-carte-scaffold>

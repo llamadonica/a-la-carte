@@ -13,7 +13,7 @@ import 'a_la_carte_page_common.dart';
  * A Polymer click counter element.
  */
 @CustomTag('a-la-carte-main-view')
-class ALaCarteMainView extends PolymerElement {
+class ALaCarteMainView extends PolymerElement implements AppPager {
   @published bool wide;
   @published Project project;
   @published ObservableList<Project> projects;
@@ -23,7 +23,7 @@ class ALaCarteMainView extends PolymerElement {
   @published String prevAppSelected;
   List<String> appAllSelectable = ['+all', '+new'];
   @published String responsiveWidth;
-  
+
   @observable String navigation = "Basic Settings";
 
   @observable ALaCartePageCommon currentPage;
@@ -42,7 +42,7 @@ class ALaCarteMainView extends PolymerElement {
   }
 
   ALaCarteMainView.created() : super.created();
-  
+
   ready() {
     pages = new ObservableList.from(
         shadowRoot.querySelectorAll('core-pages.content > *')
@@ -53,14 +53,13 @@ class ALaCarteMainView extends PolymerElement {
       currentPage = pages[selected];
     }
   }
-  
+
   routeFabAction(CustomEvent ev) {
     if (currentPage == null) return;
     currentPage.fabAction();
   }
-  
+
   selectedChanged(int oldValue) {
-    window.console.log(selected);
     appRouter.setUrl('/${appAllSelectable[selected]}','');
     if (selected >= pages.length) {
       currentPage = null;
@@ -70,7 +69,6 @@ class ALaCarteMainView extends PolymerElement {
   }
 
   void onAppNavigationEvent(List<String> event) {
-    window.console.log(event.toString());
     if (event.length < 1) {
       appRouter.setUrl('/+all','');
       return;
@@ -85,5 +83,12 @@ class ALaCarteMainView extends PolymerElement {
         break;
     }
 
+  }
+
+  void setToNewProject() {
+    project = new Project(new Uuid().v4());
+  }
+  void openProject(String uuid) {
+    //TODO: implement openProject;
   }
 }

@@ -5,7 +5,7 @@
 <link rel="import" href="packages/core_elements/core_icons.html" />
 
 <polymer-element name="a-la-carte-card-view"
-                 attributes="appSelected prevAppSelected projects project wide projectsAreLoaded noProjectsFound"
+                 attributes="appSelected prevAppSelected projects project wide projectsAreLoaded noProjectsFound appPager"
                  vertical layout center>
   <template>
     <link rel="stylesheet" href="a_la_carte_card_view.css" />
@@ -31,7 +31,7 @@
           <div class="table-style">
             <div class="footer-rows">
               <div class="footer-row" id="loading">
-                <div id="loading-cell" class="footer-cell{{projectsAreLoaded?' hide':''}}">
+                <div id="loading-cell" class="footer-cell">
                   <div>
                   <paper-spinner id="loading-spinner" alt=""
                                  active?="{{showSpinner}}"></paper-spinner>
@@ -39,7 +39,7 @@
                 </div>
               </div>
               <div class="footer-row" id="no-projects">
-                <div id="no-projects-cell" class="hidden footer-cell{{noProjectsFound?'':' hide'}}">
+                <div id="no-projects-cell" class="hidden footer-cell hide">
                 <div>
                   No projects found
                 </div></div></div>

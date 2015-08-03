@@ -92,4 +92,3 @@ class HTML5AppDelegate extends AppDelegate {
     throw err;
   });
 }
-

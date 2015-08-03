@@ -22,6 +22,7 @@ class ALaCarteCardView extends ALaCartePageCommon {
 
   @published String appSelected;
   @published String prevAppSelected;
+  @published AppPager appPager;
 
   ALaCarteCardView.created() : super.created();
 
@@ -48,13 +49,24 @@ class ALaCarteCardView extends ALaCartePageCommon {
   void handleSelect(Event ev) {
     var openCode = (ev.target as PaperButton).getAttribute('data-project-id');
     if (openCode != null) {
-      project = projects[openCode];
+      appPager.openProject(openCode);
       (parentNode as CoreAnimatedPages).selected = 'categories';
     }
   }
   void projectsAreLoadedChanged(bool oldValue) {
     if (projectsAreLoaded) {
       showSpinner = false;
+      $['loading-cell'].classes.add('hide');
+    } else {
+      $['loading-cell'].classes.remove('hide');  
+    }
+  }
+
+  void noProjectsFoundChanged(bool oldValue) {
+    if (noProjectsFound) {
+      $['no-projects-cell'].classes.remove('hide');
+    } else {
+      $['no-projects-cell'].classes.add('hide');
     }
   }
 
@@ -63,7 +75,7 @@ class ALaCarteCardView extends ALaCartePageCommon {
 
   @override
   void fabAction() {
-
+    appPager.selected = 1;
   }
 
   @override

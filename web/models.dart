@@ -16,3 +16,4 @@ part 'model/contact_info.dart';
 part 'model/observable_pair.dart';
 part 'model/repository.dart';
 part 'model/app_router.dart';
+part 'model/app_pager.dart';

@@ -61,16 +61,16 @@ paper-button:last-child {
       }
     }
     &.hidden {
-      @include transition(split-transition-at-position(padding 1s cubic-bezier(.25,.2,.25,1.0), 0px, 48px, 76px));
+      @include transition(split-transition-at-position(padding 0.6s cubic-bezier(.25,.2,.25,1.0), 0px, 48px, 76px), split-transition-at-position(height 0.6s cubic-bezier(.25,.2,.25,1.0), 48px, 76px, 76px));
       div {
-        @include transition(split-transition-at-position(height 1s cubic-bezier(.25,.2,.25,1.0), 48px, 76px, 76px));
+        @include transition(split-transition-at-position(height 0.6s cubic-bezier(.25,.2,.25,1.0), 48px, 76px, 76px));
       }
     }
   }
 }
 #no-projects {
   #no-projects-cell {
-    @include transition(split-transition-at-position(padding 1s cubic-bezier(.25,.2,.25,1.0), 16px, 64px, 64px), split-transition-at-position(height 1s cubic-bezier(.25,.2,.25,1.0), 0px, 16px, 64px));
+    @include transition(split-transition-at-position(padding 0.80s cubic-bezier(.25,.2,.25,1.0), 16px, 64px, 64px), split-transition-at-position(height 0.80s cubic-bezier(.25,.2,.25,1.0), 0px, 16px, 64px));
     width: 100%;
     height: 16px;
     div {
@@ -78,7 +78,7 @@ paper-button:last-child {
       position: absolute;
       width: 100%;
       height: 16px;
-      @include transition(split-transition-at-position(height 1s cubic-bezier(.25,.2,.25,1.0), 0px, 16px, 64px));
+      @include transition(split-transition-at-position(height 0.80s cubic-bezier(.25,.2,.25,1.0), 0px, 16px, 64px));
     }
     &.hide {
       padding: 0;
@@ -89,9 +89,9 @@ paper-button:last-child {
       }
     }
     &.hidden {
-      @include transition(split-transition-at-position(padding 1s cubic-bezier(.25,.2,.25,1.0), 0px, 48px, 64px));
+      @include transition(split-transition-at-position(padding 0.80s cubic-bezier(.25,.2,.25,1.0), 0px, 48px, 64px), split-transition-at-position(height 0.80s cubic-bezier(.25,.2,.25,1.0), 48px, 64px, 64px));
       div {
-        @include transition(split-transition-at-position(height 1s cubic-bezier(.25,.2,.25,1.0), 48px, 64px, 64px));
+        @include transition(split-transition-at-position(height 0.80s cubic-bezier(.25,.2,.25,1.0), 48px, 64px, 64px));
       }
     }
   }
