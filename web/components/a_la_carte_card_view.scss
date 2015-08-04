@@ -17,6 +17,9 @@ paper-button:last-child {
   .table-body, .footer-rows {
     display: table-row-group;
   }
+  .table-body-row {
+    cursor: pointer;
+  }
   .header-row, .table-body-row, .footer-row {
     display: table-row;
   }

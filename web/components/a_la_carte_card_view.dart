@@ -201,7 +201,112 @@ class ALaCarteCardView extends ALaCartePageCommon {
         wave.startPosition.distanceTo(new Point(width, 0))), max(
         wave.startPosition.distanceTo(new Point(width, height)),
         wave.startPosition.distanceTo(new Point(0, height))));
+    wave.wc.forEach((Element wc) {
+      wc.style.left = '${(wave.clientSize - wave.clientWidth) / 2}px';
+      wc.style.top = '${(wave.clientSize - wave.clientHeight) / 2}px';
+      wc.style.height = '${wave.clientSize}px';
+      wc.style.width = '${wave.clientSize}px';
+    });
+    _waves.add(wave);
+    if (_requestedAnimationFrame == null) {
+      _requestedAnimationFrame = window
+          .requestAnimationFrame((num frame) => _animate(frame, width, height));
+    }
   }
+
+  void onUpOverEntry(MouseEvent event) {
+    var width = 0.0,
+        height = 0.0;
+    for (var wave in _waves) {
+      if (wave.isMouseDown) {
+        wave.isMouseDown = false;
+        wave.mouseUpWallClock = new DateTime.now().millisecondsSinceEpoch;
+        wave.mouseDownMs = wave.mouseUpWallClock - wave.mouseDownWallClock;
+        width = wave.clientWidth;
+        height = wave.clientHeight;
+        break;
+      }
+    }
+    if (_requestedAnimationFrame == null) {
+      _requestedAnimationFrame = window
+          .requestAnimationFrame((num frame) => _animate(frame, width, height));
+    }
+  }
+
+  static String _cssColorWithAlpha(String cssColor, [double alpha = 1.0]) {
+    var cssColorRegex = new RegExp(r'^rgb\((\d+,\s*\d+,s*\d+)\)$');
+    var match = cssColorRegex.firstMatch(cssColor);
+    if (match == null) {
+      return 'rgba(255, 255, 255, $alpha)';
+    }
+    return 'rgba(${match.group(1)}, $alpha)';
+  }
+
+  void _animate(num frame, int width, int height) {
+    var wavesToDelete = [];
+    var shouldRenderNextFrame = false;
+    var longestTouchDownDuration = 0.0;
+    var longestTouchUpDuration = 0.0;
+    var lastWaveColor = null;
+
+    for (var wave in _waves) {
+      if (wave.mouseUpWallClock > 0) {
+        wave.mouseUpMs =
+            new DateTime.now().millisecondsSinceEpoch - wave.mouseUpWallClock;
+      } else if (wave.mouseDownWallClock > 0) {
+        wave.mouseDownMs =
+            new DateTime.now().millisecondsSinceEpoch - wave.mouseDownWallClock;
+      }
+      longestTouchDownDuration =
+          max(longestTouchDownDuration, wave.mouseDownMs);
+      longestTouchUpDuration = max(longestTouchUpDuration, wave.mouseUpMs);
+      var radius = _waveRadiusForTimes(wave.mouseDownMs, wave.mouseUpMs, wave);
+      var waveAlpha = _waveOpacityForTimes(wave.mouseUpMs);
+      var waveColor = _cssColorWithAlpha(wave.fgColor, waveAlpha);
+      lastWaveColor = wave.fgColor;
+      var x = wave.startPosition.x;
+      var y = wave.startPosition.y;
+      if (wave.endPosition != null) {
+        var translateFraction =
+            min(1, radius / wave.clientSize.toDouble() * 2 / sqrt(2));
+        x += translateFraction * (wave.endPosition.x - wave.startPosition.x);
+        y += translateFraction * (wave.endPosition.y - wave.startPosition.y);
+      }
+      var bgFillColor = null;
+      var bgFillAlpha = null;
+      if (_backgroundFill) {
+        bgFillAlpha =
+            _waveOuterOpacityForTime(wave.mouseDownMs, wave.mouseUpMs);
+        bgFillColor = _cssColorWithAlpha(wave.fgColor, bgFillAlpha);
+      }
+      _drawRipple(wave, x, y, radius, waveAlpha, bgFillAlpha);
+      var maximumWave = _waveAtMaximum(wave, radius);
+      var waveDissipated = _waveDidFinish(wave, radius);
+      var shouldKeepWave = !waveDissipated || maximumWave;
+      var shouldRenderWaveAgain =
+          (wave.mouseUpWallClock == 0) ? !maximumWave : !waveDissipated;
+      shouldRenderNextFrame = shouldRenderNextFrame || shouldRenderWaveAgain;
+      if (!shouldKeepWave) {
+        wavesToDelete.add(wave);
+      }
+    }
+    if (shouldRenderNextFrame) {
+      _requestedAnimationFrame =
+          window.requestAnimationFrame((time) => _animate(time, width, height));
+    }
+    for (var wave in wavesToDelete) {
+      _removeFromScope(wave);
+    }
+    if (_waves.isEmpty) {
+      querySelectorAll('.paper-ripple-bg').forEach(
+          (DivElement element) => element.style.backgroundColor = null);
+      _requestedAnimationFrame = 0;
+      fire('core-transitionend');
+    }
+  }
+
+  int _requestedAnimationFrame = null;
+  bool _backgroundFill = true;
 }
 
 class Wave {
@@ -211,10 +316,11 @@ class Wave {
   int clientSize;
 
   int touchUpMs;
-  final double maxRadius;
+  double maxRadius;
   final String fgColor;
 
   int mouseDownWallClock = 0;
+  int mouseUpWallClock = 0;
 
   int mouseDownMs = 0;
   int mouseUpMs = 0;
@@ -231,160 +337,3 @@ class Wave {
       Point this.endPosition, int this.clientSize, int this.clientWidth,
       int this.clientHeight, DivElement this.row});
 }
-
-/*
- *   (function() {
-    //
-    // SETUP
-    //
-    function cssColorWithAlpha(cssColor, alpha) {
-        var parts = cssColor.match(/^rgb\((\d+),\s*(\d+),\s*(\d+)\)$/);
-        if (typeof alpha == 'undefined') {
-            alpha = 1;
-        }
-        if (!parts) {
-          return 'rgba(255, 255, 255, ' + alpha + ')';
-        }
-        return 'rgba(' + parts[1] + ', ' + parts[2] + ', ' + parts[3] + ', ' + alpha + ')';
-    }
-    function distanceFromPointToFurthestCorner(point, size) {
-      var tl_d = dist(point, {x: 0, y: 0});
-      var tr_d = dist(point, {x: size.w, y: 0});
-      var bl_d = dist(point, {x: 0, y: size.h});
-      var br_d = dist(point, {x: size.w, y: size.h});
-      return Math.max(tl_d, tr_d, bl_d, br_d);
-    }
-    Polymer('paper-ripple', {
-      downAction: function(e) {
-        var wave = createWave(this);
-        this.cancelled = false;
-        wave.isMouseDown = true;
-        wave.tDown = 0.0;
-        wave.tUp = 0.0;
-        wave.mouseUpStart = 0.0;
-        wave.mouseDownStart = now();
-        var rect = this.getBoundingClientRect();
-        var width = rect.width;
-        var height = rect.height;
-        var touchX = e.x - rect.left;
-        var touchY = e.y - rect.top;
-        wave.startPosition = {x:touchX, y:touchY};
-        if (this.classList.contains("recenteringTouch")) {
-          wave.endPosition = {x: width / 2,  y: height / 2};
-          wave.slideDistance = dist(wave.startPosition, wave.endPosition);
-        }
-        wave.containerSize = Math.max(width, height);
-        wave.containerWidth = width;
-        wave.containerHeight = height;
-        wave.maxRadius = distanceFromPointToFurthestCorner(wave.startPosition, {w: width, h: height});
-        // The wave is circular so constrain its container to 1:1
-        wave.wc.style.top = (wave.containerHeight - wave.containerSize) / 2 + 'px';
-        wave.wc.style.left = (wave.containerWidth - wave.containerSize) / 2 + 'px';
-        wave.wc.style.width = wave.containerSize + 'px';
-        wave.wc.style.height = wave.containerSize + 'px';
-        this.waves.push(wave);
-        if (!this._loop) {
-          this._loop = this.animate.bind(this, {
-            width: width,
-            height: height
-          });
-          requestAnimationFrame(this._loop);
-        }
-        // else there is already a rAF
-      },
-      upAction: function() {
-        for (var i = 0; i < this.waves.length; i++) {
-          // Declare the next wave that has mouse down to be mouse'ed up.
-          var wave = this.waves[i];
-          if (wave.isMouseDown) {
-            wave.isMouseDown = false;
-            wave.mouseUpStart = now();
-            wave.mouseDownStart = 0;
-            wave.tUp = 0.0;
-            break;
-          }
-        }
-        this._loop && requestAnimationFrame(this._loop);
-      },
-      cancel: function() {
-        this.cancelled = true;
-      },
-      animate: function(ctx) {
-        var shouldRenderNextFrame = false;
-        var deleteTheseWaves = [];
-        // The oldest wave's touch down duration
-        var longestTouchDownDuration = 0;
-        var longestTouchUpDuration = 0;
-        // Save the last known wave color
-        var lastWaveColor = null;
-        // wave animation values
-        var anim = {
-          initialOpacity: this.initialOpacity,
-          opacityDecayVelocity: this.opacityDecayVelocity,
-          height: ctx.height,
-          width: ctx.width
-        }
-        for (var i = 0; i < this.waves.length; i++) {
-          var wave = this.waves[i];
-          if (wave.mouseDownStart > 0) {
-            wave.tDown = now() - wave.mouseDownStart;
-          }
-          if (wave.mouseUpStart > 0) {
-            wave.tUp = now() - wave.mouseUpStart;
-          }
-          // Determine how long the touch has been up or down.
-          var tUp = wave.tUp;
-          var tDown = wave.tDown;
-          longestTouchDownDuration = Math.max(longestTouchDownDuration, tDown);
-          longestTouchUpDuration = Math.max(longestTouchUpDuration, tUp);
-          // Obtain the instantenous size and alpha of the ripple.
-          var radius = waveRadiusFn(tDown, tUp, anim);
-          var waveAlpha =  waveOpacityFn(tDown, tUp, anim);
-          var waveColor = cssColorWithAlpha(wave.waveColor, waveAlpha);
-          lastWaveColor = wave.waveColor;
-          // Position of the ripple.
-          var x = wave.startPosition.x;
-          var y = wave.startPosition.y;
-          // Ripple gravitational pull to the center of the canvas.
-          if (wave.endPosition) {
-            // This translates from the origin to the center of the view  based on the max dimension of
-            var translateFraction = Math.min(1, radius / wave.containerSize * 2 / Math.sqrt(2) );
-            x += translateFraction * (wave.endPosition.x - wave.startPosition.x);
-            y += translateFraction * (wave.endPosition.y - wave.startPosition.y);
-          }
-          // If we do a background fill fade too, work out the correct color.
-          var bgFillColor = null;
-          if (this.backgroundFill) {
-            var bgFillAlpha = waveOuterOpacityFn(tDown, tUp, anim);
-            bgFillColor = cssColorWithAlpha(wave.waveColor, bgFillAlpha);
-          }
-          // Draw the ripple.
-          drawRipple(wave, x, y, radius, waveAlpha, bgFillAlpha);
-          // Determine whether there is any more rendering to be done.
-          var maximumWave = waveAtMaximum(wave, radius, anim);
-          var waveDissipated = waveDidFinish(wave, radius, anim);
-          var shouldKeepWave = !waveDissipated || maximumWave;
-          // keep rendering dissipating wave when at maximum radius on upAction
-          var shouldRenderWaveAgain = wave.mouseUpStart ? !waveDissipated : !maximumWave;
-          shouldRenderNextFrame = shouldRenderNextFrame || shouldRenderWaveAgain;
-          if (!shouldKeepWave || this.cancelled) {
-            deleteTheseWaves.push(wave);
-          }
-       }
-        if (shouldRenderNextFrame) {
-          requestAnimationFrame(this._loop);
-        }
-        for (var i = 0; i < deleteTheseWaves.length; ++i) {
-          var wave = deleteTheseWaves[i];
-          removeWaveFromScope(this, wave);
-        }
-        if (!this.waves.length && this._loop) {
-          // clear the background color
-          this.$.bg.style.backgroundColor = null;
-          this._loop = null;
-          this.fire('core-transitionend');
-        }
-      }
-    });
-  })();
- **/
