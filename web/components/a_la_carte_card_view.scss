@@ -25,6 +25,7 @@ paper-button:last-child {
   }
   .header-cell, .footer-cell, .table-body-cell {
     display: table-cell;
+    position: relative;
   }
   .header-cell, .table-body-cell {
     padding: 4px;
@@ -35,6 +36,36 @@ paper-button:last-child {
     padding-bottom: 12px;
   }
 }
+
+.paper-ripple-container {
+  position: absolute;
+  border-radius: inherit;
+  display: block;
+  overflow: hidden;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+}
+
+.paper-ripple-bg, .waves, .paper-ripple-wc, .paper-ripple-wave {
+  pointer-events: none;
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+}
+.paper-ripple-bg, .paper-ripple-wave {
+  opacity: 0;
+}
+.waves, .paper-ripple-wave {
+  overflow: hidden;
+}
+.paper-ripple-wc, .paper-ripple-wave {
+  border-radius: 50%;
+}
+
 #loading, #no-projects {
   background-color: $color-grey-200;
   text-align: center;
