@@ -1,5 +1,6 @@
 import 'dart:html';
 import 'dart:math';
+import 'dart:async';
 
 import 'package:core_elements/core_animated_pages.dart';
 import 'package:paper_elements/paper_button.dart';
@@ -85,18 +86,34 @@ class ALaCarteCardView extends ALaCartePageCommon {
   static const double _waveInitialOpacity = 0.25;
   static const double _waveOpacityDecayVelocity = 0.8;
 
-  static double _waveRadiusForTimes(
-      int touchDownMs, int touchUpMs, Wave animContainer) {
-    var touchDown = touchDownMs.toDouble() / 1000;
-    var touchUp = touchUpMs.toDouble() / 1000;
-    var totalElapsed = touchDown + touchUp;
-    var width = animContainer.clientWidth.toDouble();
-    var height = animContainer.clientHeight.toDouble();
+  static double _waveMaxDuration(Wave wave) {
+    var width = wave.clientWidth.toDouble();
+    var height = wave.clientHeight.toDouble();
     var waveRadius =
         min(sqrt(width * width + height * height), _waveMaxRadius) * 1.1 + 5.0;
     var duration = 1.1 - 0.2 * (waveRadius / _waveMaxRadius);
+    return duration;
+  }
+
+  static double _waveRadiusForTimes(int touchDownMs, int touchUpMs, Wave wave) {
+    var width = wave.clientWidth.toDouble();
+    var height = wave.clientHeight.toDouble();
+    var waveRadius =
+        min(sqrt(width * width + height * height), _waveMaxRadius) * 1.1 + 5.0;
+    var maxTimeDown =
+        log(1 - min(wave.maxRadius, _waveMaxRadius) / waveRadius) /
+            log(80);
+    var touchDown = min(- maxTimeDown / 2, touchDownMs.toDouble() / 1000);
+    window.console
+        .log('Effective touchdown time is $touchDown');
+
+    var touchUp = touchUpMs.toDouble() / 1000;
+    var totalElapsed = touchDown * 2 + touchUp;
+    var duration = _waveMaxDuration(wave);
     var timePortion = totalElapsed / duration;
     var size = waveRadius * (1 - pow(80, -timePortion));
+    window.console
+        .log('Radius is $size / ${min(wave.maxRadius, _waveMaxRadius)}');
     return size.abs();
   }
 
@@ -112,48 +129,56 @@ class ALaCarteCardView extends ALaCartePageCommon {
 
   static double _waveOuterOpacityForTime(int touchDownMs, int touchUpMs) {
     var touchDown = touchDownMs.toDouble() / 1000;
-    var outerOpacity = touchDown * 0.3;
+    var outerOpacity = touchDown * 0.6;
     var waveOpacity = _waveOpacityForTimes(touchUpMs);
     var opacity = max(0, min(outerOpacity, waveOpacity));
     return opacity;
   }
 
-  static bool _waveDidFinish(Wave wave, double radius) =>
-      _waveOpacityForTimes(wave.mouseUpMs) < 0.01 &&
-          radius >= min(wave.maxRadius, _waveMaxRadius);
+  static bool _waveDidFinish(Wave wave, double radius) {
+    var mouseUpMs = wave.mouseUpMs;
+    var didFinish = _waveOpacityForTimes(wave.mouseUpMs) < 0.01 &&
+        radius >= min(wave.maxRadius, _waveMaxRadius);
+    window.console.log('After ${mouseUpMs} didFinish: $didFinish.');
+    return didFinish;
+  }
 
-  static bool _waveAtMaximum(Wave wave, double radius) =>
-      _waveOpacityForTimes(wave.mouseUpMs) > _waveInitialOpacity &&
-          radius >= min(wave.maxRadius, _waveMaxRadius);
+  static bool _waveAtMaximum(Wave wave, double radius) {
+    var mouseUpMs = wave.mouseUpMs;
+    var atMaximum =
+        wave.mouseUpMs <= 0 && radius >= min(wave.maxRadius, _waveMaxRadius);
+    window.console.log('After ${mouseUpMs} atMaximum: $atMaximum.');
+    return atMaximum;
+  }
 
-  static void _drawRipple(Wave context, int x, int y, double radius,
+  static void _drawRipple(Wave wave, int x, int y, double radius,
       double innerAlpha, double outerAlpha, String waveColor) {
-    context.row.querySelectorAll('.paper-ripple-bg').forEach(
+    wave.row.querySelectorAll('.paper-ripple-bg').forEach(
         (DivElement element) => element.style.opacity = outerAlpha.toString());
-    var s = radius / (context.clientSize / 2);
-    var dx = x - (context.clientWidth / 2);
-    var dy = y - (context.clientHeight / 2);
-    context.row
+    var s = radius / (wave.clientSize / 2);
+    var dx = x - (wave.clientWidth / 2);
+    var dy = y - (wave.clientHeight / 2);
+    wave.row
         .querySelectorAll('.paper-ripple-wave')
         .forEach((DivElement element) {
       element.style.opacity = innerAlpha.toString();
       element.style.transform = 'scale3d($s, $s, 1)';
       element.style.color = waveColor;
     });
-    context.row
-        .querySelectorAll('.paper-ripple-wc')
-        .forEach((DivElement element) {
+    wave.row.querySelectorAll('.paper-ripple-wc').forEach((DivElement element) {
       element.style.transform = 'translate3d(${dx}px, ${dy}px, 0)';
     });
   }
 
-  static Wave _createWave(DivElement row) {
+  Wave _createWave(DivElement row) {
     var fgColor = row.getComputedStyle().color;
     var wave = new List<Element>();
     var wc = new List<Element>();
-    row.querySelectorAll('.paper-ripple-bg').forEach((DivElement element) =>
-        element.style.backgroundColor = fgColor.toString());
-    row.querySelectorAll('.table-body-cell').forEach((DivElement element) {
+    var listener = row.onMouseOut.listen(onUpOverEntry);
+    for (DivElement element in row.querySelectorAll('.paper-ripple-bg')) {
+      element.style.backgroundColor = fgColor.toString();
+    }
+    for (DivElement element in row.querySelectorAll('.table-body-cell')) {
       var elementStyle = element.getComputedStyle();
       var inner = document.createElement('div');
       inner.classes.add('paper-ripple-wave');
@@ -165,9 +190,9 @@ class ALaCarteCardView extends ALaCartePageCommon {
 
       wave.add(inner);
       wc.add(outer);
-    });
+    }
     return new Wave(
-        maxRadius: 0.0, fgColor: fgColor, wave: wave, wc: wc, row: row);
+        maxRadius: 0.0, fgColor: fgColor, wave: wave, wc: wc, row: row, listener: listener);
   }
 
   void _removeFromScope(Wave wave) {
@@ -175,6 +200,7 @@ class ALaCarteCardView extends ALaCartePageCommon {
       for (Element el in wave.wc) {
         el.remove();
       }
+      wave.listener.cancel();
       _waves[wave.row].remove(wave);
       if (_waves[wave.row].length == 0) {
         _waves.remove(wave.row);
@@ -187,7 +213,11 @@ class ALaCarteCardView extends ALaCartePageCommon {
     window.console.log('Receive a MouseDown Event');
     window.console.log(event);
     Element target = event.target;
+    var offsetX = 0;
     while (target != null && !target.classes.contains('table-body-row')) {
+      if (target.classes.contains('table-body-cell')) {
+        offsetX = target.offsetLeft;
+      }
       target = target.parent;
     }
     var wave = _createWave(target);
@@ -196,7 +226,7 @@ class ALaCarteCardView extends ALaCartePageCommon {
     var rectangle = target.client;
     var width = rectangle.width;
     var height = rectangle.height;
-    var x = event.offset.x - rectangle.left;
+    var x = event.offset.x + offsetX - rectangle.left;
     var y = event.offset.y - rectangle.top;
     wave.startPosition = new Point(x, y);
     if (target.classes.contains('recenteringTouch')) {
@@ -237,8 +267,6 @@ class ALaCarteCardView extends ALaCartePageCommon {
   void onUpOverEntry(MouseEvent event) {
     window.console.log('Receive a MouseUp Event');
     window.console.log(event);
-    var width = 0.0,
-        height = 0.0;
     Element target = event.target;
     while (target != null && !target.classes.contains('table-body-row')) {
       target = target.parent;
@@ -248,8 +276,6 @@ class ALaCarteCardView extends ALaCartePageCommon {
         wave.isMouseDown = false;
         wave.mouseUpWallClock = new DateTime.now().millisecondsSinceEpoch;
         wave.mouseDownMs = wave.mouseUpWallClock - wave.mouseDownWallClock;
-        width = wave.clientWidth;
-        height = wave.clientHeight;
         break;
       }
     }
@@ -312,18 +338,24 @@ class ALaCarteCardView extends ALaCartePageCommon {
         var waveDissipated = _waveDidFinish(wave, radius);
         var shouldKeepWave = !waveDissipated;
         var shouldRenderWaveAgain =
-            (wave.mouseUpWallClock == 0) ? !maximumWave : waveDissipated;
-        shouldRenderNextFrame = shouldRenderNextFrame || shouldRenderWaveAgain;
+            (wave.mouseUpMs <= 0) ? !maximumWave : !waveDissipated;
+        if (shouldRenderWaveAgain) {
+          window.console.log('We will render this wave again.');
+          shouldRenderNextFrame = true;
+        }
         if (!shouldKeepWave) {
           wavesToDelete.add(wave);
+          window.console.log('Delting this wave.');
         }
       }
     }
     if (shouldRenderNextFrame) {
       _requestedAnimationFrame =
           window.requestAnimationFrame((time) => _animate());
+      window.console.log('Requesting another frame.');
     } else {
       _requestedAnimationFrame = null;
+      window.console.log('No more frames to request.');
     }
     for (var wave in wavesToDelete) {
       _removeFromScope(wave);
@@ -361,9 +393,10 @@ class Wave {
 
   final List<Element> wave;
   final List<Element> wc;
+  final StreamSubscription listener;
 
   Wave({double this.maxRadius, String this.fgColor, List<Element> this.wave,
       List<Element> this.wc, Point this.startPosition, Point this.endPosition,
       int this.clientSize, int this.clientWidth, int this.clientHeight,
-      DivElement this.row});
+      DivElement this.row, StreamSubscription this.listener});
 }
