@@ -30,7 +30,7 @@ class JsonStreamingEvent {
 
 
 //TODO: Rewrite this to make use of the Fetch and Streams API so less of the
-//request has to stay resident. 
+//request has to stay resident.
 class JsonStreamingParser {
   bool _weAreAtStart = true;
   bool _weAreInObject = false;
@@ -112,7 +112,7 @@ class JsonStreamingParser {
     }
     streamFromByteStreamReaderInternal();
   }
-  
+
   bool _isWhitespace(int symbol) {
     switch (symbol) {
       case 32:
@@ -126,7 +126,7 @@ class JsonStreamingParser {
         return false;
     }
   }
-  
+
   void _parseCurrentStatusForString(int loaded, buffer, Function bufferGetter) {
     stateParser: for (var i = _startOfLastSymbol; i < loaded; i++) {
       if (_isWhitespace(bufferGetter(buffer, i))) continue;
@@ -227,6 +227,7 @@ class JsonStreamingParser {
         continue;
       } else if (_weAreInArray && _requireComma && bufferGetter(buffer, i) == 44) {
         _currentKey++;
+        _requireComma = false;
       } else if (_weAreInArray && _requireComma) {
         _parserAssertNotReached("Expected ] or ,");
         continue;

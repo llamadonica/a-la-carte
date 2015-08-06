@@ -34,6 +34,7 @@ class ALaCarteApp extends PolymerElement implements AppRouter {
   @observable bool noProjectsFound = false;
   @observable bool isError = false;
   @observable ObservableList<Project> projects = new ObservableList() ;
+  @observable ObservableMap<String, Project> projectsByUuid = new ObservableMap();
 
   AppRouter get router => this;
   StreamController<List<String>> _onAppNavigationEvent = new StreamController<List<String>>();
@@ -195,6 +196,7 @@ class ALaCarteApp extends PolymerElement implements AppRouter {
       final project = new Project(event.symbol['id']);
       project.initFromJSON(event.symbol['value']);
       projects.add(project);
+      projectsByUuid[project.id] = project;
       return;
     }
     projectsAreLoaded = true;

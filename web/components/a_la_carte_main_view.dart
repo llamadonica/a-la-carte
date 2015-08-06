@@ -17,6 +17,7 @@ class ALaCarteMainView extends PolymerElement implements AppPager {
   @published bool wide;
   @published Project project;
   @published ObservableList<Project> projects;
+  @published ObservableMap<String, Project> projectsByUuid;
   @published bool projectsAreLoaded;
   @published bool noProjectsFound;
 

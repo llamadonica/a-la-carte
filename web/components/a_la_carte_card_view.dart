@@ -45,7 +45,12 @@ class ALaCarteCardView extends ALaCartePageCommon {
         transition.target.classes.add('hidden');
       }
     });
-  }
+    document.onMouseUp.listen((event) {
+      for (var row in _waves.keys) {
+        onUpOverEntry(row);
+      }
+    });
+   }
 
   void handleSelect(Event ev) {
     var openCode = (ev.target as PaperButton).getAttribute('data-project-id');
@@ -104,16 +109,13 @@ class ALaCarteCardView extends ALaCartePageCommon {
         log(1 - min(wave.maxRadius, _waveMaxRadius) / waveRadius) /
             log(80);
     var touchDown = min(- maxTimeDown / 2, touchDownMs.toDouble() / 1000);
-    window.console
-        .log('Effective touchdown time is $touchDown');
-
+    //window.console .log('Effective touchdown time is $touchDown');
     var touchUp = touchUpMs.toDouble() / 1000;
     var totalElapsed = touchDown * 2 + touchUp;
     var duration = _waveMaxDuration(wave);
     var timePortion = totalElapsed / duration;
     var size = waveRadius * (1 - pow(80, -timePortion));
-    window.console
-        .log('Radius is $size / ${min(wave.maxRadius, _waveMaxRadius)}');
+    //window.console .log('Radius is $size / ${min(wave.maxRadius, _waveMaxRadius)}');
     return size.abs();
   }
 
@@ -139,7 +141,7 @@ class ALaCarteCardView extends ALaCartePageCommon {
     var mouseUpMs = wave.mouseUpMs;
     var didFinish = _waveOpacityForTimes(wave.mouseUpMs) < 0.01 &&
         radius >= min(wave.maxRadius, _waveMaxRadius);
-    window.console.log('After ${mouseUpMs} didFinish: $didFinish.');
+    //window.console.log('After ${mouseUpMs} didFinish: $didFinish.');
     return didFinish;
   }
 
@@ -147,7 +149,7 @@ class ALaCarteCardView extends ALaCartePageCommon {
     var mouseUpMs = wave.mouseUpMs;
     var atMaximum =
         wave.mouseUpMs <= 0 && radius >= min(wave.maxRadius, _waveMaxRadius);
-    window.console.log('After ${mouseUpMs} atMaximum: $atMaximum.');
+    //window.console.log('After ${mouseUpMs} atMaximum: $atMaximum.');
     return atMaximum;
   }
 
@@ -174,7 +176,6 @@ class ALaCarteCardView extends ALaCartePageCommon {
     var fgColor = row.getComputedStyle().color;
     var wave = new List<Element>();
     var wc = new List<Element>();
-    var listener = row.onMouseOut.listen(onUpOverEntry);
     for (DivElement element in row.querySelectorAll('.paper-ripple-bg')) {
       element.style.backgroundColor = fgColor.toString();
     }
@@ -192,7 +193,7 @@ class ALaCarteCardView extends ALaCartePageCommon {
       wc.add(outer);
     }
     return new Wave(
-        maxRadius: 0.0, fgColor: fgColor, wave: wave, wc: wc, row: row, listener: listener);
+        maxRadius: 0.0, fgColor: fgColor, wave: wave, wc: wc, row: row);
   }
 
   void _removeFromScope(Wave wave) {
@@ -200,18 +201,17 @@ class ALaCarteCardView extends ALaCartePageCommon {
       for (Element el in wave.wc) {
         el.remove();
       }
-      wave.listener.cancel();
       _waves[wave.row].remove(wave);
       if (_waves[wave.row].length == 0) {
         _waves.remove(wave.row);
       }
-      window.console.log('Removed a wave.');
+      //window.console.log('Removed a wave.');
     }
   }
 
   void onDownOverEntry(MouseEvent event) {
-    window.console.log('Receive a MouseDown Event');
-    window.console.log(event);
+    //window.console.log('Receive a MouseDown Event');
+    //window.console.log(event);
     Element target = event.target;
     var offsetX = 0;
     while (target != null && !target.classes.contains('table-body-row')) {
@@ -257,20 +257,14 @@ class ALaCarteCardView extends ALaCartePageCommon {
       _waves[wave.row] = <Wave>[];
     }
     _waves[wave.row].add(wave);
-    window.console.log('Created a wave.');
+    //window.console.log('Created a wave.');
     if (_requestedAnimationFrame == null) {
       _requestedAnimationFrame =
           window.requestAnimationFrame((num frame) => _animate());
     }
   }
 
-  void onUpOverEntry(MouseEvent event) {
-    window.console.log('Receive a MouseUp Event');
-    window.console.log(event);
-    Element target = event.target;
-    while (target != null && !target.classes.contains('table-body-row')) {
-      target = target.parent;
-    }
+  void onUpOverEntry(Element target) {
     for (var wave in _waves[target]) {
       if (wave.isMouseDown) {
         wave.isMouseDown = false;
@@ -283,6 +277,16 @@ class ALaCarteCardView extends ALaCartePageCommon {
       _requestedAnimationFrame =
           window.requestAnimationFrame((num frame) => _animate());
     }
+  }
+
+  void onTapEntry(Event event) {
+    String uuid;
+    for (Element target in event.path) {
+      if (target.classes.contains('table-body-row')) {
+        uuid = target.getAttribute('data-project-id');
+      }
+    }
+
   }
 
   static String _cssColorWithAlpha(String cssColor, [double alpha = 1.0]) {
@@ -340,22 +344,22 @@ class ALaCarteCardView extends ALaCartePageCommon {
         var shouldRenderWaveAgain =
             (wave.mouseUpMs <= 0) ? !maximumWave : !waveDissipated;
         if (shouldRenderWaveAgain) {
-          window.console.log('We will render this wave again.');
+          //window.console.log('We will render this wave again.');
           shouldRenderNextFrame = true;
         }
         if (!shouldKeepWave) {
           wavesToDelete.add(wave);
-          window.console.log('Delting this wave.');
+          //window.console.log('Delting this wave.');
         }
       }
     }
     if (shouldRenderNextFrame) {
       _requestedAnimationFrame =
           window.requestAnimationFrame((time) => _animate());
-      window.console.log('Requesting another frame.');
+      //window.console.log('Requesting another frame.');
     } else {
       _requestedAnimationFrame = null;
-      window.console.log('No more frames to request.');
+      //window.console.log('No more frames to request.');
     }
     for (var wave in wavesToDelete) {
       _removeFromScope(wave);
@@ -393,10 +397,9 @@ class Wave {
 
   final List<Element> wave;
   final List<Element> wc;
-  final StreamSubscription listener;
 
   Wave({double this.maxRadius, String this.fgColor, List<Element> this.wave,
       List<Element> this.wc, Point this.startPosition, Point this.endPosition,
       int this.clientSize, int this.clientWidth, int this.clientHeight,
-      DivElement this.row, StreamSubscription this.listener});
+      DivElement this.row});
 }
