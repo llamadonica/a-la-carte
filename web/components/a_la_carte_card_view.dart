@@ -26,6 +26,8 @@ class ALaCarteCardView extends ALaCartePageCommon {
   @published AppPager appPager;
 
   Map<Element, List<Wave>> _waves = new Map<Element, List<Wave>>();
+  int _requestedAnimationFrame = null;
+  bool _backgroundFill = true;
 
   ALaCarteCardView.created() : super.created() {
     fabIcon = 'add';
@@ -45,6 +47,11 @@ class ALaCarteCardView extends ALaCartePageCommon {
         transition.target.classes.remove('hidden');
       } else {
         transition.target.classes.add('hidden');
+      }
+    });
+    document.onMouseUp.listen((event) {
+      for (var row in _waves.keys) {
+        onUpOverEntry(row, event.timeStamp);
       }
     });
   }
@@ -103,7 +110,6 @@ class ALaCarteCardView extends ALaCartePageCommon {
     var maxTimeDown =
         log(1 - min(wave.maxRadius, _waveMaxRadius) / waveRadius) / log(80);
     var touchDown = min(-maxTimeDown / 2, touchDownMs.toDouble() / 1000);
-
     var touchUp = touchUpMs.toDouble() / 1000;
     var totalElapsed = touchDown * 2 + touchUp;
     var duration = _waveMaxDuration(wave);
@@ -167,8 +173,6 @@ class ALaCarteCardView extends ALaCartePageCommon {
     var fgColor = row.getComputedStyle().color;
     var wave = new List<Element>();
     var wc = new List<Element>();
-    var listener =
-        document.onMouseUp.listen((event) => onUpOverEntry(event, row));
     for (DivElement element in row.querySelectorAll('.paper-ripple-bg')) {
       element.style.backgroundColor = fgColor.toString();
     }
@@ -186,12 +190,7 @@ class ALaCarteCardView extends ALaCartePageCommon {
       wc.add(outer);
     }
     return new Wave(
-        maxRadius: 0.0,
-        fgColor: fgColor,
-        wave: wave,
-        wc: wc,
-        row: row,
-        listener: listener);
+        maxRadius: 0.0, fgColor: fgColor, wave: wave, wc: wc, row: row);
   }
 
   void _removeFromScope(Wave wave) {
@@ -199,7 +198,6 @@ class ALaCarteCardView extends ALaCartePageCommon {
       for (Element el in wave.wc) {
         el.remove();
       }
-      wave.listener.cancel();
       _waves[wave.row].remove(wave);
       if (_waves[wave.row].length == 0) {
         _waves.remove(wave.row);
@@ -207,7 +205,7 @@ class ALaCarteCardView extends ALaCartePageCommon {
     }
   }
 
-  void onDownOverEntry(MouseEvent event) {
+  void onDownOverRow(MouseEvent event) {
     Element target = event.target;
     var offsetX = 0;
     while (target != null && !target.classes.contains('table-body-row')) {
@@ -217,7 +215,7 @@ class ALaCarteCardView extends ALaCartePageCommon {
       target = target.parent;
     }
     var wave = _createWave(target);
-    wave.mouseDownWallClock = new DateTime.now().millisecondsSinceEpoch;
+    wave.mouseDownWallClock = event.timeStamp;
     wave.isMouseDown = true;
     var rectangle = target.client;
     var width = rectangle.width;
@@ -255,26 +253,31 @@ class ALaCarteCardView extends ALaCartePageCommon {
     _waves[wave.row].add(wave);
     if (_requestedAnimationFrame == null) {
       _requestedAnimationFrame =
-          window.requestAnimationFrame((num frame) => _animate());
+          window.requestAnimationFrame((num frame) => _animate(frame));
     }
   }
 
-  void onUpOverEntry(MouseEvent event, Element oldTarget) {
-    Element target = oldTarget;
-    while (target != null && !target.classes.contains('table-body-row')) {
-      target = target.parent;
-    }
+  void onUpOverEntry(Element target, int timeStamp) {
     for (var wave in _waves[target]) {
       if (wave.isMouseDown) {
         wave.isMouseDown = false;
-        wave.mouseUpWallClock = new DateTime.now().millisecondsSinceEpoch;
+        wave.mouseUpWallClock = timeStamp;
         wave.mouseDownMs = wave.mouseUpWallClock - wave.mouseDownWallClock;
         break;
       }
     }
     if (_requestedAnimationFrame == null) {
       _requestedAnimationFrame =
-          window.requestAnimationFrame((num frame) => _animate());
+          window.requestAnimationFrame((num frame) => _animate(frame));
+    }
+  }
+
+  void onTapEntry(Event event) {
+    String uuid;
+    for (Element target in event.path) {
+      if (target.classes.contains('table-body-row')) {
+        uuid = target.getAttribute('data-project-id');
+      }
     }
   }
 
@@ -287,7 +290,7 @@ class ALaCarteCardView extends ALaCartePageCommon {
     return 'rgba(${match.group(1)}, $alpha)';
   }
 
-  void _animate() {
+  void _animate(int timeStamp) {
     var wavesToDelete = [];
     var shouldRenderNextFrame = false;
     var longestTouchDownDuration = 0.0;
@@ -297,11 +300,9 @@ class ALaCarteCardView extends ALaCartePageCommon {
     for (var waveyRow in _waves.keys) {
       for (var wave in _waves[waveyRow]) {
         if (wave.mouseUpWallClock > 0) {
-          wave.mouseUpMs =
-              new DateTime.now().millisecondsSinceEpoch - wave.mouseUpWallClock;
+          wave.mouseUpMs = timeStamp - wave.mouseUpWallClock;
         } else if (wave.mouseDownWallClock > 0) {
-          wave.mouseDownMs = new DateTime.now().millisecondsSinceEpoch -
-              wave.mouseDownWallClock;
+          wave.mouseDownMs = timeStamp - wave.mouseDownWallClock;
         }
         longestTouchDownDuration =
             max(longestTouchDownDuration, wave.mouseDownMs);
@@ -332,17 +333,12 @@ class ALaCarteCardView extends ALaCartePageCommon {
         var shouldKeepWave = !waveDissipated;
         var shouldRenderWaveAgain =
             (wave.mouseUpMs <= 0) ? !maximumWave : !waveDissipated;
-        if (shouldRenderWaveAgain) {
-          shouldRenderNextFrame = true;
-        }
-        if (!shouldKeepWave) {
-          wavesToDelete.add(wave);
-        }
+        if (shouldRenderWaveAgain) {}
       }
     }
     if (shouldRenderNextFrame) {
       _requestedAnimationFrame =
-          window.requestAnimationFrame((time) => _animate());
+          window.requestAnimationFrame((time) => _animate(time));
     } else {
       _requestedAnimationFrame = null;
     }
@@ -356,9 +352,6 @@ class ALaCarteCardView extends ALaCartePageCommon {
       fire('core-transitionend');
     }
   }
-
-  int _requestedAnimationFrame = null;
-  bool _backgroundFill = true;
 
   void tapProject(Event event) {
     String projectId;
@@ -394,10 +387,9 @@ class Wave {
 
   final List<Element> wave;
   final List<Element> wc;
-  final StreamSubscription listener;
 
   Wave({double this.maxRadius, String this.fgColor, List<Element> this.wave,
       List<Element> this.wc, Point this.startPosition, Point this.endPosition,
       int this.clientSize, int this.clientWidth, int this.clientHeight,
-      DivElement this.row, StreamSubscription this.listener});
+      DivElement this.row});
 }
