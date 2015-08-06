@@ -17,6 +17,7 @@ class ALaCarteMainView extends PolymerElement implements AppPager {
   @published bool wide;
   @published Project project;
   @published ObservableList<Project> projects;
+  @published Map<String, Project> projectsByUuid;
   @published bool projectsAreLoaded;
   @published bool noProjectsFound;
 
@@ -44,8 +45,8 @@ class ALaCarteMainView extends PolymerElement implements AppPager {
   ALaCarteMainView.created() : super.created();
 
   ready() {
-    pages = new ObservableList.from(
-        shadowRoot.querySelectorAll('core-pages.content > *')
+    pages = new ObservableList.from(shadowRoot
+        .querySelectorAll('core-pages.content > *')
         .where((e) => e is ALaCartePageCommon));
     if (selected >= pages.length) {
       currentPage = null;
@@ -60,7 +61,11 @@ class ALaCarteMainView extends PolymerElement implements AppPager {
   }
 
   selectedChanged(int oldValue) {
-    appRouter.setUrl('/${appAllSelectable[selected]}','');
+    if (selected == 1 && project.commited) {
+      appRouter.setUrl('/+edit/${project.id}', '');
+    } else {
+      appRouter.setUrl('/${appAllSelectable[selected]}', '');
+    }
     if (selected >= pages.length) {
       currentPage = null;
     } else {
@@ -70,7 +75,7 @@ class ALaCarteMainView extends PolymerElement implements AppPager {
 
   void onAppNavigationEvent(List<String> event) {
     if (event.length < 1) {
-      appRouter.setUrl('/+all','');
+      appRouter.setUrl('/+all', '');
       return;
     }
     switch (event[0]) {
@@ -81,14 +86,17 @@ class ALaCarteMainView extends PolymerElement implements AppPager {
         selected = 1;
         project = new Project(new Uuid().v4());
         break;
+      case '+edit':
+        selected = 1;
+        openProject(event[1]);
+        break;
     }
-
   }
 
   void setToNewProject() {
     project = new Project(new Uuid().v4());
   }
   void openProject(String uuid) {
-    //TODO: implement openProject;
+    project = projectsByUuid[uuid];
   }
 }

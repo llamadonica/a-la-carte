@@ -1,11 +1,10 @@
 part of a_la_carte_models;
 
-
-
 class Project extends JsonCanSync {
   final String id;
-  
+
   bool commited = false;
+  bool isChanged = false;
 
   @observable String name;
   String _oldName;
@@ -37,18 +36,16 @@ class Project extends JsonCanSync {
           if (name != tempOldName) {
             changeIsValid = true;
           }
-        }
-        else if (change is PropertyChangeRecord &&
+        } else if (change is PropertyChangeRecord &&
             change.name != #json &&
             change.name != #isSynced) changeIsValid = true;
-
       }
       if (changeIsValid) {
         notifyPropertyChange(#json, _jsonOld = _json, _json = _jsonGetter());
       }
     });
   }
-  
+
   void nameChanged(String oldValue) {
     if (commited && oldValue != null) {
       var allSpaces = new RegExp(r'''^\s*$''');

@@ -2,24 +2,24 @@
 <link rel="import" href="packages/core_elements/core_media_query.html" />
 <link rel="import" href="packages/core_elements/core_ajax_dart.html" />
 <link rel="import" href="packages/paper_elements/paper_toast.html" />
-<link 
-    rel="import" 
+<link
+    rel="import"
     href="packages/core_elements/src/core-animated-pages/transitions/slide-up.html" />
-<link 
-    rel="import" 
+<link
+    rel="import"
     href="packages/core_elements/src/core-animated-pages/transitions/scale-up.html" />
 <link rel="import" href="a_la_carte_main_view.html" />
 
 <polymer-element name="a-la-carte-app" attributes="templateUrl" vertical layout>
   <template bind>
     <link rel="stylesheet" href="a_la_carte_app.css" />
-    <core-animated-pages 
+    <core-animated-pages
         on-core-animated-pages-transition-prepare="{{
-          prepareAnimatedTransition}}" 
-        selected="{{selected}}" 
+          prepareAnimatedTransition}}"
+        selected="{{selected}}"
         transitions="
-         hero-transition cross-fade-delayed cross-fade slide-up-offscreen 
-         scale-up" 
+         hero-transition cross-fade-delayed cross-fade slide-up-offscreen
+         scale-up"
         flex>
       <a-la-carte-main-view
           appSelected="{{selected}}"
@@ -28,9 +28,10 @@
           name="main-view"
           project="{{project}}"
           projects="{{projects}}"
+          projectsByUuid="{{projectsByUuid}}"
           projectsAreLoaded="{{projectsAreLoaded}}"
           noProjectsFound="{{noProjectsFound}}"
-          wide="{{wide}}" 
+          wide="{{wide}}"
           responsiveWidth="{{responsiveWidth - 1}}px"
           appRouter="{{this}}">
       </a-la-carte-main-view>
@@ -39,7 +40,7 @@
       <div class="toast-connectivity-retry" on-tap="{{retryProjectsData}}">Retry
       </div>
     </paper-toast>
-    <core-media-query 
+    <core-media-query
         query="min-width: {{responsiveWidth}}px"
         queryMatches="{{wide}}">
     </core-media-query>

@@ -11,9 +11,9 @@
 <link rel="import" href="packages/core_elements/core_label.html" />
 <link rel="import" href="packages/core_elements/core_pages.html" />
 
-<polymer-element 
-    name="a-la-carte-project-info-page" 
-    attributes="project" 
+<polymer-element
+    name="a-la-carte-project-info-page"
+    attributes="project"
     vertical
     layout>
   <template bind>
@@ -22,25 +22,25 @@
       <div class="page-contents">
         <h4>General Options</h4>
         <paper-input-decorator
-            label="Job #" 
-            id="jobNumber"
-            value="{{project.jobNumber}}">
-          <input 
-            is="core-input" 
+            label="Job #"
+            id="jobNumber">
+          <input
+            is="core-input"
             placeholder
             type="number"
-            preventInvalidInput>
+            preventInvalidInput
+            value="{{project.jobNumber}}">
         </paper-input-decorator>
-        <paper-input 
-            label="Project Name" 
+        <paper-input
+            label="Project Name"
             id="name"
-            required 
+            required
             error="Please enter a project name"
             value="{{project.name}}">
         </paper-input>
         <paper-input-decorator id="streetAddress" label="Street Address">
           <paper-autogrow-textarea>
-            <textarea></textarea>
+            <textarea value="{{project.streetAddress}}"></textarea>
           </paper-autogrow-textarea>
         </paper-input-decorator>
         <core-label horizontal layout>

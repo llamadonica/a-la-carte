@@ -13,8 +13,8 @@ class JsonStreamingEvent {
   final JsonStreamingBoxType boxType;
   final List path;
   final symbol;
-  JsonStreamingEvent(
-      JsonStreamingBoxType this.boxType, Iterable _path, dynamic this.symbol, int this.status, String this.statusText)
+  JsonStreamingEvent(JsonStreamingBoxType this.boxType, Iterable _path,
+      dynamic this.symbol, int this.status, String this.statusText)
       : path = new List.from(_path);
   String toString() {
     var output = new StringBuffer('addJsonStreamingEvent(');
@@ -28,9 +28,8 @@ class JsonStreamingEvent {
   }
 }
 
-
 //TODO: Rewrite this to make use of the Fetch and Streams API so less of the
-//request has to stay resident. 
+//request has to stay resident.
 class JsonStreamingParser {
   bool _weAreAtStart = true;
   bool _weAreInObject = false;
@@ -69,7 +68,8 @@ class JsonStreamingParser {
 
     String buffer = request.response;
     if (buffer == null) return;
-    _parseCurrentStatusForString(event.loaded, buffer, (buf_, i) => buf_.codeUnitAt(i));
+    _parseCurrentStatusForString(
+        event.loaded, buffer, (buf_, i) => buf_.codeUnitAt(i));
   }
   void httpRequestFinalize(ProgressEvent event) {
     assert(_isSemiClosed);
@@ -88,14 +88,14 @@ class JsonStreamingParser {
           reader.cancel();
           return;
         }
-        this._parseCurrentStatusForString(
-            result.value.length,
-            result.value,
-            (buf_,i) => (i < 0) ? overflowBuffer[overflowBuffer.length + i] : buf_[i]);
+        this._parseCurrentStatusForString(result.value.length, result.value,
+            (buf_, i) =>
+                (i < 0) ? overflowBuffer[overflowBuffer.length + i] : buf_[i]);
         if (_startOfLastSymbol >= 0) {
           overflowBuffer.clear();
         } else {
-          overflowBuffer.removeRange(0, overflowBuffer.length + _startOfLastSymbol);
+          overflowBuffer.removeRange(
+              0, overflowBuffer.length + _startOfLastSymbol);
           _startOfLastSymbol = 0;
         }
         for (var k = _startOfLastSymbol; k < result.value.length; k++) {
@@ -112,7 +112,7 @@ class JsonStreamingParser {
     }
     streamFromByteStreamReaderInternal();
   }
-  
+
   bool _isWhitespace(int symbol) {
     switch (symbol) {
       case 32:
@@ -126,7 +126,7 @@ class JsonStreamingParser {
         return false;
     }
   }
-  
+
   void _parseCurrentStatusForString(int loaded, buffer, Function bufferGetter) {
     stateParser: for (var i = _startOfLastSymbol; i < loaded; i++) {
       if (_isWhitespace(bufferGetter(buffer, i))) continue;
@@ -178,22 +178,28 @@ class JsonStreamingParser {
         }
         _startOfLastSymbol = i + 1;
         continue;
-      } else if (_weAreInObject && _requireComma && bufferGetter(buffer, i) == 44) {
+      } else if (_weAreInObject &&
+          _requireComma &&
+          bufferGetter(buffer, i) == 44) {
         _requireComma = false;
         _requireKey = true;
         _startOfLastSymbol = i + 1;
         continue;
       } else if (_weAreInObject && _requireComma) {
-        this._parserAssertNotReached("Expected } of ,");
+        this._parserAssertNotReached("Expected } or ,");
         continue;
-      } else if (_weAreInObject && _requireColon && bufferGetter(buffer, i) == 58) {
+      } else if (_weAreInObject &&
+          _requireColon &&
+          bufferGetter(buffer, i) == 58) {
         _requireColon = false;
         _startOfLastSymbol = i + 1;
         continue;
       } else if (_weAreInObject && _requireColon) {
         this._parserAssertNotReached("Expected :");
         continue;
-      } else if (_weAreInObject && _requireKey && bufferGetter(buffer, i) == 34) {
+      } else if (_weAreInObject &&
+          _requireKey &&
+          bufferGetter(buffer, i) == 34) {
         i++;
         i = _parseString(i, loaded, buffer, bufferGetter);
         if (_startOfLastSymbol > i) {
@@ -225,8 +231,11 @@ class JsonStreamingParser {
         _currentContexts.removeLast();
         _currentContext = _currentContexts.last;
         continue;
-      } else if (_weAreInArray && _requireComma && bufferGetter(buffer, i) == 44) {
+      } else if (_weAreInArray &&
+          _requireComma &&
+          bufferGetter(buffer, i) == 44) {
         _currentKey++;
+        _requireComma = false;
       } else if (_weAreInArray && _requireComma) {
         _parserAssertNotReached("Expected ] or ,");
         continue;
@@ -278,7 +287,7 @@ class JsonStreamingParser {
         _currentKey = 0;
         _startOfLastSymbol = i + 1;
         continue;
-      }  else if (bufferGetter(buffer, i) == 34) {
+      } else if (bufferGetter(buffer, i) == 34) {
         // "
         i++;
         i = _parseString(i, loaded, buffer, bufferGetter);
@@ -291,29 +300,36 @@ class JsonStreamingParser {
         // t
         if (++i >= loaded) continue;
         // r
-        if (!_parserAssert(bufferGetter(buffer, i) == 114, "Expected r")) continue;
+        if (!_parserAssert(
+            bufferGetter(buffer, i) == 114, "Expected r")) continue;
         if (++i >= loaded) continue;
         // u
-        if (!_parserAssert(bufferGetter(buffer, i) == 117, "Expected u")) continue;
+        if (!_parserAssert(
+            bufferGetter(buffer, i) == 117, "Expected u")) continue;
         if (++i >= loaded) continue;
         // e
-        if (!_parserAssert(bufferGetter(buffer, i) == 101, "Expected e")) continue;
+        if (!_parserAssert(
+            bufferGetter(buffer, i) == 101, "Expected e")) continue;
         _makeFinalSymbol(i, true);
         continue;
       } else if (bufferGetter(buffer, i) == 102) {
         // f
         if (++i >= loaded) continue;
         // a
-        if (!_parserAssert(bufferGetter(buffer, i) == 97, "Expected a")) continue;
+        if (!_parserAssert(
+            bufferGetter(buffer, i) == 97, "Expected a")) continue;
         if (++i >= loaded) continue;
         // l
-        if (!_parserAssert(bufferGetter(buffer, i) == 108, "Expected l")) continue;
+        if (!_parserAssert(
+            bufferGetter(buffer, i) == 108, "Expected l")) continue;
         if (++i >= loaded) continue;
         // s
-        if (!_parserAssert(bufferGetter(buffer, i) == 115, "Expected s")) continue;
+        if (!_parserAssert(
+            bufferGetter(buffer, i) == 115, "Expected s")) continue;
         if (++i >= loaded) continue;
         // e
-        if (!_parserAssert(bufferGetter(buffer, i) == 101, "Expected e")) continue;
+        if (!_parserAssert(
+            bufferGetter(buffer, i) == 101, "Expected e")) continue;
         _makeFinalSymbol(i, false);
         _startOfLastSymbol = i + 1;
         continue;
@@ -321,13 +337,16 @@ class JsonStreamingParser {
         // n
         if (++i >= loaded) continue;
         // a
-        if (!_parserAssert(bufferGetter(buffer, i) == 117, "Expected u")) continue;
+        if (!_parserAssert(
+            bufferGetter(buffer, i) == 117, "Expected u")) continue;
         if (++i >= loaded) continue;
         // l
-        if (!_parserAssert(bufferGetter(buffer, i) == 108, "Expected l")) continue;
+        if (!_parserAssert(
+            bufferGetter(buffer, i) == 108, "Expected l")) continue;
         if (++i >= loaded) continue;
         // l
-        if (!_parserAssert(bufferGetter(buffer, i) == 108, "Expected l")) continue;
+        if (!_parserAssert(
+            bufferGetter(buffer, i) == 108, "Expected l")) continue;
         _makeFinalSymbol(i, null);
         continue;
       } else if (<int>[
@@ -374,10 +393,10 @@ class JsonStreamingParser {
               <int>[44, 93, 125].contains(bufferGetter(buffer, i))) {
             if (hasHadDecimal) {
               var value = double.parse(valueString.toString());
-              _makeFinalSymbol(i-1, value);
+              _makeFinalSymbol(i - 1, value);
             } else {
               var value = int.parse(valueString.toString());
-              _makeFinalSymbol(i-1, value);
+              _makeFinalSymbol(i - 1, value);
             }
             i = i - 1;
             continue stateParser;
@@ -394,11 +413,14 @@ class JsonStreamingParser {
             }
             i++;
             continue stateParser;
-          } else if (!hasHadExponent && (bufferGetter(buffer, i) == 46 || bufferGetter(buffer, i) == 101)) {
+          } else if (!hasHadExponent &&
+              (bufferGetter(buffer, i) == 46 ||
+                  bufferGetter(buffer, i) == 101)) {
             // E / e
             valueString.writeCharCode(bufferGetter(buffer, i));
             if (++i >= loaded) continue stateParser;
-            if (bufferGetter(buffer, i) == 45 || bufferGetter(buffer, i) == 43) {
+            if (bufferGetter(buffer, i) == 45 ||
+                bufferGetter(buffer, i) == 43) {
               valueString.writeCharCode(bufferGetter(buffer, i));
               if (++i >= loaded) continue stateParser;
               if (<int>[
@@ -419,17 +441,17 @@ class JsonStreamingParser {
                 continue stateParser;
               }
             } else if (<int>[
-                48,
-                49,
-                50,
-                51,
-                52,
-                53,
-                54,
-                55,
-                56,
-                57
-              ].contains(bufferGetter(buffer, i))) {
+              48,
+              49,
+              50,
+              51,
+              52,
+              53,
+              54,
+              55,
+              56,
+              57
+            ].contains(bufferGetter(buffer, i))) {
               valueString.writeCharCode(bufferGetter(buffer, i));
             } else {
               _parserAssertNotReached("Expected DIGIT, +, or -");
@@ -439,7 +461,8 @@ class JsonStreamingParser {
             hasHadDecimal = true;
             i++;
             continue;
-          } else if (bufferGetter(buffer, i) == 46 || bufferGetter(buffer, i) == 101) {
+          } else if (bufferGetter(buffer, i) == 46 ||
+              bufferGetter(buffer, i) == 101) {
             _parserAssertNotReached('Expected digit');
             continue stateParser;
           } else if (<int>[
@@ -469,8 +492,9 @@ class JsonStreamingParser {
     }
   }
 
-  JsonStreamingEvent addJsonStreamingEvent(JsonStreamingBoxType object, List currentPath, Object currentContext) =>
-    new JsonStreamingEvent(object, currentPath, currentContext, _status, _statusText);
+  JsonStreamingEvent addJsonStreamingEvent(JsonStreamingBoxType object,
+      List currentPath, Object currentContext) => new JsonStreamingEvent(
+      object, currentPath, currentContext, _status, _statusText);
 
   void _parserAssertNotReached(String message) {
     _onOpenContainer.addError(new StateError(message));
@@ -514,7 +538,9 @@ class JsonStreamingParser {
       } else if (bufferGetter(buffer, i) == 92) {
         i++;
         if (i >= loaded) return loaded;
-        if (bufferGetter(buffer, i) == 34 || bufferGetter(buffer, i) == 92 || bufferGetter(buffer, i) == 47) {
+        if (bufferGetter(buffer, i) == 34 ||
+            bufferGetter(buffer, i) == 92 ||
+            bufferGetter(buffer, i) == 47) {
           thisString.writeCharCode(bufferGetter(buffer, i));
         } else {
           switch (bufferGetter(buffer, i)) {
@@ -534,8 +560,12 @@ class JsonStreamingParser {
               thisString.writeCharCode(9);
               break;
             case 117:
-              int.parse(new AsciiDecoder().convert([bufferGetter(buffer, i+1),bufferGetter(buffer, i+2),bufferGetter(buffer,i+3),bufferGetter(buffer,i+4)]),
-                  radix: 16);
+              int.parse(new AsciiDecoder().convert([
+                bufferGetter(buffer, i + 1),
+                bufferGetter(buffer, i + 2),
+                bufferGetter(buffer, i + 3),
+                bufferGetter(buffer, i + 4)
+              ]), radix: 16);
               i += 4;
               if (i >= loaded) return loaded;
               break;
@@ -544,7 +574,8 @@ class JsonStreamingParser {
           }
         }
         i++;
-      } else if (bufferGetter(buffer, i) == 10 || bufferGetter(buffer, i) == 13) {
+      } else if (bufferGetter(buffer, i) == 10 ||
+          bufferGetter(buffer, i) == 13) {
         _onOpenContainer.addError(new StateError("Expected \" but found EOL"));
         _onCloseContainer.addError(new StateError("Expected \" but found EOL"));
         _onSymbolComplete.addError(new StateError("Expected \" but found EOL"));

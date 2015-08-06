@@ -33,11 +33,13 @@ class ALaCarteApp extends PolymerElement implements AppRouter {
   @observable bool projectsAreLoaded = false;
   @observable bool noProjectsFound = false;
   @observable bool isError = false;
-  @observable ObservableList<Project> projects = new ObservableList() ;
+  @observable ObservableList<Project> projects = new ObservableList();
+  @observable ObservableMap<String, Project> projectsByUuid =
+      new ObservableMap();
 
   AppRouter get router => this;
-  StreamController<List<String>> _onAppNavigationEvent = new StreamController<List<String>>();
-
+  StreamController<List<String>> _onAppNavigationEvent =
+      new StreamController<List<String>>();
 
   HttpRequest _request;
   int _endOfLastRequest = 0;
@@ -48,7 +50,7 @@ class ALaCarteApp extends PolymerElement implements AppRouter {
   bool _useFragment = true;
 
   ALaCarteApp.created() : super.created() {
-     _useFragment = !History.supportsState;
+    _useFragment = !History.supportsState;
   }
   AppDelegate get _appDelegate {
     if (__appDelegate == null) __appDelegate = new AppDelegate();
@@ -109,8 +111,7 @@ class ALaCarteApp extends PolymerElement implements AppRouter {
   void getProjectsData() {
     var jsonHandler = new JsonStreamingParser();
     connectivityErrorMessage = null;
-    jsonHandler.onSymbolComplete
-        .listen(routeProjectLoadingEvent);
+    jsonHandler.onSymbolComplete.listen(routeProjectLoadingEvent);
 
     if (fetch == null) {
       _request = new HttpRequest();
@@ -123,9 +124,9 @@ class ALaCarteApp extends PolymerElement implements AppRouter {
 
       _request.send();
     } else {
-      fetch('/a_la_carte/_design/projects/_view/all_by_job_number?descending=true',
-          headers: {'Accept': 'application/json'})
-      .then((object) {
+      fetch(
+          '/a_la_carte/_design/projects/_view/all_by_job_number?descending=true',
+          headers: {'Accept': 'application/json'}).then((object) {
         jsonHandler.setStreamStateFromResponse(object);
         jsonHandler.streamFromByteStreamReader(object.body.getReader());
       });
@@ -175,12 +176,10 @@ class ALaCarteApp extends PolymerElement implements AppRouter {
         noProjectsFound = true;
       }
       return;
-    }
-    else if (event.path.length == 1 && event.path[0] == 'message') {
+    } else if (event.path.length == 1 && event.path[0] == 'message') {
       connectivityErrorMessage = event.symbol;
       return;
-    }
-    else if (event.path.length == 0) {
+    } else if (event.path.length == 0) {
       if (isError && !projectsAreLoaded) {
         PaperToast connectivityToast = $['toast-connectivity'];
         connectivityToast.show();
@@ -188,13 +187,14 @@ class ALaCarteApp extends PolymerElement implements AppRouter {
         noProjectsFound = true;
       }
       return;
-    }
-    else if (event.path[0] != 'rows') return;
+    } else if (event.path[0] != 'rows') return;
     if (event.path.length > 2) return;
     if (event.path.length == 2) {
       final project = new Project(event.symbol['id']);
       project.initFromJSON(event.symbol['value']);
       projects.add(project);
+      projectsByUuid[project.id] = project;
+      project.commited = true;
       return;
     }
     projectsAreLoaded = true;
