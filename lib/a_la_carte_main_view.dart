@@ -6,8 +6,8 @@ import 'package:paper_elements/paper_input.dart';
 import 'package:polymer/polymer.dart';
 import 'package:uuid/uuid.dart';
 
-import '../models.dart';
-import 'a_la_carte_page_common.dart';
+import 'package:a_la_carte/models.dart';
+import 'package:a_la_carte/a_la_carte_page_common.dart';
 
 /**
  * A Polymer click counter element.
@@ -61,9 +61,13 @@ class ALaCarteMainView extends PolymerElement implements AppPager {
   }
 
   selectedChanged(int oldValue) {
-    if (selected == 1 && project.commited) {
+    if (selected == 1 && project.isChanged && project.committed) {
       appRouter.setUrl('/+edit/${project.id}', '');
-    } else {
+    }
+    else if (selected == 1 && project.committed) {
+      appRouter.setUrl('/+view/${project.id}', '');
+    }
+    else {
       appRouter.setUrl('/${appAllSelectable[selected]}', '');
     }
     if (selected >= pages.length) {
@@ -87,6 +91,7 @@ class ALaCarteMainView extends PolymerElement implements AppPager {
         project = new Project(new Uuid().v4());
         break;
       case '+edit':
+      case '+view':
         selected = 1;
         openProject(event[1]);
         break;

@@ -1,8 +1,8 @@
-<link rel="import" href="packages/paper_elements/paper_fab.html" />
-<link rel="import" href="packages/paper_elements/paper_button.html" />
-<link rel="import" href="packages/paper_elements/paper_input.html" />
-<link rel="import" href="packages/paper_elements/paper_spinner.html" />
-<link rel="import" href="packages/core_elements/core_icons.html" />
+<link rel="import" href="../../packages/paper_elements/paper_fab.html"/>
+<link rel="import" href="../../packages/paper_elements/paper_button.html"/>
+<link rel="import" href="../../packages/paper_elements/paper_input.html"/>
+<link rel="import" href="../../packages/paper_elements/paper_spinner.html"/>
+<link rel="import" href="../../packages/core_elements/core_icons.html"/>
 
 <polymer-element name="a-la-carte-card-view"
                  attributes="appSelected prevAppSelected projects project wide projectsAreLoaded noProjectsFound appPager"
@@ -22,7 +22,8 @@
             </div>
             <div class="table-body">
               <template repeat="{{ p in projects }}">
-                <div class="table-body-row" on-mousedown="{{onDownOverEntry}}" data-project-id="{{p.id}}" on-tap="{{tapProject}}">
+                <div class="table-body-row" on-mousedown="{{rippleOverEntry}}"
+                     data-project-id="{{p.id}}" on-tap="{{tapProject}}">
                 <div class="table-body-cell">{{p.jobNumber}}<div class="paper-ripple-container"><div class="paper-ripple-bg"></div><div class="waves"></div></div></div>
                 <div class="table-body-cell">{{p.name}}<div class="paper-ripple-container"><div class="paper-ripple-bg"></div><div class="waves"></div></div></div>
                 <div class="table-body-cell">{{p.streetAddress}}<div class="paper-ripple-container"><div class="paper-ripple-bg"></div><div class="waves"></div></div></div></div>

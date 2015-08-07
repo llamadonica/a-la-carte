@@ -2,22 +2,23 @@ import 'dart:async';
 import 'dart:html';
 
 import 'package:polymer/polymer.dart';
-import 'package:a_la_carte/fetch_interop.dart';
+import 'fetch_interop.dart';
 
-import '../models.dart';
-import 'a_la_carte_page_common.dart';
+import 'package:a_la_carte/models.dart';
+import 'package:a_la_carte/a_la_carte_page_common.dart';
 
 @CustomTag('a-la-carte-project-info-page')
 class ALaCarteProjectInfoPage extends ALaCartePageCommon {
   @published Project project;
   StreamSubscription _projectSubscription;
   @published int selected = 0;
+  @published AppPager appPager;
   ALaCarteProjectInfoPage.created() : super.created() {
     fabIcon = null;
   }
 
   void projectChanged(oldProject) {
-    if (project.commited) {
+    if (project.committed) {
       fabIcon = null;
       if (_projectSubscription != null) {
         _projectSubscription.cancel();
@@ -29,7 +30,7 @@ class ALaCarteProjectInfoPage extends ALaCartePageCommon {
   }
 
   void projectFieldsChanged(List<ChangeRecord> changes) {
-    project.commited = false;
+    project.isChanged = false;
     fabIcon = 'check';
   }
 

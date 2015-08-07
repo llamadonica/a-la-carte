@@ -9,7 +9,7 @@ import 'package:a_la_carte/json_streaming.dart';
 import 'package:a_la_carte/fetch_interop.dart';
 import 'package:uuid/uuid.dart';
 
-import '../models.dart';
+import 'package:a_la_carte/models.dart';
 // import 'a_la_carte_main_view.dart';
 
 /**
@@ -194,7 +194,7 @@ class ALaCarteApp extends PolymerElement implements AppRouter {
       project.initFromJSON(event.symbol['value']);
       projects.add(project);
       projectsByUuid[project.id] = project;
-      project.commited = true;
+      project.committed = true;
       return;
     }
     projectsAreLoaded = true;

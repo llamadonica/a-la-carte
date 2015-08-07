@@ -3,7 +3,7 @@ part of a_la_carte_models;
 class Project extends JsonCanSync {
   final String id;
 
-  bool commited = false;
+  bool committed = false;
   bool isChanged = false;
 
   @observable String name;
@@ -47,7 +47,7 @@ class Project extends JsonCanSync {
   }
 
   void nameChanged(String oldValue) {
-    if (commited && oldValue != null) {
+    if (committed && oldValue != null) {
       var allSpaces = new RegExp(r'''^\s*$''');
       if (allSpaces.hasMatch(name) && !allSpaces.hasMatch(oldValue)) {
         _oldName = name;

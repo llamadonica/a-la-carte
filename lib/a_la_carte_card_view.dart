@@ -1,19 +1,24 @@
 import 'dart:html';
 import 'dart:math';
 import 'dart:async';
+import 'dart:js';
 
 import 'package:core_elements/core_animated_pages.dart';
 import 'package:paper_elements/paper_button.dart';
 import 'package:polymer/polymer.dart';
 
-import '../models.dart';
-import 'a_la_carte_page_common.dart';
+import 'package:a_la_carte/models.dart';
+import 'package:a_la_carte/a_la_carte_page_common.dart';
 
 /**
  * A Polymer click counter element.
  */
 @CustomTag('a-la-carte-card-view')
 class ALaCarteCardView extends ALaCartePageCommon {
+  static const double _waveMaxRadius = 150.0;
+  static const double _waveInitialOpacity = 0.25;
+  static const double _waveOpacityDecayVelocity = 0.8;
+
   @published bool wide;
   @published ObservableList<Project> projects;
   @published Project project;
@@ -25,7 +30,10 @@ class ALaCarteCardView extends ALaCartePageCommon {
   @published String prevAppSelected;
   @published AppPager appPager;
 
-  Map<Element, List<Wave>> _waves = new Map<Element, List<Wave>>();
+  @override
+  String get backgroundImage => null;
+
+  Map<Element, List<_Wave>> _waves = new Map<Element, List<_Wave>>();
   int _requestedAnimationFrame = null;
   bool _backgroundFill = true;
 
@@ -51,7 +59,7 @@ class ALaCarteCardView extends ALaCartePageCommon {
     });
     document.onMouseUp.listen((event) {
       for (var row in _waves.keys) {
-        onUpOverEntry(row, event.timeStamp);
+        receiveUp(row, window.performance.now());
       }
     });
   }
@@ -63,6 +71,7 @@ class ALaCarteCardView extends ALaCartePageCommon {
       (parentNode as CoreAnimatedPages).selected = 'categories';
     }
   }
+
   void projectsAreLoadedChanged(bool oldValue) {
     if (projectsAreLoaded) {
       showSpinner = false;
@@ -81,19 +90,12 @@ class ALaCarteCardView extends ALaCartePageCommon {
   }
 
   @override
-  String get backgroundImage => null;
-
-  @override
   void fabAction() {
     appPager.setToNewProject();
     appPager.selected = 1;
   }
 
-  static const double _waveMaxRadius = 150.0;
-  static const double _waveInitialOpacity = 0.25;
-  static const double _waveOpacityDecayVelocity = 0.8;
-
-  static double _waveMaxDuration(Wave wave) {
+  static double _waveMaxDuration(_Wave wave) {
     var width = wave.clientWidth.toDouble();
     var height = wave.clientHeight.toDouble();
     var waveRadius =
@@ -102,7 +104,7 @@ class ALaCarteCardView extends ALaCartePageCommon {
     return duration;
   }
 
-  static double _waveRadiusForTimes(int touchDownMs, int touchUpMs, Wave wave) {
+  static double _waveRadiusForTimes(int touchDownMs, int touchUpMs, _Wave wave) {
     var width = wave.clientWidth.toDouble();
     var height = wave.clientHeight.toDouble();
     var waveRadius =
@@ -136,21 +138,21 @@ class ALaCarteCardView extends ALaCartePageCommon {
     return opacity;
   }
 
-  static bool _waveDidFinish(Wave wave, double radius) {
+  static bool _waveDidFinish(_Wave wave, double radius) {
     var mouseUpMs = wave.mouseUpMs;
     var didFinish = _waveOpacityForTimes(wave.mouseUpMs) < 0.01 &&
         radius >= min(wave.maxRadius, _waveMaxRadius);
     return didFinish;
   }
 
-  static bool _waveAtMaximum(Wave wave, double radius) {
+  static bool _waveAtMaximum(_Wave wave, double radius) {
     var mouseUpMs = wave.mouseUpMs;
     var atMaximum =
         wave.mouseUpMs <= 0 && radius >= min(wave.maxRadius, _waveMaxRadius);
     return atMaximum;
   }
 
-  static void _drawRipple(Wave wave, int x, int y, double radius,
+  static void _drawRipple(_Wave wave, int x, int y, double radius,
       double innerAlpha, double outerAlpha, String waveColor) {
     wave.row.querySelectorAll('.paper-ripple-bg').forEach(
         (DivElement element) => element.style.opacity = outerAlpha.toString());
@@ -169,7 +171,7 @@ class ALaCarteCardView extends ALaCartePageCommon {
     });
   }
 
-  Wave _createWave(DivElement row) {
+  _Wave _createWave(DivElement row) {
     var fgColor = row.getComputedStyle().color;
     var wave = new List<Element>();
     var wc = new List<Element>();
@@ -189,11 +191,11 @@ class ALaCarteCardView extends ALaCartePageCommon {
       wave.add(inner);
       wc.add(outer);
     }
-    return new Wave(
+    return new _Wave(
         maxRadius: 0.0, fgColor: fgColor, wave: wave, wc: wc, row: row);
   }
 
-  void _removeFromScope(Wave wave) {
+  void _removeFromScope(_Wave wave) {
     if (_waves.containsKey(wave.row) && _waves[wave.row].contains(wave)) {
       for (Element el in wave.wc) {
         el.remove();
@@ -205,7 +207,7 @@ class ALaCarteCardView extends ALaCartePageCommon {
     }
   }
 
-  void onDownOverRow(MouseEvent event) {
+  void rippleOverEntry(MouseEvent event) {
     Element target = event.target;
     var offsetX = 0;
     while (target != null && !target.classes.contains('table-body-row')) {
@@ -215,7 +217,7 @@ class ALaCarteCardView extends ALaCartePageCommon {
       target = target.parent;
     }
     var wave = _createWave(target);
-    wave.mouseDownWallClock = event.timeStamp;
+    wave.mouseDownWallClock = window.performance.now();
     wave.isMouseDown = true;
     var rectangle = target.client;
     var width = rectangle.width;
@@ -248,16 +250,16 @@ class ALaCarteCardView extends ALaCartePageCommon {
       waveDiv.style.backgroundColor = wave.fgColor;
     }
     if (!_waves.containsKey(wave.row)) {
-      _waves[wave.row] = <Wave>[];
+      _waves[wave.row] = <_Wave>[];
     }
     _waves[wave.row].add(wave);
     if (_requestedAnimationFrame == null) {
       _requestedAnimationFrame =
-          window.requestAnimationFrame((num frame) => _animate(frame));
+      window.requestAnimationFrame(_animate);
     }
   }
 
-  void onUpOverEntry(Element target, int timeStamp) {
+  void receiveUp(Element target, num timeStamp) {
     for (var wave in _waves[target]) {
       if (wave.isMouseDown) {
         wave.isMouseDown = false;
@@ -268,16 +270,7 @@ class ALaCarteCardView extends ALaCartePageCommon {
     }
     if (_requestedAnimationFrame == null) {
       _requestedAnimationFrame =
-          window.requestAnimationFrame((num frame) => _animate(frame));
-    }
-  }
-
-  void onTapEntry(Event event) {
-    String uuid;
-    for (Element target in event.path) {
-      if (target.classes.contains('table-body-row')) {
-        uuid = target.getAttribute('data-project-id');
-      }
+      window.requestAnimationFrame(_animate);
     }
   }
 
@@ -290,12 +283,13 @@ class ALaCarteCardView extends ALaCartePageCommon {
     return 'rgba(${match.group(1)}, $alpha)';
   }
 
-  void _animate(int timeStamp) {
+  void _animate(num timeStamp) {
     var wavesToDelete = [];
     var shouldRenderNextFrame = false;
     var longestTouchDownDuration = 0.0;
     var longestTouchUpDuration = 0.0;
     var lastWaveColor = null;
+    timeStamp = window.performance.now();
 
     for (var waveyRow in _waves.keys) {
       for (var wave in _waves[waveyRow]) {
@@ -333,7 +327,12 @@ class ALaCarteCardView extends ALaCartePageCommon {
         var shouldKeepWave = !waveDissipated;
         var shouldRenderWaveAgain =
             (wave.mouseUpMs <= 0) ? !maximumWave : !waveDissipated;
-        if (shouldRenderWaveAgain) {}
+        if (!shouldKeepWave) {
+          wavesToDelete.add(wave);
+        }
+        if (shouldRenderWaveAgain) {
+          shouldRenderNextFrame = true;
+        }
       }
     }
     if (shouldRenderNextFrame) {
@@ -366,7 +365,7 @@ class ALaCarteCardView extends ALaCartePageCommon {
   }
 }
 
-class Wave {
+class _Wave {
   final DivElement row;
   int clientWidth;
   int clientHeight;
@@ -388,7 +387,7 @@ class Wave {
   final List<Element> wave;
   final List<Element> wc;
 
-  Wave({double this.maxRadius, String this.fgColor, List<Element> this.wave,
+  _Wave({double this.maxRadius, String this.fgColor, List<Element> this.wave,
       List<Element> this.wc, Point this.startPosition, Point this.endPosition,
       int this.clientSize, int this.clientWidth, int this.clientHeight,
       DivElement this.row});
