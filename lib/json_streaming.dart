@@ -537,13 +537,14 @@ class JsonStreamingParser {
         break;
       } else if (bufferGetter(buffer, i) == 92) {
         i++;
+        final int nextBufferCode = bufferGetter(buffer, i);
         if (i >= loaded) return loaded;
-        if (bufferGetter(buffer, i) == 34 ||
-            bufferGetter(buffer, i) == 92 ||
-            bufferGetter(buffer, i) == 47) {
+        if (nextBufferCode == 34 ||
+            nextBufferCode == 92 ||
+            nextBufferCode == 47) {
           thisString.writeCharCode(bufferGetter(buffer, i));
         } else {
-          switch (bufferGetter(buffer, i)) {
+          switch (nextBufferCode) {
             case 98:
               thisString.writeCharCode(8);
               break;
@@ -551,10 +552,10 @@ class JsonStreamingParser {
               thisString.writeCharCode(12);
               break;
             case 110:
-              thisString.writeCharCode(13);
+              thisString.writeCharCode(10);
               break;
             case 114:
-              thisString.writeCharCode(10);
+              thisString.writeCharCode(13);
               break;
             case 116:
               thisString.writeCharCode(9);

@@ -13,8 +13,6 @@ class Project extends JsonCanSync {
   @observable String initials;
   @observable String streetAddress;
 
-  Map _jsonOld = {};
-
   Map _json = {};
   Project(String this.id);
   Map get json => _json;
@@ -26,39 +24,13 @@ class Project extends JsonCanSync {
     jobNumber = values['jobNumber'];
     initials = values['initials'];
     streetAddress = values['streetAddress'];
-
-    changes.listen((changes) {
-      bool changeIsValid = false;
-      for (var change in changes) {
-        if (change.name == #name) {
-          var tempOldName = _oldName;
-          nameChanged(tempOldName);
-          if (name != tempOldName) {
-            changeIsValid = true;
-          }
-        } else if (change is PropertyChangeRecord &&
-            change.name != #json &&
-            change.name != #isSynced) changeIsValid = true;
-      }
-      if (changeIsValid) {
-        notifyPropertyChange(#json, _jsonOld = _json, _json = _jsonGetter());
-      }
-    });
   }
 
-  void nameChanged(String oldValue) {
-    if (committed && oldValue != null) {
-      var allSpaces = new RegExp(r'''^\s*$''');
-      if (allSpaces.hasMatch(name) && !allSpaces.hasMatch(oldValue)) {
-        _oldName = name;
-        name = oldValue;
-        return;
-      }
-    }
-    _oldName = name;
+  void resetToSavedState() {
+    initFromJSON(_json);
   }
 
-  Map _jsonGetter() => {
+  Map jsonGetter() => {
     'name': name,
     'jobNumber': jobNumber,
     'initials': initials,

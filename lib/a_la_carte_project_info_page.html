@@ -6,6 +6,8 @@
 <link rel="import" href="../../packages/paper_elements/paper_input.html"/>
 <link rel="import"
       href="../../packages/paper_elements/paper_input_decorator.html"/>
+<link rel="import" href="../../packages/paper_elements/paper_action_dialog.html"/>
+<link rel="import" href="../../packages/paper_elements/paper_button.html"/>
 <link rel="import" href="../../packages/paper_elements/paper_icon_button.html"/>
 <link rel="import" href="../../packages/paper_elements/paper_item.html"/>
 <link rel="import" href="../../packages/paper_elements/paper_tabs.html"/>
@@ -26,6 +28,7 @@
         <h4>General Options</h4>
         <paper-input-decorator
             label="Job #"
+            error="Job number is required"
             id="jobNumber">
           <input
             is="core-input"
@@ -34,15 +37,17 @@
             preventInvalidInput
             value="{{project.jobNumber}}">
         </paper-input-decorator>
-        <paper-input
+        <paper-input-decorator
             label="Project Name"
             id="name"
-            required
-            error="Please enter a project name"
-            value="{{project.name}}">
-        </paper-input>
+            error="Please enter a project name">
+            <input
+                is="core-input"
+                required
+                value="{{project.name}}">
+        </paper-input-decorator>
         <paper-input-decorator id="streetAddress" label="Street Address">
-          <paper-autogrow-textarea>
+          <paper-autogrow-textarea id="street-address-textarea">
             <textarea value="{{project.streetAddress}}"></textarea>
           </paper-autogrow-textarea>
         </paper-input-decorator>

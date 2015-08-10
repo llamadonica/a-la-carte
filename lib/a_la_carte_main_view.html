@@ -35,34 +35,39 @@
                  attributes="project projects wide appSelected prevAppSelected responsiveWidth projectsAreLoaded noProjectsFound selected appRouter projectsByUuid"
                  vertical
                  layout>
-  <template bind>
-    <link rel="stylesheet" href="a_la_carte_main_view.css">
-    <a-la-carte-scaffold
-        fabIcon="{{currentPage == null ?'': currentPage.fabIcon}}"
-        titleOverride="A La Carte"
-        backgroundImage="{{currentPage == null ?'': currentPage.backgroundImage}}"
-        cross-fade-delayed
-        narrow="{{!wide}}"
-        responsiveWidth="{{responsiveWidth}}"
-        on-dgs-fab-action="{{routeFabAction}}">
-      <core-header-panel navigation flex mode="seamed">
-        <div id="nav-menu-box">
-        <core-menu selected="{{selected}}" theme="core-light-theme">
-          <core-item id="basic-info-menu-item" icon="settings" label="All projects" active></core-item>
-          <core-item id="add-form-menu-item" icon="add-circle" label="Add a project"></core-item>
-        </core-menu>
-        </div>
-      </core-header-panel>
-      <core-pages class="content" selected="{{selected}}">
-        <a-la-carte-card-view project="{{project}}" projects="{{projects}}"
-                              projectsAreLoaded="{{projectsAreLoaded}}"
-                              noProjectsFound="{{noProjectsFound}}"
-                              appPager="{{this}}"></a-la-carte-card-view>
-          <a-la-carte-project-info-page project="{{project}}"
-                                        appPager="{{this}}}"
-                  ></a-la-carte-project-info-page>
-      </core-pages>
-    </a-la-carte-scaffold>
-  </template>
-  <script type="application/dart" src="a_la_carte_main_view.dart"></script>
+    <template bind>
+        <link rel="stylesheet" href="a_la_carte_main_view.css">
+        <a-la-carte-scaffold
+                fabIcon="{{currentPage == null ?'': currentPage.fabIcon}}"
+                titleOverride="A La Carte"
+                backgroundImage="{{currentPage == null ?'': currentPage.backgroundImage}}"
+                cross-fade-delayed
+                narrow="{{!wide}}"
+                responsiveWidth="{{responsiveWidth}}"
+                on-dgs-fab-action="{{routeFabAction}}">
+            <core-header-panel navigation flex mode="seamed">
+                <div id="nav-menu-box">
+                    <core-menu selected="{{selected}}" theme="core-light-theme">
+                        <core-item id="basic-info-menu-item" icon="settings" label="All projects" active></core-item>
+                        <core-item id="add-form-menu-item" icon="add-circle" label="{{projectEditViewCaption}}"></core-item>
+                    </core-menu>
+                </div>
+            </core-header-panel>
+            <core-pages class="content" selected="{{selectedPage}}">
+                <a-la-carte-card-view project="{{project}}" projects="{{projects}}"
+                                      projectsAreLoaded="{{projectsAreLoaded}}"
+                                      noProjectsFound="{{noProjectsFound}}"
+                                      appPager="{{this}}"></a-la-carte-card-view>
+                <a-la-carte-project-info-page project="{{project}}"
+                                              appPager="{{this}}"
+                        ></a-la-carte-project-info-page>
+            </core-pages>
+        </a-la-carte-scaffold>
+        <paper-action-dialog id="discardDialog" backdrop layered autoCloseDisabled>
+            <p>Discard edits?</p>
+            <paper-button affirmative on-tap="{{confirmDiscardEdits}}">Discard</paper-button>
+            <paper-button affirmative on-tap="{{cancelDiscardEdits}}">Cancel</paper-button>
+        </paper-action-dialog>
+    </template>
+    <script type="application/dart" src="a_la_carte_main_view.dart"></script>
 </polymer-element>

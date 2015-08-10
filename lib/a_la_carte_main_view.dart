@@ -2,6 +2,7 @@ import 'dart:html';
 import 'dart:async';
 
 import 'package:core_elements/core_animated_pages.dart';
+import 'package:paper_elements/paper_action_dialog.dart';
 import 'package:paper_elements/paper_input.dart';
 import 'package:polymer/polymer.dart';
 import 'package:uuid/uuid.dart';
@@ -26,10 +27,12 @@ class ALaCarteMainView extends PolymerElement implements AppPager {
   @published String responsiveWidth;
 
   @observable String navigation = "Basic Settings";
+  @observable String projectEditViewCaption = "Add a project";
 
   @observable ALaCartePageCommon currentPage;
   @observable ObservableList<ALaCartePageCommon> pages;
   @PublishedProperty(reflect: true) int selected = 0;
+  @observable int selectedPage = 0;
 
   @published AppRouter appRouter;
   StreamSubscription<List<String>> _appRouterNavigationSubscription;
@@ -75,6 +78,25 @@ class ALaCarteMainView extends PolymerElement implements AppPager {
     } else {
       currentPage = pages[selected];
     }
+    if (project.isChanged && selected == 0 && selectedPage == 1) {
+      PaperActionDialog discardDialog = $['discardDialog'];
+      discardDialog.open();
+      return;
+    }
+    selectedPage = selected;
+    if (selected == 0) {
+      setToNewProject();
+    }
+  }
+
+  void confirmDiscardEdits(MouseEvent event) {
+    selectedPage = selected;
+    project.resetToSavedState();
+    setToNewProject();
+  }
+
+  void cancelDiscardEdits(MouseEvent event) {
+    selected = selectedPage;
   }
 
   void onAppNavigationEvent(List<String> event) {
@@ -98,10 +120,18 @@ class ALaCarteMainView extends PolymerElement implements AppPager {
     }
   }
 
-  void setToNewProject() {
+  @override void setToNewProject() {
     project = new Project(new Uuid().v4());
+    projectEditViewCaption = "Add a project";
   }
-  void openProject(String uuid) {
+  @override void openProject(String uuid) {
     project = projectsByUuid[uuid];
+    projectEditViewCaption = "View this project";
+  }
+  @override void setProjectHasChanged([bool changed=true]) {
+    if (selected == 1 && project.committed) {
+      appRouter.setUrl('/+edit/${project.id}', '');
+      projectEditViewCaption = "Edit this project";
+    }
   }
 }
