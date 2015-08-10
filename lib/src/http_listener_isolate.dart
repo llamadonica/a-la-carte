@@ -99,10 +99,19 @@ class HttpListenerIsolate {
   dynamic divertJsonRequest(
           shelf.Handler standardHandler, shelf.Handler jsonHandler) =>
       (shelf.Request request) {
-    var accept = request.headers['Accept'];
-    if (accept != null &&
-        accept is String &&
-        accept.contains('application/json')) return jsonHandler(request);
+        if (request.method == 'GET' || request.method == 'HEAD') {
+          var accept = request.headers['Accept'];
+          if (accept != null &&
+          accept is String &&
+          accept.contains('application/json')) return jsonHandler(request);
+        } else if (request.method == 'PUT' || request.method == 'POST') {
+          var contentType = request.headers['Content-Type'];
+          if (contentType != null && contentType is String && contentType.contains('application/json')) {
+            return jsonHandler(request);
+          }
+        } else if (request.method == 'DELETE') {
+          return jsonHandler(request);
+        }
     return standardHandler(request);
   };
 

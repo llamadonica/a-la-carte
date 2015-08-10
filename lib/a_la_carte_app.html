@@ -41,6 +41,9 @@
       <div class="toast-connectivity-retry" on-tap="{{retryProjectsData}}">Retry
       </div>
     </paper-toast>
+      <paper-toast duration="600000" autoCloseDisabled id="toast-module-error"
+                   text="{{moduleErrorMessage}}">
+      </paper-toast>
     <core-media-query
         query="min-width: {{responsiveWidth}}px"
         queryMatches="{{wide}}">

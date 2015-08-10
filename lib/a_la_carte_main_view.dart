@@ -129,9 +129,14 @@ class ALaCarteMainView extends PolymerElement implements AppPager {
     projectEditViewCaption = "View this project";
   }
   @override void setProjectHasChanged([bool changed=true]) {
-    if (selected == 1 && project.committed) {
+    if (selected == 1 && changed && project.committed) {
       appRouter.setUrl('/+edit/${project.id}', '');
       projectEditViewCaption = "Edit this project";
+    } else if (selected == 1 && project.committed) {
+      appRouter.setUrl('/+view/${project.id}', '');
+      projectEditViewCaption = "View this project";
     }
   }
+
+  @override void reportError(ErrorReportModule module, String errorMessage) => appRouter.reportError(module, errorMessage);
 }

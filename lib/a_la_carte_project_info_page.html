@@ -17,48 +17,54 @@
 <link rel="import" href="../../packages/core_elements/core_pages.html"/>
 
 <polymer-element
-    name="a-la-carte-project-info-page"
-    attributes="project appPager"
-    vertical
-    layout>
-  <template bind>
-    <link rel="stylesheet" href="a_la_carte_project_info_page.css" />
-    <div class="tabbed-page" layout vertical fit>
-      <div class="page-contents">
-        <h4>General Options</h4>
-        <paper-input-decorator
-            label="Job #"
-            error="Job number is required"
-            id="jobNumber">
-          <input
-            is="core-input"
-            placeholder
-            type="number"
-            preventInvalidInput
-            value="{{project.jobNumber}}">
-        </paper-input-decorator>
-        <paper-input-decorator
-            label="Project Name"
-            id="name"
-            error="Please enter a project name">
-            <input
-                is="core-input"
-                required
-                value="{{project.name}}">
-        </paper-input-decorator>
-        <paper-input-decorator id="streetAddress" label="Street Address">
-          <paper-autogrow-textarea id="street-address-textarea">
-            <textarea value="{{project.streetAddress}}"></textarea>
-          </paper-autogrow-textarea>
-        </paper-input-decorator>
-        <core-label horizontal layout>
-          <paper-checkbox
-            checked?="{{project.isActive}}">
-          </paper-checkbox>
-          <h4>Active job?</h4>
-        </core-label>
-      </div>
-    </div>
-  </template>
-  <script type="application/dart" src="a_la_carte_project_info_page.dart"></script>
+        name="a-la-carte-project-info-page"
+        attributes="project appPager projectsByUuid projects"
+        vertical
+        layout>
+    <template bind>
+        <link rel="stylesheet" href="a_la_carte_project_info_page.css"/>
+        <div class="tabbed-page" layout vertical fit>
+            <div class="page-contents">
+                <h4>General Options</h4>
+                <paper-input-decorator
+                        label="Job #"
+                        error="Job number is required"
+                        id="jobNumber">
+                    <input
+                            is="core-input"
+                            placeholder
+                            type="number"
+                            preventInvalidInput
+                            value="{{project.jobNumber}}">
+                </paper-input-decorator>
+                <paper-input-decorator
+                        label="Project Name"
+                        id="name"
+                        error="Please enter a project name">
+                    <input
+                            is="core-input"
+                            required
+                            value="{{project.name}}">
+                </paper-input-decorator>
+                <paper-input-decorator id="streetAddress"
+                                       label="Street Address">
+                    <paper-autogrow-textarea id="street-address-textarea">
+                        <textarea value="{{project.streetAddress}}"></textarea>
+                    </paper-autogrow-textarea>
+                </paper-input-decorator>
+                <core-label horizontal layout>
+                    <paper-checkbox
+                            checked?="{{project.isActive}}">
+                    </paper-checkbox>
+                    <h4>Active job?</h4>
+                </core-label>
+                <paper-button id="deleteProjectButton" class="custom">
+                    <core-icon icon="delete"></core-icon>
+                    delete
+                </paper-button>
+            </div>
+        </div>
+    </template>
+    <script type="application/dart"
+            src="a_la_carte_project_info_page.dart"></script>
 </polymer-element>

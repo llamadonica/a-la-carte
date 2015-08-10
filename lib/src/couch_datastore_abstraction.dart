@@ -3,6 +3,14 @@
 
 part of a_la_carte.server;
 
+class Ref<T> {
+  T value;
+
+  Ref();
+
+  Ref.withValue(T this.value);
+}
+
 class CouchDatastoreAbstraction {
   final int port;
   CouchDatastoreAbstraction(int this.port);
@@ -22,11 +30,32 @@ class CouchDatastoreAbstraction {
       for (var header in headers.keys) {
         request.headers.add(header, headers[header]);
       }
+      bool postRequestIsChunked = false;
+      var contentLength = new Ref<int>.withValue(0);
+
       if (method == 'GET' || method == 'HEAD' || method == 'DELETE') {
         request.close();
+      } else {
+        if (headers.containsKey('Transfer-Encoding') && headers['Transfer-Encoding'] == 'chunked') {
+          postRequestIsChunked = true;
+        } else {
+          try {
+            contentLength.value = int.parse(headers['Content-Length']);
+          } catch (err) {
+            request.close();
+          }
+        }
       }
       input.listen((data) {
         request.add(data);
+        if (postRequestIsChunked && data.length == 0) {
+          request.close();
+        } else if (!postRequestIsChunked) {
+          contentLength.value -= data.length;
+          if (contentLength.value <= 0) {
+            request.close();
+          }
+        }
       }, onDone: () {
         request.close();
       });
@@ -41,15 +70,23 @@ class CouchDatastoreAbstraction {
           output.add(encoder.convert('$headerName: $headerValue\r\n'));
         }
       });
+      bool chunkedResponse = false;
+      chunkedResponse = response.headers.chunkedTransferEncoding;
       output.add(encoder.convert('Access-Control-Allow-Origin: *\r\n'));
       output.add([13,10]);
       response.listen((data) {
-        output.add(encoder.convert('${data.length.toRadixString(16)}\r\n'));
+        if (chunkedResponse) {
+          output.add(encoder.convert('${data.length.toRadixString(16)}\r\n'));
+        }
         output.add(data);
-        output.add([13,10]);
+        if (chunkedResponse) {
+          output.add([13, 10]);
+        }
       }, onDone: () {
-        output.add([48,13,10,13,10]);
-        print('Closed conection for IO. Isolate: ${Isolate.current.hashCode}');
+        if (chunkedResponse) {
+          output.add([48, 13, 10, 13, 10]);
+        } else {
+        }
         output.close();
       }, onError: (error, stackTrace) {
         output.addError(error, stackTrace);

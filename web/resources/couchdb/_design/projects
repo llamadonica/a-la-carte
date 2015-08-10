@@ -3,6 +3,11 @@
    "views": {
        "all_by_job_number": {
            "map": "function(doc){if (doc.type == \"project\") { emit(doc.jobNumber, {jobNumber: doc.jobNumber, name: doc.name, streetAddress: doc.streetAddress, isActive: doc.isActive})}}"
+       },
+       "greatest_job_number": {
+           "map": "function(doc){if (doc.type == \"project\") { emit(doc.jobNumber, doc.jobNumber)}}",
+           "reduce": "function(key, values, rereduce) {return Math.max.apply(null, values);}"
        }
-   }
+   },
+   "validate_doc_update": "function(newDoc, oldDoc, userCtx, secObj) {if (newDoc.type != 'project') return;if (newDoc.jobNumber === undefined || newDoc.jobNumber === null) {throw({forbidden: 'Each project must have a job number.'});}if (newDoc.name === undefined || newDoc.name === null) { throw({forbidden: 'Each project must have a name.'});}}"
 }

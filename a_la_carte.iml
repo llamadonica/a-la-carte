@@ -6,14 +6,9 @@
       <excludeFolder url="file://$MODULE_DIR$/.pub" />
       <excludeFolder url="file://$MODULE_DIR$/bin/packages" />
       <excludeFolder url="file://$MODULE_DIR$/build" />
-      <excludeFolder url="file://$MODULE_DIR$/packages/a_la_carte" />
-      <excludeFolder url="file://$MODULE_DIR$/web/components/.sass-cache/3746710bfe7e0b2975954c3a0118ba047eb1860b/packages" />
-      <excludeFolder url="file://$MODULE_DIR$/web/components/.sass-cache/595fac6b687c9031debfb4ea4c8b3511cc17aba3/packages" />
-      <excludeFolder url="file://$MODULE_DIR$/web/components/.sass-cache/b4dc5ef3282a087fe58bacd7d9b56433752b3ac9/packages" />
-      <excludeFolder url="file://$MODULE_DIR$/web/components/.sass-cache/b6b23c14bf1636697e7a57429f6b8f3472c5938f/packages" />
-      <excludeFolder url="file://$MODULE_DIR$/web/components/.sass-cache/packages" />
-      <excludeFolder url="file://$MODULE_DIR$/web/components/packages" />
       <excludeFolder url="file://$MODULE_DIR$/lib/src/model/packages" />
+      <excludeFolder url="file://$MODULE_DIR$/packages/a_la_carte" />
+      <excludeFolder url="file://$MODULE_DIR$/web/components/packages" />
       <excludeFolder url="file://$MODULE_DIR$/web/packages" />
       <excludeFolder url="file://$MODULE_DIR$/web/resources/couchdb/_design/packages" />
       <excludeFolder url="file://$MODULE_DIR$/web/resources/couchdb/packages" />

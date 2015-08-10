@@ -27,6 +27,7 @@ class ALaCarteApp extends PolymerElement implements AppRouter {
   @observable String selected = 'main-view';
   @observable String prevSelected = null;
   @observable String connectivityErrorMessage = null;
+  @observable String moduleErrorMessage = null;
   int responsiveWidth = 600;
   @observable bool wide;
   @observable Project project;
@@ -82,7 +83,7 @@ class ALaCarteApp extends PolymerElement implements AppRouter {
   }
 
   @override ready() {
-    PaperToast connectivityToast = $['toast-connectivity'];
+    final PaperToast connectivityToast = $['toast-connectivity'];
     connectivityToast.autoCloseDisabled = true;
     getProjectsData();
 
@@ -99,7 +100,7 @@ class ALaCarteApp extends PolymerElement implements AppRouter {
   }
 
   void retryProjectsData() {
-    PaperToast connectivityToast = $['toast-connectivity'];
+    final PaperToast connectivityToast = $['toast-connectivity'];
     connectivityToast.dismiss();
     isError = false;
     noProjectsFound = false;
@@ -109,14 +110,14 @@ class ALaCarteApp extends PolymerElement implements AppRouter {
   }
 
   void getProjectsData() {
-    var jsonHandler = new JsonStreamingParser();
+    final jsonHandler = new JsonStreamingParser();
     connectivityErrorMessage = null;
     jsonHandler.onSymbolComplete.listen(routeProjectLoadingEvent);
 
     if (fetch == null) {
       _request = new HttpRequest();
       _request.open('GET',
-          '/a_la_carte/_design/projects/_view/all_by_job_number?descending=true');
+      '/a_la_carte/_design/projects/_view/all_by_job_number?descending=true&include_docs=true');
       _request.setRequestHeader('Accept', 'application/json');
 
       _request.onLoad.listen(jsonHandler.httpRequestListener);
@@ -125,7 +126,7 @@ class ALaCarteApp extends PolymerElement implements AppRouter {
       _request.send();
     } else {
       fetch(
-          '/a_la_carte/_design/projects/_view/all_by_job_number?descending=true',
+          '/a_la_carte/_design/projects/_view/all_by_job_number?descending=true&include_docs=true',
           headers: {'Accept': 'application/json'}).then((object) {
         jsonHandler.setStreamStateFromResponse(object);
         jsonHandler.streamFromByteStreamReader(object.body.getReader());
@@ -135,12 +136,12 @@ class ALaCarteApp extends PolymerElement implements AppRouter {
 
   _onProjectsDataError(ProgressEvent event) {
     if (_request.status != 200) {
-      var json = JSON.decode(_request.responseText);
+      final json = JSON.decode(_request.responseText);
       connectivityErrorMessage = json['message'];
       if (connectivityErrorMessage == null) {
         connectivityErrorMessage = errorMessages[json['error']];
       }
-      PaperToast connectivityToast = $['toast-connectivity'];
+      final PaperToast connectivityToast = $['toast-connectivity'];
       connectivityToast.show();
     }
   }
@@ -151,7 +152,7 @@ class ALaCarteApp extends PolymerElement implements AppRouter {
 
   setUrl(String url, String title, {bool pushNewState: true}) {
     if (_useFragment) {
-      var regExp = new RegExp(r'^/');
+      final regExp = new RegExp(r'^/');
       url = url.replaceFirst(regExp, '#');
       window.location.assign(url);
       (window.document as HtmlDocument).title = title;
@@ -170,7 +171,7 @@ class ALaCarteApp extends PolymerElement implements AppRouter {
       if (connectivityErrorMessage == null) {
         connectivityErrorMessage = errorMessages[event.symbol];
       } else {
-        PaperToast connectivityToast = $['toast-connectivity'];
+        final PaperToast connectivityToast = $['toast-connectivity'];
         connectivityToast.show();
         projectsAreLoaded = true;
         noProjectsFound = true;
@@ -181,7 +182,7 @@ class ALaCarteApp extends PolymerElement implements AppRouter {
       return;
     } else if (event.path.length == 0) {
       if (isError && !projectsAreLoaded) {
-        PaperToast connectivityToast = $['toast-connectivity'];
+        final PaperToast connectivityToast = $['toast-connectivity'];
         connectivityToast.show();
         projectsAreLoaded = true;
         noProjectsFound = true;
@@ -191,7 +192,7 @@ class ALaCarteApp extends PolymerElement implements AppRouter {
     if (event.path.length > 2) return;
     if (event.path.length == 2) {
       final project = new Project(event.symbol['id']);
-      project.initFromJSON(event.symbol['value']);
+      project.initFromJSON(event.symbol['doc']);
       projects.add(project);
       projectsByUuid[project.id] = project;
       project.committed = true;
@@ -201,5 +202,12 @@ class ALaCarteApp extends PolymerElement implements AppRouter {
     if (projects.length == 0) {
       noProjectsFound = true;
     }
+  }
+
+  @override
+  void reportError(ErrorReportModule module, String message) {
+    moduleErrorMessage = message;
+    final PaperToast toastModuleError = $['toast-module-error'];
+    toastModuleError.show();
   }
 }
