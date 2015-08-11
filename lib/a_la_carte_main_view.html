@@ -39,6 +39,7 @@
         <link rel="stylesheet" href="a_la_carte_main_view.css">
         <a-la-carte-scaffold
                 fabIcon="{{currentPage == null ?'': currentPage.fabIcon}}"
+                fabDisabled?="{{currentPage == null ? false : currentPage.fabDisabled}}"
                 titleOverride="A La Carte"
                 backgroundImage="{{currentPage == null ?'': currentPage.backgroundImage}}"
                 cross-fade-delayed

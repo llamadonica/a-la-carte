@@ -9,4 +9,5 @@ abstract class AppRouter {
   Stream<List<String>> get onAppNavigationEvent;
 
   void reportError(ErrorReportModule module, String message);
+  Future<int> nextJobNumber(int year);
 }

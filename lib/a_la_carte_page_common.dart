@@ -17,6 +17,7 @@ abstract class ALaCartePageCommon extends PolymerElement {
   ALaCartePageCommon.created() : super.created();
 
   @observable String fabIcon;
+  @observable bool fabDisabled = false;
   String get backgroundImage;
   void fabAction();
 

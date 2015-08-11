@@ -20,8 +20,12 @@ class ALaCarteProjectInfoPage extends ALaCartePageCommon {
   @published Map<String, Project> projectsByUuid;
   @published List<Project> projects;
   StreamSubscription _projectChangeListener;
+  bool _fabWillBeDisabled = false;
+  @observable bool showProgress;
+
   ALaCarteProjectInfoPage.created() : super.created() {
     fabIcon = null;
+    showProgress = false;
   }
 
   void projectChanged(oldProject) {
@@ -89,6 +93,9 @@ class ALaCarteProjectInfoPage extends ALaCartePageCommon {
 
   @override
   void fabAction() {
+    _fabWillBeDisabled = true;
+    fabDisabled = true;
+    showProgress = true;
     putProjectDataToServer(project.id, project.json);
   }
 
@@ -118,7 +125,13 @@ class ALaCarteProjectInfoPage extends ALaCartePageCommon {
   }
 
   void routeProjectSavingJsonReply(JsonStreamingEvent event, Project project) {
-    if (event.status >= 400 && event.status < 599) {
+    final Duration enableDelay = new Duration(milliseconds: 1020);
+    if (event.status >= 400 && event.status < 599 && event.path.length == 0) {
+      _fabWillBeDisabled = false;
+      showProgress = false;
+      new Timer(enableDelay, () {
+          fabDisabled = _fabWillBeDisabled;
+      });
       final error = event.symbol['error'];
       String message = event.symbol['reason'];
       switch (error) {
@@ -129,6 +142,11 @@ class ALaCarteProjectInfoPage extends ALaCartePageCommon {
       }
       appPager.reportError(ErrorReportModule.projectSaver, message);
     } else if (event.status == 201 && event.path.length == 0) {
+      _fabWillBeDisabled = false;
+      showProgress = false;
+      new Timer(enableDelay, () {
+          fabDisabled = _fabWillBeDisabled;
+      });
       if (!project.committed) {
         projectsByUuid[project.id] = project;
         Project.insertIntoPresortedList(project, projects);

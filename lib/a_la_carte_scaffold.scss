@@ -4,6 +4,13 @@
   display: block;
 }
 
+:host([fabdisabled]) {
+    paper-fab {
+        pointer-events: none;
+        background-color: #eaeaea;
+    }
+}
+
 #main-action {
   position: absolute;
   right: 16px;

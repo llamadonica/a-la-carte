@@ -123,6 +123,13 @@ class ALaCarteMainView extends PolymerElement implements AppPager {
   @override void setToNewProject() {
     project = new Project(new Uuid().v4());
     projectEditViewCaption = "Add a project";
+    DateTime currentTime = new DateTime.now();
+    appRouter.nextJobNumber(currentTime.year).then((nextNumber) {
+      if (project.jobNumber == null) {
+        project.jobNumber = nextNumber;
+        project.isChanged = false;
+      }
+    });
   }
   @override void openProject(String uuid) {
     project = projectsByUuid[uuid];
@@ -139,4 +146,7 @@ class ALaCarteMainView extends PolymerElement implements AppPager {
   }
 
   @override void reportError(ErrorReportModule module, String errorMessage) => appRouter.reportError(module, errorMessage);
+
+  @override
+  Future<int> nextJobNumber(int year) => appRouter.nextJobNumber(year);
 }

@@ -210,4 +210,41 @@ class ALaCarteApp extends PolymerElement implements AppRouter {
     final PaperToast toastModuleError = $['toast-module-error'];
     toastModuleError.show();
   }
+
+  @override
+  Future<int> nextJobNumber(int year) {
+    final Completer<int> completer = new Completer<int>();
+    final jsonHandler = new JsonStreamingParser();
+    jsonHandler.onSymbolComplete.listen((event) => _processNextJobNumber(event, completer, year));
+    if (fetch == null) {
+      _request = new HttpRequest();
+      _request.open('GET',
+      '/a_la_carte/_design/projects/_view/greatest_job_number?key=$year');
+      _request.setRequestHeader('Accept', 'application/json');
+
+      _request.onLoad.listen(jsonHandler.httpRequestListener);
+      _request.onProgress.listen(jsonHandler.httpRequestListener);
+
+      _request.send();
+    } else {
+      fetch(
+          '/a_la_carte/_design/projects/_view/greatest_job_number?key=$year',
+          headers: {'Accept': 'application/json'}).then((object) {
+        jsonHandler.setStreamStateFromResponse(object);
+        jsonHandler.streamFromByteStreamReader(object.body.getReader());
+      });
+    }
+    return completer.future;
+  }
+
+  void _processNextJobNumber(JsonStreamingEvent event, Completer<int> completer, int year) {
+    if (event.path.length != 0) {
+      return;
+    }
+    if (event.symbol['rows'].length == 0) {
+      completer.complete(year*1000 + 1);
+    } else {
+      completer.complete(event.symbol['rows'][0]['value'] + 1);
+    }
+  }
 }
