@@ -5,6 +5,7 @@ import 'dart:html';
 import 'package:polymer/polymer.dart';
 import 'package:paper_elements/paper_autogrow_textarea.dart';
 import 'package:paper_elements/paper_input_decorator.dart';
+import 'package:paper_elements/paper_progress.dart';
 import 'fetch_interop.dart';
 
 import 'package:a_la_carte/models.dart';
@@ -21,11 +22,10 @@ class ALaCarteProjectInfoPage extends ALaCartePageCommon {
   @published List<Project> projects;
   StreamSubscription _projectChangeListener;
   bool _fabWillBeDisabled = false;
-  @observable bool showProgress;
 
   ALaCarteProjectInfoPage.created() : super.created() {
     fabIcon = null;
-    showProgress = false;
+    $['showProgress'].classes.remove('showing');
   }
 
   void projectChanged(oldProject) {
@@ -95,7 +95,7 @@ class ALaCarteProjectInfoPage extends ALaCartePageCommon {
   void fabAction() {
     _fabWillBeDisabled = true;
     fabDisabled = true;
-    showProgress = true;
+    $['showProgress'].classes.add('showing');
     putProjectDataToServer(project.id, project.json);
   }
 
@@ -120,15 +120,23 @@ class ALaCarteProjectInfoPage extends ALaCartePageCommon {
       .then((Response object) {
         jsonHandler.setStreamStateFromResponse(object);
         jsonHandler.streamFromByteStreamReader(object.body.getReader());
+      })
+      .catchError((err) {
+
       });
     }
+  }
+
+  void _onHttpRequestError(ProgressEvent event) {
+  }
+  void routeProjectSavingError(err) {
   }
 
   void routeProjectSavingJsonReply(JsonStreamingEvent event, Project project) {
     final Duration enableDelay = new Duration(milliseconds: 1020);
     if (event.status >= 400 && event.status < 599 && event.path.length == 0) {
       _fabWillBeDisabled = false;
-      showProgress = false;
+      $['showProgress'].classes.remove('showing');
       new Timer(enableDelay, () {
           fabDisabled = _fabWillBeDisabled;
       });
@@ -143,7 +151,7 @@ class ALaCarteProjectInfoPage extends ALaCartePageCommon {
       appPager.reportError(ErrorReportModule.projectSaver, message);
     } else if (event.status == 201 && event.path.length == 0) {
       _fabWillBeDisabled = false;
-      showProgress = false;
+      $['showProgress'].classes.remove('showing');
       new Timer(enableDelay, () {
           fabDisabled = _fabWillBeDisabled;
       });

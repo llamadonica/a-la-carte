@@ -33,7 +33,7 @@ paper-progress {
     height: 0;
     transition: height 500ms;
     position: absolute;
-    &[showing] {
+    &.showing {
         height: 4px;
     }
     /deep/ {
