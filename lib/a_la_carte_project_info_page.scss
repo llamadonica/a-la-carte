@@ -26,6 +26,12 @@
 #deleteProjectButton {
     color: #d34336;
     margin-top: 2em;
+    transform-origin: 50% 0%;
+    transition: transform 500ms;
+    transform: scaleY(0);
+    &[showing] {
+        transform: none;
+    }
 }
 
 paper-progress {

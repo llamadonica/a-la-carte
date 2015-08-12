@@ -37,15 +37,12 @@ class ALaCarteApp extends PolymerElement implements AppRouter {
   @observable ObservableList<Project> projects = new ObservableList();
   @observable ObservableMap<String, Project> projectsByUuid =
       new ObservableMap();
-
   AppRouter get router => this;
   StreamController<List<String>> _onAppNavigationEvent =
       new StreamController<List<String>>();
-
   HttpRequest _request;
   int _endOfLastRequest = 0;
   int _startOfLastProject = 0;
-
   AppDelegate __appDelegate;
   DateTime readyTime;
   bool _useFragment = true;
@@ -53,33 +50,27 @@ class ALaCarteApp extends PolymerElement implements AppRouter {
   ALaCarteApp.created() : super.created() {
     _useFragment = !History.supportsState;
   }
+
   AppDelegate get _appDelegate {
     if (__appDelegate == null) __appDelegate = new AppDelegate();
     return __appDelegate;
   }
-  finishStartup() {
+
+  void _finishStartup() {
     if (window.location.hash == '') {
       setUrl('/+all', '');
       this.selected = 'all';
     } else {
       var regExp = new RegExp(r'^#');
       var url = window.location.hash.replaceFirst(regExp, '/');
-      goToUrl(url, setPathFromFragment: true);
+      _goToUrl(url, setPathFromFragment: true);
     }
     project = new Project(new Uuid().v4());
-    window.onPopState.listen(popState);
+    window.onPopState.listen(_popState);
   }
 
-  handleTemplateError(CustomEvent ev) {}
-
-  void popState(PopStateEvent e) {
-    goToUrl(window.location.pathname);
-  }
-  prepareAnimatedTransition(CustomEvent ev) {
-    window.console.log("Preparing transition.");
-    new Future(() {
-      window.console.log("In transition.");
-    });
+  void _popState(PopStateEvent e) {
+    _goToUrl(window.location.pathname);
   }
 
   @override ready() {
@@ -88,11 +79,11 @@ class ALaCarteApp extends PolymerElement implements AppRouter {
     getProjectsData();
 
     asyncTimer(() {
-      finishStartup();
+      _finishStartup();
     }, minDuration);
   }
 
-  void goToUrl(String path, {bool setPathFromFragment: false}) {
+  void _goToUrl(String path, {bool setPathFromFragment: false}) {
     _onAppNavigationEvent.add(path.split('/')..removeAt(0));
     if (setPathFromFragment) {
       setUrl(path, '', pushNewState: false);

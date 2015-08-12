@@ -72,6 +72,12 @@ enum RequestRedirect { follow, error, manual }
 
 JsFunction get _fetch => context['fetch'];
 
+class FetchError extends Error {
+  final String message;
+
+  FetchError(String this.message);
+}
+
 typedef Future<Response> Fetcher(String url, {String method,
     Map<String, Object> headers, Object body, RequestMode mode,
     RequestCredentials credentials, RequestCache cache,
@@ -109,7 +115,9 @@ Future<Response> fetch_internal(String url, {String method,
   JsObject promise = _fetch.apply([url, new JsObject.jsify(options)]);
   promise.callMethod('then', [
     (JsObject object) => completer.complete(new Response._internal(object)),
-    (object) => completer.completeError(object)
+        (JsObject object) {
+      completer.completeError(new FetchError(object['message']));
+    }
   ]);
   return completer.future;
 }

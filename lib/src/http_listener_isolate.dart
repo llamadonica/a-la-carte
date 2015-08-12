@@ -3,6 +3,8 @@ part of a_la_carte.server;
 class HttpListenerIsolate {
   final int _port;
   final int _isolateId;
+  static const String _user = 'a_la_carte';
+  static const String _password = 'a_la_carte';
   final SendPort _sessionMasterSendPort;
   final int couchPort;
   static const List<String> servedStatic = const [
@@ -83,7 +85,7 @@ class HttpListenerIsolate {
         .addMiddleware(addTimestamp())
         .addMiddleware(shelf.logRequests())
         .addHandler(addCookies((divertJsonRequest(handleRequest,
-            handleJsonRequest(new CouchDatastoreAbstraction(couchPort))))));
+    handleJsonRequest(new CouchDataStoreAbstraction(couchPort, _user, _password))))));
 
     var server = new HttpServer.listenOn(socket);
     serveRequests(server, handler);
@@ -115,7 +117,7 @@ class HttpListenerIsolate {
     return standardHandler(request);
   };
 
-  shelf.Handler handleJsonRequest(CouchDatastoreAbstraction datastore) =>
+  shelf.Handler handleJsonRequest(CouchDataStoreAbstraction datastore) =>
       (shelf.Request request) {
     request.hijack((input, output) => datastore.hijackRequest(
         input, output, request.method, request.requestedUri, request.headers));

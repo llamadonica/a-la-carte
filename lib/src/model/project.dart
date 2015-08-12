@@ -10,7 +10,7 @@ class Project extends JsonCanSync {
 
   @observable String name;
   String _oldName;
-  @observable int jobNumber;
+  @observable num jobNumber;
   @observable bool isActive;
   @observable String initials;
   @observable String streetAddress;
@@ -59,7 +59,7 @@ class Project extends JsonCanSync {
   Map jsonGetter() {
     var map = {
       'name': name,
-      'jobNumber': jobNumber,
+      'jobNumber': (jobNumber is double && jobNumber.isNaN) ? null : jobNumber,
       'initials': initials,
       'streetAddress': streetAddress,
       'type': 'project'

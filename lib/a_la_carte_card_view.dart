@@ -36,6 +36,7 @@ class ALaCarteCardView extends ALaCartePageCommon {
   Map<Element, List<_Wave>> _waves = new Map<Element, List<_Wave>>();
   int _requestedAnimationFrame = null;
   bool _backgroundFill = true;
+  StreamSubscription _projectsChangedListener;
 
   ALaCarteCardView.created() : super.created() {
     fabIcon = 'add';

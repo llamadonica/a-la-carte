@@ -17,8 +17,8 @@ dependencies:
 transformers:
 - sass:
     compass: true
+    executable: "c:\\Ruby22-x64\\bin\\sass.bat"
 - polymer:
     entry_points: web/index.html
 - $dart2js:
-    suppressWarnings: false
     $exclude: bin/server.dart

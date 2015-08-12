@@ -6,6 +6,7 @@ import 'package:polymer/polymer.dart';
 import 'package:paper_elements/paper_autogrow_textarea.dart';
 import 'package:paper_elements/paper_input_decorator.dart';
 import 'package:paper_elements/paper_progress.dart';
+import 'package:paper_elements/paper_action_dialog.dart';
 import 'fetch_interop.dart';
 
 import 'package:a_la_carte/models.dart';
@@ -20,6 +21,7 @@ class ALaCarteProjectInfoPage extends ALaCartePageCommon {
   @published AppPager appPager;
   @published Map<String, Project> projectsByUuid;
   @published List<Project> projects;
+  @observable bool projectIsCommitted;
   StreamSubscription _projectChangeListener;
   bool _fabWillBeDisabled = false;
 
@@ -52,10 +54,12 @@ class ALaCarteProjectInfoPage extends ALaCartePageCommon {
     }
     if (project.committed) {
       fabIcon = null;
+      projectIsCommitted = true;
       if (_projectSubscription != null) {
         _projectSubscription.cancel();
       }
     } else {
+      projectIsCommitted = false;
       fabIcon = 'check';
     }
     _projectChangeListener = project.changes.listen(projectFieldsChanged);
@@ -87,7 +91,6 @@ class ALaCarteProjectInfoPage extends ALaCartePageCommon {
     }
   }
 
-  // TODO: implement backgroundImage
   @override
   String get backgroundImage => null;
 
@@ -96,13 +99,82 @@ class ALaCarteProjectInfoPage extends ALaCartePageCommon {
     _fabWillBeDisabled = true;
     fabDisabled = true;
     $['showProgress'].classes.add('showing');
-    putProjectDataToServer(project.id, project.json);
+    _putProjectDataToServer(project.id, project.json);
   }
 
-  void putProjectDataToServer(String id, Map data) {
+  void deleteProject(MouseEvent event) {
+    PaperActionDialog deleteDialog = $['deleteDialog'];
+    deleteDialog.open();
+  }
+
+  void confirmDelete(MouseEvent event) {
+    if (!project.committed) return;
+    _fabWillBeDisabled = true;
+    fabDisabled = true;
+    $['showProgress'].classes.add('showing');
+    _deleteProjectDataFromServer(project.id, project.rev);
+  }
+
+  void _deleteProjectDataFromServer(String id, String rev) {
+    var jsonHandler = new JsonStreamingParser();
+    jsonHandler.onSymbolComplete.listen((event) => _routeProjectDeletingJsonReply(event, project));
+
+    if (fetch == null) {
+      final _request = new HttpRequest();
+      _request.open('DELETE', '/a_la_carte/${id}?rev=${rev}');
+      _request.setRequestHeader('Content-Type', 'application/json');
+
+      _request.onLoad.listen(jsonHandler.httpRequestListener);
+      _request.onProgress.listen(jsonHandler.httpRequestListener);
+      _request.onError.listen((event) => _onHttpRequestDeletingError(event, _request));
+
+      _request.send();
+    } else {
+      fetch('/a_la_carte/${id}?rev=${rev}',
+      method: 'DELETE', headers: {'Content-Type': 'application/json'})
+      .then((Response object) {
+        jsonHandler.setStreamStateFromResponse(object);
+        jsonHandler.streamFromByteStreamReader(object.body.getReader());
+      })
+      .catchError((FetchError err) {
+        _routeProjectServerError(err.message);
+      });
+    }
+  }
+
+  void _routeProjectDeletingJsonReply(JsonStreamingEvent event, Project project) {
+    final Duration enableDelay = new Duration(milliseconds: 1020);
+    if (event.status >= 400 && event.status < 599 && event.path.length == 0) {
+      _fabWillBeDisabled = false;
+      $['showProgress'].classes.remove('showing');
+      new Timer(enableDelay, () {
+        fabDisabled = _fabWillBeDisabled;
+      });
+      final error = event.symbol['error'];
+      String message = event.symbol['reason'];
+      switch (error) {
+        case 'conflict':
+          message = "I couldn't delete the project because someone else"
+          " changed it at the same time.";
+          break;
+      }
+      appPager.reportError(ErrorReportModule.projectSaver, message);
+    } else if (event.status == 200 && event.path.length == 0) {
+      _fabWillBeDisabled = false;
+      $['showProgress'].classes.remove('showing');
+      new Timer(enableDelay, () {
+        fabDisabled = _fabWillBeDisabled;
+      });
+      projectsByUuid.remove(project.id);
+      projects.remove(project);
+      appPager.selected = 0;
+    }
+  }
+
+  void _putProjectDataToServer(String id, Map data) {
     final String body = JSON.encode(project.jsonGetter());
     var jsonHandler = new JsonStreamingParser();
-    jsonHandler.onSymbolComplete.listen((event) => routeProjectSavingJsonReply(event, project));
+    jsonHandler.onSymbolComplete.listen((event) => _routeProjectSavingJsonReply(event, project));
 
     if (fetch == null) {
       final _request = new HttpRequest();
@@ -111,6 +183,7 @@ class ALaCarteProjectInfoPage extends ALaCartePageCommon {
 
       _request.onLoad.listen(jsonHandler.httpRequestListener);
       _request.onProgress.listen(jsonHandler.httpRequestListener);
+      _request.onError.listen((event) => _onHttpRequestSavingError(event, _request));
 
       _request.send(body);
     } else {
@@ -121,18 +194,34 @@ class ALaCarteProjectInfoPage extends ALaCartePageCommon {
         jsonHandler.setStreamStateFromResponse(object);
         jsonHandler.streamFromByteStreamReader(object.body.getReader());
       })
-      .catchError((err) {
-
+      .catchError((FetchError err) {
+        _routeProjectServerError(err.message);
       });
     }
   }
 
-  void _onHttpRequestError(ProgressEvent event) {
-  }
-  void routeProjectSavingError(err) {
+  void _onHttpRequestSavingError(ProgressEvent event, HttpRequest request) {
+    _routeProjectServerError(request.statusText);
   }
 
-  void routeProjectSavingJsonReply(JsonStreamingEvent event, Project project) {
+  void _onHttpRequestDeletingError(ProgressEvent event, HttpRequest request) {
+    _routeProjectServerError(request.statusText);
+  }
+
+  void _routeProjectServerError(String err) {
+    final Duration enableDelay = new Duration(milliseconds: 1020);
+    appPager.reportError(ErrorReportModule.projectSaver, err.toString());
+    _fabWillBeDisabled = false;
+    $['showProgress'].classes.remove('showing');
+    new Timer(enableDelay, () {
+      fabDisabled = _fabWillBeDisabled;
+    });
+    String message = "I couldn't save the changes because the connection to the"
+    " server was lost.";
+    appPager.reportError(ErrorReportModule.projectSaver, message);
+  }
+
+  void _routeProjectSavingJsonReply(JsonStreamingEvent event, Project project) {
     final Duration enableDelay = new Duration(milliseconds: 1020);
     if (event.status >= 400 && event.status < 599 && event.path.length == 0) {
       _fabWillBeDisabled = false;
@@ -161,6 +250,7 @@ class ALaCarteProjectInfoPage extends ALaCartePageCommon {
       }
       project.rev = event.symbol['rev'];
       project.committed = true;
+      projectIsCommitted = true;
       project.isChanged = false;
       appPager.setProjectHasChanged(false);
       fabIcon = null;

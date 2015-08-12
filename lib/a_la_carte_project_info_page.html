@@ -26,7 +26,8 @@
         <link rel="stylesheet" href="a_la_carte_project_info_page.css"/>
         <div class="tabbed-page" layout vertical fit>
             <div class="page-contents">
-                <paper-progress id="showingProgress" indeterminate></paper-progress>
+                <paper-progress id="showProgress"
+                                indeterminate></paper-progress>
                 <h4>General Options</h4>
                 <paper-input-decorator
                         label="Job #"
@@ -60,12 +61,21 @@
                     </paper-checkbox>
                     <h4>Active job?</h4>
                 </core-label>
-                <paper-button id="deleteProjectButton" class="custom">
+                <paper-button id="deleteProjectButton" class="custom"
+                              showing?="{{projectIsCommitted}}"
+                              on-tap="{{deleteProject}}">
                     <core-icon icon="delete"></core-icon>
                     delete
                 </paper-button>
             </div>
         </div>
+        <paper-action-dialog id="deleteDialog" backdrop layered
+                             autoCloseDisabled>
+            <p>Delete this project?</p>
+            <paper-button affirmative on-tap="{{confirmDelete}}">Discard
+            </paper-button>
+            <paper-button affirmative>Cancel</paper-button>
+        </paper-action-dialog>
     </template>
     <script type="application/dart"
             src="a_la_carte_project_info_page.dart"></script>

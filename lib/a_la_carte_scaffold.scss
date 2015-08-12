@@ -5,7 +5,7 @@
 }
 
 :host([fabdisabled]) {
-    paper-fab {
+    #main-action {
         pointer-events: none;
         background-color: #eaeaea;
     }
