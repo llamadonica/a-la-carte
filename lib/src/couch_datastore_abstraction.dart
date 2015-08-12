@@ -48,7 +48,7 @@ class CouchDataStoreAbstraction {
             _authCookie.add(setCookiePart.split(';')[0]);
           }
           hasValidated = true;
-          return new Future.value();
+          return null;
         }
       } else {
         var contentLength = new Ref<int>.withValue(int.parse(response.headers[HttpHeaders.CONTENT_LENGTH][0]));
@@ -69,7 +69,7 @@ class CouchDataStoreAbstraction {
 
   Future _ensureHasValidated() {
     if (hasValidated) return new Future.value();
-    _validateSession().then((_) {
+    return _validateSession().then((_) {
       final interval = new Duration(minutes: 9);
       new Timer.periodic(interval, (_) => _validateSession());
     });
@@ -86,9 +86,9 @@ class CouchDataStoreAbstraction {
         pathSegments: uri.pathSegments,
         queryParameters: uri.queryParameters,
         fragment: uri.fragment);
-    var cookieHasValidated = _ensureHasValidated();
-    Future.wait([cookieHasValidated, client.openUrl(method, couchUri)]).then((futures) {
-      final HttpClientRequest request = futures[1];
+    _ensureHasValidated()
+    .then((_) => client.openUrl(method, couchUri))
+    .then((HttpClientRequest request) {
       for (var header in headers.keys) {
         request.headers.add(header, headers[header]);
       }
@@ -126,8 +126,7 @@ class CouchDataStoreAbstraction {
       });
       return request.done;
     })
-        //TODO: Add the headers from the response.
-        .then((HttpClientResponse response) {
+    .then((HttpClientResponse response) {
       final encoder = new AsciiEncoder();
       output.add(encoder.convert('HTTP/1.1 ${response.statusCode} ${response.reasonPhrase}\r\n'));
       response.headers.forEach((headerName, headerValues) {
@@ -156,7 +155,8 @@ class CouchDataStoreAbstraction {
       }, onError: (error, stackTrace) {
         output.addError(error, stackTrace);
       });
-    }).catchError((error, stackTrace) {
+    })
+    .catchError((error, stackTrace) {
       final response = new shelf.Response.internalServerError(
           body: '{"error":"internal_server_error",'
           ' "message": "I couldn\'t connect to the database. Contact your database administrator."}',
