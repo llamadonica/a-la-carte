@@ -16,6 +16,8 @@ part 'src/session_data_store.dart';
 part 'src/http_listener_isolate.dart';
 part 'src/session_listener.dart';
 part 'src/session_master.dart';
+part 'src/policy_handler.dart';
+part 'src/oauth_identity_data_store.dart';
 
 class Server {
   final int port;

@@ -32,7 +32,10 @@ class ALaCarteApp extends PolymerElement implements AppRouter {
   @observable bool wide;
   @observable Project project;
   @observable bool projectsAreLoaded = false;
-  @observable bool noProjectsFound = false;
+
+  Map<String, List<Completer<Project>>> _pendingProjectRequest = new Map();
+  @ComputedProperty("projectsAreLoaded && projects.length == 0")
+  bool get noProjectsFound => readValue(#noProjectsFound);
   @observable bool isError = false;
   @observable ObservableList<Project> projects = new ObservableList();
   @observable ObservableMap<String, Project> projectsByUuid =
@@ -65,7 +68,6 @@ class ALaCarteApp extends PolymerElement implements AppRouter {
       var url = window.location.hash.replaceFirst(regExp, '/');
       _goToUrl(url, setPathFromFragment: true);
     }
-    project = new Project(new Uuid().v4());
     window.onPopState.listen(_popState);
   }
 
@@ -94,7 +96,6 @@ class ALaCarteApp extends PolymerElement implements AppRouter {
     final PaperToast connectivityToast = $['toast-connectivity'];
     connectivityToast.dismiss();
     isError = false;
-    noProjectsFound = false;
     projectsAreLoaded = false;
     connectivityErrorMessage = null;
     getProjectsData();
@@ -103,7 +104,7 @@ class ALaCarteApp extends PolymerElement implements AppRouter {
   void getProjectsData() {
     final jsonHandler = new JsonStreamingParser();
     connectivityErrorMessage = null;
-    jsonHandler.onSymbolComplete.listen(routeProjectLoadingEvent);
+    jsonHandler.onSymbolComplete.listen(_routeProjectLoadingEvent);
 
     if (fetch == null) {
       _request = new HttpRequest();
@@ -156,7 +157,7 @@ class ALaCarteApp extends PolymerElement implements AppRouter {
 
   Stream<List<String>> get onAppNavigationEvent => _onAppNavigationEvent.stream;
 
-  void routeProjectLoadingEvent(JsonStreamingEvent event) {
+  void _routeProjectLoadingEvent(JsonStreamingEvent event) {
     if (event.path.length == 1 && event.path[0] == 'error') {
       isError = true;
       if (connectivityErrorMessage == null) {
@@ -165,7 +166,6 @@ class ALaCarteApp extends PolymerElement implements AppRouter {
         final PaperToast connectivityToast = $['toast-connectivity'];
         connectivityToast.show();
         projectsAreLoaded = true;
-        noProjectsFound = true;
       }
       return;
     } else if (event.path.length == 1 && event.path[0] == 'message') {
@@ -176,7 +176,6 @@ class ALaCarteApp extends PolymerElement implements AppRouter {
         final PaperToast connectivityToast = $['toast-connectivity'];
         connectivityToast.show();
         projectsAreLoaded = true;
-        noProjectsFound = true;
       }
       return;
     } else if (event.path[0] != 'rows') return;
@@ -186,24 +185,31 @@ class ALaCarteApp extends PolymerElement implements AppRouter {
       project.initFromJSON(event.symbol['doc']);
       projects.add(project);
       projectsByUuid[project.id] = project;
+      if (_pendingProjectRequest.containsKey(project.id)) {
+        for (var completer in _pendingProjectRequest[project.id]) {
+          completer.complete(project);
+        }
+        _pendingProjectRequest.remove(project.id);
+      }
       project.committed = true;
       return;
     }
     projectsAreLoaded = true;
-    if (projects.length == 0) {
-      noProjectsFound = true;
+    for (var uuid in _pendingProjectRequest.keys) {
+      final listOfCompleters = _pendingProjectRequest[uuid];
+      for (var completer in listOfCompleters) {
+        completer.completeError(new ArgumentError('No project named $uuid found.'));
+      }
     }
   }
 
-  @override
-  void reportError(ErrorReportModule module, String message) {
+  @override void reportError(ErrorReportModule module, String message) {
     moduleErrorMessage = message;
     final PaperToast toastModuleError = $['toast-module-error'];
     toastModuleError.show();
   }
 
-  @override
-  Future<int> nextJobNumber(int year) {
+  @override Future<int> nextJobNumber(int year) {
     final Completer<int> completer = new Completer<int>();
     final jsonHandler = new JsonStreamingParser();
     jsonHandler.onSymbolComplete.listen((event) => _processNextJobNumber(event, completer, year));
@@ -236,6 +242,21 @@ class ALaCarteApp extends PolymerElement implements AppRouter {
       completer.complete(year*1000 + 1);
     } else {
       completer.complete(event.symbol['rows'][0]['value'] + 1);
+    }
+  }
+
+  @override Future<Project> ensureProjectIsLoaded(String uuid) {
+    if (projectsByUuid.containsKey(uuid)) {
+      return new Future.value(projectsByUuid[uuid]);
+    } else if (projectsAreLoaded) {
+      return new Future.error(new ArgumentError('No project named $uuid found.'));
+    } else {
+      if (!_pendingProjectRequest.containsKey(uuid)) {
+        _pendingProjectRequest[uuid] = [];
+      }
+      final completer = new Completer<Project>();
+      _pendingProjectRequest[uuid].add(completer);
+      return completer.future;
     }
   }
 }

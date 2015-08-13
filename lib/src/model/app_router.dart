@@ -10,4 +10,5 @@ abstract class AppRouter {
 
   void reportError(ErrorReportModule module, String message);
   Future<int> nextJobNumber(int year);
+  Future<Project> ensureProjectIsLoaded(String uuid);
 }

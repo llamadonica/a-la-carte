@@ -14,9 +14,3 @@ class SessionDataStore {
       : sendPorts = new HashSet<SendPort>();
 }
 
-class SessionDataStoreView {
-  final String uuid;
-  DateTime expires;
-  DateTime lastRefreshed;
-  SessionDataStoreView(String this.uuid, DateTime this.expires);
-}

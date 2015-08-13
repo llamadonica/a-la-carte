@@ -7,6 +7,7 @@ class SendPortEntry extends LinkedListEntry<SendPortEntry> {
 
 class SessionMaster {
   final Map<String, SendPort> _sessionHandlers;
+  final Map<String, SendPort> _oauthIdentityHandlers;
   final LinkedList<SendPortEntry> _sessionHandlerByOrderOfLoad;
   final Map<SendPort,int> _sessionHandlerLoad;
   final ReceivePort _sessionReceivePort;
@@ -16,6 +17,7 @@ class SessionMaster {
   
   SessionMaster(int delegates)
       : _sessionHandlers = new Map<String, SendPort>()
+      , _oauthIdentityHandlers = new Map<String, SendPort>()
       , _sessionHandlerByOrderOfLoad = new LinkedList<SendPortEntry>()
       , _sessionHandlerLoad = new Map<SendPort,int>()
       , _sessionReceivePort = new ReceivePort()

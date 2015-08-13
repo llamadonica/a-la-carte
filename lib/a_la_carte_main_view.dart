@@ -26,7 +26,10 @@ class ALaCarteMainView extends PolymerElement implements AppPager {
   List<String> appAllSelectable = ['+all', '+new'];
   @published String responsiveWidth;
 
-  @observable String navigation = "Basic Settings";
+  String _projectLookupId;
+
+  @ComputedProperty('currentPage.navigation')
+  String get navigation => readValue(#navigation);
   @observable String projectEditViewCaption = "Add a project";
 
   @observable ALaCartePageCommon currentPage;
@@ -42,7 +45,7 @@ class ALaCarteMainView extends PolymerElement implements AppPager {
     if (_appRouterNavigationSubscription != null) {
       _appRouterNavigationSubscription.cancel();
     }
-    appRouter.onAppNavigationEvent.listen(onAppNavigationEvent);
+    appRouter.onAppNavigationEvent.listen(_onAppNavigationEvent);
   }
 
   ALaCarteMainView.created() : super.created();
@@ -64,8 +67,11 @@ class ALaCarteMainView extends PolymerElement implements AppPager {
   }
 
   selectedChanged(int oldValue) {
-    if (selected == 1 && project.isChanged && project.committed) {
+    if (selected == 1 && project != null && project.isChanged && project.committed) {
       appRouter.setUrl('/+edit/${project.id}', '');
+    }
+    else if (selected == 1 && project == null) {
+      appRouter.setUrl('/+view/${_projectLookupId}', '');
     }
     else if (selected == 1 && project.committed) {
       appRouter.setUrl('/+view/${project.id}', '');
@@ -78,7 +84,7 @@ class ALaCarteMainView extends PolymerElement implements AppPager {
     } else {
       currentPage = pages[selected];
     }
-    if (project.isChanged && selected == 0 && selectedPage == 1) {
+    if (project != null && project.isChanged && selected == 0 && selectedPage == 1) {
       PaperActionDialog discardDialog = $['discardDialog'];
       discardDialog.open();
       return;
@@ -99,7 +105,7 @@ class ALaCarteMainView extends PolymerElement implements AppPager {
     selected = selectedPage;
   }
 
-  void onAppNavigationEvent(List<String> event) {
+  void _onAppNavigationEvent(List<String> event) {
     if (event.length < 1) {
       appRouter.setUrl('/+all', '');
       return;
@@ -110,12 +116,12 @@ class ALaCarteMainView extends PolymerElement implements AppPager {
         break;
       case '+new':
         selected = 1;
-        project = new Project(new Uuid().v4());
+        setToNewProject();
         break;
       case '+edit':
       case '+view':
         selected = 1;
-        openProject(event[1]);
+        openProject(_projectLookupId = event[1]);
         break;
     }
   }
@@ -133,8 +139,15 @@ class ALaCarteMainView extends PolymerElement implements AppPager {
   }
 
   @override void openProject(String uuid) {
-    project = projectsByUuid[uuid];
-    projectEditViewCaption = "View this project";
+    appRouter.ensureProjectIsLoaded(uuid).then((foundProject) {
+      project = foundProject;
+      projectEditViewCaption = "View this project";
+      window.console.log('Found project $uuid');
+    }, onError: (err) {
+      appRouter.setUrl('/+new', '');
+      _onAppNavigationEvent(['+new']);
+      window.console.log('Could not find project $uuid');
+    });
   }
 
   @override void setProjectHasChanged([bool changed=true]) {
