@@ -22,9 +22,9 @@ class Project extends JsonCanSync {
   @observable bool isActive;
   @observable String initials;
   @observable String streetAddress;
+  @observable String serviceAccountName;
 
   String rev;
-  @observable String serviceAccountName;
 
   Map _json = {};
   Project(String this.id);
@@ -61,6 +61,7 @@ class Project extends JsonCanSync {
     jobNumber = values['jobNumber'];
     initials = values['initials'];
     streetAddress = values['streetAddress'];
+    serviceAccountName = values['account'];
     assert(values['_id'] == null || values['_id'] == id);
     rev = values['_rev'];
   }
@@ -75,6 +76,7 @@ class Project extends JsonCanSync {
       'jobNumber': (jobNumber is double && jobNumber.isNaN) ? null : jobNumber,
       'initials': initials,
       'streetAddress': streetAddress,
+      'account': serviceAccountName,
       'type': 'project'
     };
     if (committed) {
