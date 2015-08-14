@@ -15,6 +15,10 @@ import 'package:a_la_carte/models.dart';
 /**
  * A Polymer click counter element.
  */
+
+typedef void JsonEventRouter(
+    JsonStreamingEvent event, Ref<StreamSubscription> subscription);
+
 @CustomTag('a-la-carte-app')
 class ALaCarteApp extends PolymerElement implements AppRouter {
   static const Duration minDuration = const Duration(seconds: 1);
@@ -34,12 +38,14 @@ class ALaCarteApp extends PolymerElement implements AppRouter {
   @observable bool projectsAreLoaded = false;
 
   Map<String, List<Completer<Project>>> _pendingProjectRequest = new Map();
+
   @ComputedProperty("projectsAreLoaded && projects.length == 0")
   bool get noProjectsFound => readValue(#noProjectsFound);
   @observable bool isError = false;
   @observable ObservableList<Project> projects = new ObservableList();
   @observable ObservableMap<String, Project> projectsByUuid =
       new ObservableMap();
+
   AppRouter get router => this;
   StreamController<List<String>> _onAppNavigationEvent =
       new StreamController<List<String>>();
@@ -49,6 +55,9 @@ class ALaCarteApp extends PolymerElement implements AppRouter {
   AppDelegate __appDelegate;
   DateTime readyTime;
   bool _useFragment = true;
+  int _currentChangeSeq = 0;
+  String _serviceAccountName = null;
+  Future _serviceAccountFuture;
 
   ALaCarteApp.created() : super.created() {
     _useFragment = !History.supportsState;
@@ -78,7 +87,7 @@ class ALaCarteApp extends PolymerElement implements AppRouter {
   @override ready() {
     final PaperToast connectivityToast = $['toast-connectivity'];
     connectivityToast.autoCloseDisabled = true;
-    getProjectsData();
+    _getProjectsData();
 
     asyncTimer(() {
       _finishStartup();
@@ -98,18 +107,124 @@ class ALaCarteApp extends PolymerElement implements AppRouter {
     isError = false;
     projectsAreLoaded = false;
     connectivityErrorMessage = null;
-    getProjectsData();
+    _getProjectsData();
   }
 
-  void getProjectsData() {
+  void _getProjectsData() => _connectTo(
+      '/a_la_carte/_design/projects/_view/all_by_job_number?descending=true&include_docs=true',
+      _routeProjectLoadingEvent);
+
+  @override Future<String> getServiceAccountName() {
+    if (_serviceAccountName == null && _serviceAccountFuture == null) {
+      _serviceAccountFuture = _getSessionUserName();
+    }
+    if (_serviceAccountName == null) {
+      return _serviceAccountFuture.then((_) => _serviceAccountName);
+    }
+    return new Future.value(_serviceAccountName);
+  }
+
+  Future _getSessionUserName() {
+    final completer = new Completer();
+    _connectTo('/_session', (event, subscription) =>
+    _routeSessionEvent(event, subscription, completer));
+    return completer.future;
+  }
+
+  void _routeSessionEvent(JsonStreamingEvent event,
+                          Ref<StreamSubscription> subscription, Completer completer) {
+    if (event.status == 200 && event.path.length == 0) {
+      _serviceAccountName = event.symbol['userCtx']['name'];
+      subscription.value.cancel();
+      completer.complete();
+    } else if (event.path.length == 0) {
+      _serviceAccountName = '';
+      subscription.value.cancel();
+      completer.complete();
+    }
+  }
+
+  void _routeProjectLoadingEvent(
+      JsonStreamingEvent event, Ref<StreamSubscription> subscription) {
+    if (event.path.length == 1 && event.path[0] == 'error') {
+      isError = true;
+      if (connectivityErrorMessage == null) {
+        connectivityErrorMessage = errorMessages[event.symbol];
+      } else {
+        final PaperToast connectivityToast = $['toast-connectivity'];
+        connectivityToast.show();
+        projectsAreLoaded = true;
+      }
+      return;
+    } else if (event.path.length == 1 && event.path[0] == 'message') {
+      connectivityErrorMessage = event.symbol;
+      return;
+    } else if (event.path.length == 0) {
+      if (isError && !projectsAreLoaded) {
+        final PaperToast connectivityToast = $['toast-connectivity'];
+        connectivityToast.show();
+        projectsAreLoaded = true;
+      }
+      subscription.value.cancel();
+      return;
+    } else if (event.path[0] != 'rows') return;
+    if (event.path.length > 2) return;
+    if (event.path.length == 2) {
+      final project = new Project(event.symbol['id']);
+      project.initFromJSON(event.symbol['doc']);
+      projects.add(project);
+      projectsByUuid[project.id] = project;
+      if (_pendingProjectRequest.containsKey(project.id)) {
+        for (var completer in _pendingProjectRequest[project.id]) {
+          completer.complete(project);
+        }
+        _pendingProjectRequest.remove(project.id);
+      }
+      project.committed = true;
+      return;
+    }
+    projectsAreLoaded = true;
+    for (var uuid in _pendingProjectRequest.keys) {
+      final listOfCompleters = _pendingProjectRequest[uuid];
+      for (var completer in listOfCompleters) {
+        completer
+        .completeError(new ArgumentError('No project named $uuid found.'));
+      }
+    }
+  }
+
+  @override Future<int> nextJobNumber(int year) {
+    final Completer<int> completer = new Completer<int>();
+    _connectTo(
+        '/a_la_carte/_design/projects/_view/greatest_job_number?key=$year',
+            (event, subscription) =>
+        _processNextJobNumber(event, completer, year, subscription));
+    return completer.future;
+  }
+
+  void _processNextJobNumber(JsonStreamingEvent event, Completer<int> completer,
+                             int year, Ref<StreamSubscription> subscription) {
+    if (event.path.length != 0) {
+      return;
+    }
+    if (event.symbol['rows'].length == 0) {
+      completer.complete(year * 1000 + 1);
+    } else {
+      completer.complete(event.symbol['rows'][0]['value'] + 1);
+    }
+    subscription.value.cancel();
+  }
+
+  void _connectTo(String uri, JsonEventRouter router) {
     final jsonHandler = new JsonStreamingParser();
     connectivityErrorMessage = null;
-    jsonHandler.onSymbolComplete.listen(_routeProjectLoadingEvent);
+    final subscription = new Ref<StreamSubscription>();
+    subscription.value = jsonHandler.onSymbolComplete
+    .listen((event) => router(event, subscription));
 
     if (fetch == null) {
       _request = new HttpRequest();
-      _request.open('GET',
-      '/a_la_carte/_design/projects/_view/all_by_job_number?descending=true&include_docs=true');
+      _request.open('GET', uri);
       _request.setRequestHeader('Accept', 'application/json');
 
       _request.onLoad.listen(jsonHandler.httpRequestListener);
@@ -117,24 +232,10 @@ class ALaCarteApp extends PolymerElement implements AppRouter {
 
       _request.send();
     } else {
-      fetch(
-          '/a_la_carte/_design/projects/_view/all_by_job_number?descending=true&include_docs=true',
-          headers: {'Accept': 'application/json'}).then((object) {
+      fetch(uri, headers: {'Accept': 'application/json'}).then((object) {
         jsonHandler.setStreamStateFromResponse(object);
         jsonHandler.streamFromByteStreamReader(object.body.getReader());
       });
-    }
-  }
-
-  _onProjectsDataError(ProgressEvent event) {
-    if (_request.status != 200) {
-      final json = JSON.decode(_request.responseText);
-      connectivityErrorMessage = json['message'];
-      if (connectivityErrorMessage == null) {
-        connectivityErrorMessage = errorMessages[json['error']];
-      }
-      final PaperToast connectivityToast = $['toast-connectivity'];
-      connectivityToast.show();
     }
   }
 
@@ -157,99 +258,18 @@ class ALaCarteApp extends PolymerElement implements AppRouter {
 
   Stream<List<String>> get onAppNavigationEvent => _onAppNavigationEvent.stream;
 
-  void _routeProjectLoadingEvent(JsonStreamingEvent event) {
-    if (event.path.length == 1 && event.path[0] == 'error') {
-      isError = true;
-      if (connectivityErrorMessage == null) {
-        connectivityErrorMessage = errorMessages[event.symbol];
-      } else {
-        final PaperToast connectivityToast = $['toast-connectivity'];
-        connectivityToast.show();
-        projectsAreLoaded = true;
-      }
-      return;
-    } else if (event.path.length == 1 && event.path[0] == 'message') {
-      connectivityErrorMessage = event.symbol;
-      return;
-    } else if (event.path.length == 0) {
-      if (isError && !projectsAreLoaded) {
-        final PaperToast connectivityToast = $['toast-connectivity'];
-        connectivityToast.show();
-        projectsAreLoaded = true;
-      }
-      return;
-    } else if (event.path[0] != 'rows') return;
-    if (event.path.length > 2) return;
-    if (event.path.length == 2) {
-      final project = new Project(event.symbol['id']);
-      project.initFromJSON(event.symbol['doc']);
-      projects.add(project);
-      projectsByUuid[project.id] = project;
-      if (_pendingProjectRequest.containsKey(project.id)) {
-        for (var completer in _pendingProjectRequest[project.id]) {
-          completer.complete(project);
-        }
-        _pendingProjectRequest.remove(project.id);
-      }
-      project.committed = true;
-      return;
-    }
-    projectsAreLoaded = true;
-    for (var uuid in _pendingProjectRequest.keys) {
-      final listOfCompleters = _pendingProjectRequest[uuid];
-      for (var completer in listOfCompleters) {
-        completer.completeError(new ArgumentError('No project named $uuid found.'));
-      }
-    }
-  }
-
   @override void reportError(ErrorReportModule module, String message) {
     moduleErrorMessage = message;
     final PaperToast toastModuleError = $['toast-module-error'];
     toastModuleError.show();
   }
 
-  @override Future<int> nextJobNumber(int year) {
-    final Completer<int> completer = new Completer<int>();
-    final jsonHandler = new JsonStreamingParser();
-    jsonHandler.onSymbolComplete.listen((event) => _processNextJobNumber(event, completer, year));
-    if (fetch == null) {
-      _request = new HttpRequest();
-      _request.open('GET',
-      '/a_la_carte/_design/projects/_view/greatest_job_number?key=$year');
-      _request.setRequestHeader('Accept', 'application/json');
-
-      _request.onLoad.listen(jsonHandler.httpRequestListener);
-      _request.onProgress.listen(jsonHandler.httpRequestListener);
-
-      _request.send();
-    } else {
-      fetch(
-          '/a_la_carte/_design/projects/_view/greatest_job_number?key=$year',
-          headers: {'Accept': 'application/json'}).then((object) {
-        jsonHandler.setStreamStateFromResponse(object);
-        jsonHandler.streamFromByteStreamReader(object.body.getReader());
-      });
-    }
-    return completer.future;
-  }
-
-  void _processNextJobNumber(JsonStreamingEvent event, Completer<int> completer, int year) {
-    if (event.path.length != 0) {
-      return;
-    }
-    if (event.symbol['rows'].length == 0) {
-      completer.complete(year*1000 + 1);
-    } else {
-      completer.complete(event.symbol['rows'][0]['value'] + 1);
-    }
-  }
-
   @override Future<Project> ensureProjectIsLoaded(String uuid) {
     if (projectsByUuid.containsKey(uuid)) {
       return new Future.value(projectsByUuid[uuid]);
     } else if (projectsAreLoaded) {
-      return new Future.error(new ArgumentError('No project named $uuid found.'));
+      return new Future.error(
+          new ArgumentError('No project named $uuid found.'));
     } else {
       if (!_pendingProjectRequest.containsKey(uuid)) {
         _pendingProjectRequest[uuid] = [];
@@ -258,5 +278,8 @@ class ALaCarteApp extends PolymerElement implements AppRouter {
       _pendingProjectRequest[uuid].add(completer);
       return completer.future;
     }
+  }
+
+  void _connectToChangeStream() {
   }
 }

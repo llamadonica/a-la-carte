@@ -9,6 +9,7 @@ dependencies:
   paper_elements: any
   polymer: any
   sass: any
+  googleapis: any
   shelf:
     git:
       ref: master

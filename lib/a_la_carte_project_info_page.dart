@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:html';
 
 import 'package:polymer/polymer.dart';
+import 'package:polymer_expressions/eval.dart';
 import 'package:paper_elements/paper_autogrow_textarea.dart';
 import 'package:paper_elements/paper_input_decorator.dart';
 import 'package:paper_elements/paper_progress.dart';
@@ -22,12 +23,23 @@ class ALaCarteProjectInfoPage extends ALaCartePageCommon {
   @published Map<String, Project> projectsByUuid;
   @published List<Project> projects;
   @observable bool projectIsCommitted;
+  @observable bool showProgress = false;
   StreamSubscription _projectChangeListener;
   bool _fabWillBeDisabled = false;
+  bool _projectMayBeCommitted = false;
 
   ALaCarteProjectInfoPage.created() : super.created() {
     fabIcon = null;
-    $['showProgress'].classes.remove('showing');
+  }
+
+  @override ready() {
+    new CompoundObserver()
+      ..addPath(this, ['project', 'jobNumber'])
+      ..addPath(this, ['project', 'name'])
+      ..addPath(this, ['project', 'serviceAccountName'])
+      ..open((_) {
+      _projectMayBeCommitted = (project != null && project.jobNumber >= 0 && project.name != null && project.name != "" && project.serviceAccountName != null && project.serviceAccountName != "");
+    });
   }
 
   void projectChanged(oldProject) {
@@ -71,20 +83,25 @@ class ALaCarteProjectInfoPage extends ALaCartePageCommon {
     fabIcon = 'check';
     for (PropertyChangeRecord change in changes) {
       if (change.name == #streetAddress) {
-        final PaperAutogrowTextarea streetAddressTextarea = $['street-address-textarea'];
+        final PaperAutogrowTextarea streetAddressTextarea =
+        $['street-address-textarea'];
         streetAddressTextarea.rows = null;
       } else if (change.name == #jobNumber &&
-          (change.newValue == null || (change.newValue is double && change.newValue.isNaN))) {
+      (change.newValue == null ||
+      (change.newValue is double && change.newValue.isNaN))) {
         final PaperInputDecorator jobNumber = $['jobNumber'];
         jobNumber.isInvalid = true;
       } else if (change.name == #jobNumber &&
-          (change.newValue != null && (!(change.newValue is double) || !change.newValue.isNaN))) {
+      (change.newValue != null &&
+      (!(change.newValue is double) || !change.newValue.isNaN))) {
         final PaperInputDecorator jobNumber = $['jobNumber'];
         jobNumber.isInvalid = false;
-      } else if (change.name == #name && (change.newValue == null || change.newValue == '')) {
+      } else if (change.name == #name &&
+      (change.newValue == null || change.newValue == '')) {
         final PaperInputDecorator name = $['name'];
         name.isInvalid = true;
-      } else if (change.name == #name && (change.newValue != null && change.newValue != '')) {
+      } else if (change.name == #name &&
+      (change.newValue != null && change.newValue != '')) {
         final PaperInputDecorator name = $['name'];
         name.isInvalid = false;
       }
@@ -98,7 +115,8 @@ class ALaCarteProjectInfoPage extends ALaCartePageCommon {
   void fabAction() {
     _fabWillBeDisabled = true;
     fabDisabled = true;
-    $['showProgress'].classes.add('showing');
+    //$['showProgress'].classes.add('showing');
+    showProgress = true;
     _putProjectDataToServer(project.id, project.json);
   }
 
@@ -111,13 +129,16 @@ class ALaCarteProjectInfoPage extends ALaCartePageCommon {
     if (!project.committed) return;
     _fabWillBeDisabled = true;
     fabDisabled = true;
-    $['showProgress'].classes.add('showing');
+    //$['showProgress'].classes.add('showing');
+    showProgress = true;
     _deleteProjectDataFromServer(project.id, project.rev);
   }
 
   void _deleteProjectDataFromServer(String id, String rev) {
     var jsonHandler = new JsonStreamingParser();
-    jsonHandler.onSymbolComplete.listen((event) => _routeProjectDeletingJsonReply(event, project));
+    final subscription = new Ref<StreamSubscription>();
+    subscription.value = jsonHandler.onSymbolComplete.listen((event) =>
+    _routeProjectDeletingJsonReply(event, project, subscription));
 
     if (fetch == null) {
       final _request = new HttpRequest();
@@ -126,7 +147,8 @@ class ALaCarteProjectInfoPage extends ALaCartePageCommon {
 
       _request.onLoad.listen(jsonHandler.httpRequestListener);
       _request.onProgress.listen(jsonHandler.httpRequestListener);
-      _request.onError.listen((event) => _onHttpRequestDeletingError(event, _request));
+      _request.onError
+      .listen((event) => _onHttpRequestDeletingError(event, _request));
 
       _request.send();
     } else {
@@ -135,18 +157,19 @@ class ALaCarteProjectInfoPage extends ALaCartePageCommon {
       .then((Response object) {
         jsonHandler.setStreamStateFromResponse(object);
         jsonHandler.streamFromByteStreamReader(object.body.getReader());
-      })
-      .catchError((FetchError err) {
+      }).catchError((FetchError err) {
         _routeProjectServerError(err.message);
       });
     }
   }
 
-  void _routeProjectDeletingJsonReply(JsonStreamingEvent event, Project project) {
+  void _routeProjectDeletingJsonReply(JsonStreamingEvent event, Project project,
+                                      Ref<StreamSubscription> subscription) {
     final Duration enableDelay = new Duration(milliseconds: 1020);
     if (event.status >= 400 && event.status < 599 && event.path.length == 0) {
       _fabWillBeDisabled = false;
-      $['showProgress'].classes.remove('showing');
+      //$['showProgress'].classes.remove('showing');
+      showProgress = false;
       new Timer(enableDelay, () {
         fabDisabled = _fabWillBeDisabled;
       });
@@ -159,22 +182,27 @@ class ALaCarteProjectInfoPage extends ALaCartePageCommon {
           break;
       }
       appPager.reportError(ErrorReportModule.projectSaver, message);
+      subscription.value.cancel();
     } else if (event.status == 200 && event.path.length == 0) {
       _fabWillBeDisabled = false;
-      $['showProgress'].classes.remove('showing');
+      //$['showProgress'].classes.remove('showing');
+      showProgress = false;
       new Timer(enableDelay, () {
         fabDisabled = _fabWillBeDisabled;
       });
       projectsByUuid.remove(project.id);
       projects.remove(project);
       appPager.selected = 0;
+      subscription.value.cancel();
     }
   }
 
   void _putProjectDataToServer(String id, Map data) {
     final String body = JSON.encode(project.jsonGetter());
     var jsonHandler = new JsonStreamingParser();
-    jsonHandler.onSymbolComplete.listen((event) => _routeProjectSavingJsonReply(event, project));
+    final subscription = new Ref<StreamSubscription>();
+    subscription.value = jsonHandler.onSymbolComplete.listen(
+            (event) => _routeProjectSavingJsonReply(event, project, subscription));
 
     if (fetch == null) {
       final _request = new HttpRequest();
@@ -183,18 +211,18 @@ class ALaCarteProjectInfoPage extends ALaCartePageCommon {
 
       _request.onLoad.listen(jsonHandler.httpRequestListener);
       _request.onProgress.listen(jsonHandler.httpRequestListener);
-      _request.onError.listen((event) => _onHttpRequestSavingError(event, _request));
+      _request.onError
+      .listen((event) => _onHttpRequestSavingError(event, _request));
 
       _request.send(body);
     } else {
       fetch('/a_la_carte/${id}',
-          method: 'PUT', headers: {'Content-Type': 'application/json'},
-      body: body)
-      .then((Response object) {
+      method: 'PUT',
+      headers: {'Content-Type': 'application/json'},
+      body: body).then((Response object) {
         jsonHandler.setStreamStateFromResponse(object);
         jsonHandler.streamFromByteStreamReader(object.body.getReader());
-      })
-      .catchError((FetchError err) {
+      }).catchError((FetchError err) {
         _routeProjectServerError(err.message);
       });
     }
@@ -212,7 +240,8 @@ class ALaCarteProjectInfoPage extends ALaCartePageCommon {
     final Duration enableDelay = new Duration(milliseconds: 1020);
     appPager.reportError(ErrorReportModule.projectSaver, err.toString());
     _fabWillBeDisabled = false;
-    $['showProgress'].classes.remove('showing');
+    //$['showProgress'].classes.remove('showing');
+    showProgress = false;
     new Timer(enableDelay, () {
       fabDisabled = _fabWillBeDisabled;
     });
@@ -221,13 +250,15 @@ class ALaCarteProjectInfoPage extends ALaCartePageCommon {
     appPager.reportError(ErrorReportModule.projectSaver, message);
   }
 
-  void _routeProjectSavingJsonReply(JsonStreamingEvent event, Project project) {
+  void _routeProjectSavingJsonReply(JsonStreamingEvent event, Project project,
+                                    Ref<StreamSubscription> subscription) {
     final Duration enableDelay = new Duration(milliseconds: 1020);
     if (event.status >= 400 && event.status < 599 && event.path.length == 0) {
       _fabWillBeDisabled = false;
-      $['showProgress'].classes.remove('showing');
+      //$['showProgress'].classes.remove('showing');
+      showProgress = false;
       new Timer(enableDelay, () {
-          fabDisabled = _fabWillBeDisabled;
+        fabDisabled = _fabWillBeDisabled;
       });
       final error = event.symbol['error'];
       String message = event.symbol['reason'];
@@ -238,11 +269,13 @@ class ALaCarteProjectInfoPage extends ALaCartePageCommon {
           break;
       }
       appPager.reportError(ErrorReportModule.projectSaver, message);
+      subscription.value.cancel();
     } else if (event.status == 201 && event.path.length == 0) {
       _fabWillBeDisabled = false;
-      $['showProgress'].classes.remove('showing');
+      //$['showProgress'].classes.remove('showing');
+      showProgress = false;
       new Timer(enableDelay, () {
-          fabDisabled = _fabWillBeDisabled;
+        fabDisabled = _fabWillBeDisabled;
       });
       if (!project.committed) {
         projectsByUuid[project.id] = project;
@@ -254,6 +287,7 @@ class ALaCarteProjectInfoPage extends ALaCartePageCommon {
       project.isChanged = false;
       appPager.setProjectHasChanged(false);
       fabIcon = null;
+      subscription.value.cancel();
     }
   }
 }

@@ -6,7 +6,15 @@ class Project extends JsonCanSync {
   final String id;
 
   bool committed = false;
-  bool isChanged = false;
+  bool _isChanged = false;
+
+  bool get isChanged => _isChanged;
+
+  void set isChanged(bool value) {
+    if (!value) _locallyChangedSymbols.clear();
+  }
+
+  Set<Symbol> _locallyChangedSymbols = new Set<Symbol>();
 
   @observable String name;
   String _oldName;
@@ -16,6 +24,7 @@ class Project extends JsonCanSync {
   @observable String streetAddress;
 
   String rev;
+  @observable String serviceAccountName;
 
   Map _json = {};
   Project(String this.id);
@@ -26,17 +35,21 @@ class Project extends JsonCanSync {
     if (comparison == null) {
       comparison = _compareProjects;
     }
-    var projectsMax = projects.length;
+    int projectsMax = projects.length;
     var projectsMin = 0;
-    var projectsDelta = projectsMax >> 1;
+    var projectsDelta = (projectsMax >> 1);
     while (projectsDelta > 0) {
       final compareProject = projects[projectsMin + projectsDelta];
-      if (comparison(compareProject, project) > 0) {
+      if (comparison(project, compareProject) > 0) {
         projectsMin += projectsDelta;
+        projectsDelta = projectsMax - projectsMin;
+      } else {
+        projectsMax = projectsMin + projectsDelta;
       }
       projectsDelta >>= 1;
     }
-    projects.insert(projectsMin, project);
+    var offset = (projectsMin == 0 && comparison(project, projects[projectsMin]) <= 0) ? 0 : 1;
+    projects.insert(projectsMin + offset, project);
   }
 
   static _compareProjects(Project a, Project b) => (b.jobNumber - a.jobNumber);
@@ -69,5 +82,12 @@ class Project extends JsonCanSync {
       map['_rev'] = rev;
     }
     return map;
+  }
+
+  @override notifyChange(ChangeRecord record) {
+    if (committed && record is PropertyChangeRecord) {
+      _locallyChangedSymbols.add(record.name);
+    }
+    super.notifyChange(record);
   }
 }

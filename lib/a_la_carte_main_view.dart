@@ -28,7 +28,7 @@ class ALaCarteMainView extends PolymerElement implements AppPager {
 
   String _projectLookupId;
 
-  @ComputedProperty('currentPage.navigation')
+  @ComputedProperty('currentPage == null? "" : currentPage.navigation')
   String get navigation => readValue(#navigation);
   @observable String projectEditViewCaption = "Add a project";
 
@@ -38,6 +38,7 @@ class ALaCarteMainView extends PolymerElement implements AppPager {
   @observable int selectedPage = 0;
 
   @published AppRouter appRouter;
+
   StreamSubscription<List<String>> _appRouterNavigationSubscription;
   List<String> allSelectable = <String>['+all', '+new'];
 
@@ -136,6 +137,10 @@ class ALaCarteMainView extends PolymerElement implements AppPager {
         project.isChanged = false;
       }
     });
+    appRouter.getServiceAccountName().then((serviceAccount) {
+      project.serviceAccountName = serviceAccount;
+    });
+
   }
 
   @override void openProject(String uuid) {
@@ -163,4 +168,5 @@ class ALaCarteMainView extends PolymerElement implements AppPager {
   @override void reportError(ErrorReportModule module, String errorMessage) => appRouter.reportError(module, errorMessage);
 
   @override Future<int> nextJobNumber(int year) => appRouter.nextJobNumber(year);
+
 }
