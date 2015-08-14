@@ -34,9 +34,9 @@ class ALaCarteProjectInfoPage extends ALaCartePageCommon {
 
   @override ready() {
     new CompoundObserver()
-      ..addPath(this, ['project', 'jobNumber'])
-      ..addPath(this, ['project', 'name'])
-      ..addPath(this, ['project', 'serviceAccountName'])
+      ..addPath(this, 'project.jobNumber')
+      ..addPath(this, 'project.name')
+      ..addPath(this, 'project.serviceAccountName')
       ..open((_) {
       _projectMayBeCommitted = (project != null && project.jobNumber >= 0 && project.name != null && project.name != "" && project.serviceAccountName != null && project.serviceAccountName != "");
     });
