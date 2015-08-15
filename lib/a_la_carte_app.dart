@@ -10,7 +10,7 @@ import 'package:a_la_carte/fetch_interop.dart';
 import 'package:uuid/uuid.dart';
 
 import 'package:a_la_carte/models.dart';
-// import 'a_la_carte_main_view.dart';
+import 'a_la_carte_card_view.dart';
 
 /**
  * A Polymer click counter element.
@@ -111,7 +111,7 @@ class ALaCarteApp extends PolymerElement implements AppRouter {
   }
 
   void _getProjectsData() => _connectTo(
-      '/a_la_carte/_design/projects/_view/all_by_job_number?descending=true&include_docs=true',
+      '/a_la_carte/_design/projects/_view/all_by_job_number?descending=true&include_docs=true&update_seq=true',
       _routeProjectLoadingEvent);
 
   @override Future<String> getServiceAccountName() {
@@ -127,12 +127,12 @@ class ALaCarteApp extends PolymerElement implements AppRouter {
   Future _getSessionUserName() {
     final completer = new Completer();
     _connectTo('/_session', (event, subscription) =>
-    _routeSessionEvent(event, subscription, completer));
+        _routeSessionEvent(event, subscription, completer));
     return completer.future;
   }
 
   void _routeSessionEvent(JsonStreamingEvent event,
-                          Ref<StreamSubscription> subscription, Completer completer) {
+      Ref<StreamSubscription> subscription, Completer completer) {
     if (event.status == 200 && event.path.length == 0) {
       _serviceAccountName = event.symbol['userCtx']['name'];
       subscription.value.cancel();
@@ -142,6 +142,29 @@ class ALaCarteApp extends PolymerElement implements AppRouter {
       subscription.value.cancel();
       completer.complete();
     }
+  }
+
+  _createNewProject(String id, Map doc, [bool isFromPresortedList = true]) {
+    final project = new Project(id);
+    project.initFromJSON(doc);
+    if (project.serviceAccountName == null) {
+      getServiceAccountName().then((account) {
+        project.serviceAccountName = account;
+      });
+    }
+    if (isFromPresortedList) {
+      Project.addAtTail(projects, project);
+    } else {
+      Project.insertIntoPresortedList(project, projects);
+    }
+    projectsByUuid[project.id] = project;
+    if (_pendingProjectRequest.containsKey(project.id)) {
+      for (var completer in _pendingProjectRequest[project.id]) {
+        completer.complete(project);
+      }
+      _pendingProjectRequest.remove(project.id);
+    }
+    project.committed = true;
   }
 
   void _routeProjectLoadingEvent(
@@ -166,30 +189,23 @@ class ALaCarteApp extends PolymerElement implements AppRouter {
         projectsAreLoaded = true;
       }
       subscription.value.cancel();
+      projectsAreLoaded = true;
+      for (var uuid in _pendingProjectRequest.keys) {
+        final listOfCompleters = _pendingProjectRequest[uuid];
+        for (var completer in listOfCompleters) {
+          completer
+          .completeError(new ArgumentError('No project named $uuid found.'));
+        }
+      }
+      _connectToChangeStream();
       return;
+    } else if (event.path.length == 1 && event.path[0] == 'update_seq') {
+      _currentChangeSeq = event.symbol;
     } else if (event.path[0] != 'rows') return;
     if (event.path.length > 2) return;
     if (event.path.length == 2) {
-      final project = new Project(event.symbol['id']);
-      project.initFromJSON(event.symbol['doc']);
-      projects.add(project);
-      projectsByUuid[project.id] = project;
-      if (_pendingProjectRequest.containsKey(project.id)) {
-        for (var completer in _pendingProjectRequest[project.id]) {
-          completer.complete(project);
-        }
-        _pendingProjectRequest.remove(project.id);
-      }
-      project.committed = true;
+      _createNewProject(event.symbol['id'], event.symbol['doc']);
       return;
-    }
-    projectsAreLoaded = true;
-    for (var uuid in _pendingProjectRequest.keys) {
-      final listOfCompleters = _pendingProjectRequest[uuid];
-      for (var completer in listOfCompleters) {
-        completer
-        .completeError(new ArgumentError('No project named $uuid found.'));
-      }
     }
   }
 
@@ -197,13 +213,13 @@ class ALaCarteApp extends PolymerElement implements AppRouter {
     final Completer<int> completer = new Completer<int>();
     _connectTo(
         '/a_la_carte/_design/projects/_view/greatest_job_number?key=$year',
-            (event, subscription) =>
-        _processNextJobNumber(event, completer, year, subscription));
+        (event, subscription) =>
+            _processNextJobNumber(event, completer, year, subscription));
     return completer.future;
   }
 
   void _processNextJobNumber(JsonStreamingEvent event, Completer<int> completer,
-                             int year, Ref<StreamSubscription> subscription) {
+      int year, Ref<StreamSubscription> subscription) {
     if (event.path.length != 0) {
       return;
     }
@@ -215,12 +231,12 @@ class ALaCarteApp extends PolymerElement implements AppRouter {
     subscription.value.cancel();
   }
 
-  void _connectTo(String uri, JsonEventRouter router) {
-    final jsonHandler = new JsonStreamingParser();
+  void _connectTo(String uri, JsonEventRouter router, [isImplicitArray = false]) {
+    final jsonHandler = new JsonStreamingParser(isImplicitArray);
     connectivityErrorMessage = null;
     final subscription = new Ref<StreamSubscription>();
     subscription.value = jsonHandler.onSymbolComplete
-    .listen((event) => router(event, subscription));
+        .listen((event) => router(event, subscription));
 
     if (fetch == null) {
       _request = new HttpRequest();
@@ -280,6 +296,62 @@ class ALaCarteApp extends PolymerElement implements AppRouter {
     }
   }
 
+  void _windowBecomesVisible(CustomEvent event, Ref<StreamSubscription> subscription) {
+    if (document.visibilityState != 'hidden') {
+      _connectToChangeStream();
+      subscription.value.cancel();
+    }
+  }
+
   void _connectToChangeStream() {
+    getServiceAccountName().then((account) {
+      _connectTo(
+          '/a_la_carte/_changes?feed=continuous&include_docs=true&'
+              'since=${_currentChangeSeq}&'
+              'filter=projects/projects&account=$account',
+          _routeChangeEvent, true);
+    });
+  }
+
+  void _routeChangeEvent(
+      JsonStreamingEvent event, Ref<StreamSubscription> subscription) {
+    window.console.log('Got an event ${event.path}');
+    if (event.path.length == 1) {
+      if (event.symbol.containsKey('seq') && event.symbol.containsKey('id') && !event.symbol.containsKey('deleted')) {
+        if (projectsByUuid.containsKey(event.symbol['id'])) {
+          ALaCarteCardView cardView = $['main-view'].$['card-view'];
+          cardView.visuallyRippleProject(event.symbol['id']);
+          final thisProject = projectsByUuid[event.symbol['id']];
+          if (!thisProject.isChanged) {
+            thisProject.initFromJSON(event.symbol['doc']);
+            if (thisProject.jobNumber != thisProject.jobNumberInPresortedList) {
+              Project.repositionInPresortedList(projects, thisProject);
+            }
+          }
+        } else {
+          _createNewProject(event.symbol['id'], event.symbol['doc'], false);
+        }
+      }
+      else if (event.symbol.containsKey('seq') && event.symbol.containsKey('id') && event.symbol.containsKey('deleted')) {
+        final thisProject = projectsByUuid[event.symbol['id']];
+        if (!thisProject.isChanged) {
+          projectsByUuid.remove(thisProject.id);
+          Project.removeFromPresortedList(projects, thisProject);
+        }
+      }
+      if (event.symbol.containsKey('seq')) {
+        _currentChangeSeq = event.symbol['seq'];
+      } else if (event.symbol.containsKey('last_seq')) {
+        _currentChangeSeq = event.symbol['last_seq'];
+        subscription.value.cancel();
+        if (document.visibilityState == 'hidden') {
+          final subscription = new Ref<StreamSubscription>();
+          subscription.value = document.onVisibilityChange.listen((event) => _windowBecomesVisible(event, subscription));
+        } else {
+          //Reconnect
+          _connectToChangeStream();
+        }
+      }
+    }
   }
 }

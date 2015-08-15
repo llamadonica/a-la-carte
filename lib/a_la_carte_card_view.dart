@@ -105,7 +105,8 @@ class ALaCarteCardView extends ALaCartePageCommon {
     return duration;
   }
 
-  static double _waveRadiusForTimes(int touchDownMs, int touchUpMs, _Wave wave) {
+  static double _waveRadiusForTimes(
+      int touchDownMs, int touchUpMs, _Wave wave) {
     var width = wave.clientWidth.toDouble();
     var height = wave.clientHeight.toDouble();
     var waveRadius =
@@ -172,8 +173,10 @@ class ALaCarteCardView extends ALaCartePageCommon {
     });
   }
 
-  _Wave _createWave(DivElement row) {
-    var fgColor = row.getComputedStyle().color;
+  _Wave _createWave(DivElement row, [String fgColor = null]) {
+    if (fgColor == null) {
+      fgColor = row.getComputedStyle().color;
+    }
     var wave = new List<Element>();
     var wc = new List<Element>();
     for (DivElement element in row.querySelectorAll('.paper-ripple-bg')) {
@@ -208,43 +211,40 @@ class ALaCarteCardView extends ALaCartePageCommon {
     }
   }
 
-  void rippleOverEntry(MouseEvent event) {
-    Element target = event.target;
-    var offsetX = 0;
-    while (target != null && !target.classes.contains('table-body-row')) {
-      if (target.classes.contains('table-body-cell')) {
-        offsetX = target.offsetLeft;
-      }
-      target = target.parent;
-    }
-    var wave = _createWave(target);
-    wave.mouseDownWallClock = window.performance.now();
-    wave.isMouseDown = true;
-    var rectangle = target.client;
-    var width = rectangle.width;
-    var height = rectangle.height;
-    var x = event.offset.x + offsetX - rectangle.left;
-    var y = event.offset.y - rectangle.top;
-    wave.startPosition = new Point(x, y);
-    if (target.classes.contains('recenteringTouch')) {
-      wave.endPosition = new Point(rectangle.width / 2, rectangle.height / 2);
-      wave.slideDistance = wave.startPosition.distanceTo(wave.endPosition);
-    }
-    wave.clientSize = max(width, height);
-    wave.clientHeight = height;
-    wave.clientWidth = width;
-    wave.maxRadius = max(max(wave.startPosition.distanceTo(new Point(0, 0)),
-        wave.startPosition.distanceTo(new Point(width, 0))), max(
-        wave.startPosition.distanceTo(new Point(width, height)),
-        wave.startPosition.distanceTo(new Point(0, height))));
+  void visuallyRippleProject(String projectId) {
+    final DivElement target =
+        shadowRoot.querySelector('[data-project-id="$projectId"]');
+    _createColoredRippled(target);
+  }
+
+  void _createColoredRippled(DivElement target) {
+    final rectangle = target.client;
+    final width = rectangle.width;
+    final height = rectangle.height;
+    final x = width / 2;
+    final y = height / 2;
+    final startPosition = new Point(x, y);
+    final wave = _createWave(target, 'rgba(255,171,0,0.75)');
+    wave
+      ..isTouchTriggered = false
+      ..mouseDownWallClock = window.performance.now()
+      ..isMouseDown = true
+      ..startPosition = startPosition
+      ..clientSize = max(width, height)
+      ..clientHeight = height
+      ..clientWidth = width
+      ..maxRadius = max(max(startPosition.distanceTo(new Point(0, 0)),
+          startPosition.distanceTo(new Point(width, 0))), max(
+          startPosition.distanceTo(new Point(width, height)),
+          startPosition.distanceTo(new Point(0, height))));
 
     int leftOffset = 0;
     for (Element wc in wave.wc) {
-      wc.style.left =
-          '${(wave.clientWidth - wave.clientSize) / 2 - leftOffset}px';
-      wc.style.top = '${(wave.clientHeight - wave.clientSize) / 2}px';
-      wc.style.height = '${wave.clientSize}px';
-      wc.style.width = '${wave.clientSize}px';
+      wc.style
+        ..left = '${(wave.clientWidth - wave.clientSize) / 2 - leftOffset}px'
+        ..top = '${(wave.clientHeight - wave.clientSize) / 2}px'
+        ..height = '${wave.clientSize}px'
+        ..width = '${wave.clientSize}px';
       leftOffset += wc.parent.client.width;
     }
     for (Element waveDiv in wave.wave) {
@@ -255,29 +255,82 @@ class ALaCarteCardView extends ALaCartePageCommon {
     }
     _waves[wave.row].add(wave);
     if (_requestedAnimationFrame == null) {
-      _requestedAnimationFrame =
-      window.requestAnimationFrame(_animate);
+      _requestedAnimationFrame = window.requestAnimationFrame(_animate);
+    }
+  }
+
+  void rippleOverEntry(MouseEvent event) {
+    Element target = event.target;
+    var offsetX = 0;
+    while (target != null && !target.classes.contains('table-body-row')) {
+      if (target.classes.contains('table-body-cell')) {
+        offsetX = target.offsetLeft;
+      }
+      target = target.parent;
+    }
+    final wave = _createWave(target);
+    final rectangle = target.client;
+    final width = rectangle.width;
+    final height = rectangle.height;
+    final x = event.offset.x + offsetX - rectangle.left;
+    final y = event.offset.y - rectangle.top;
+    final startPosition = new Point(x, y);
+    wave
+      ..mouseDownWallClock = window.performance.now()
+      ..isMouseDown = true
+      ..startPosition = startPosition
+      ..clientSize = max(width, height)
+      ..clientHeight = height
+      ..clientWidth = width
+      ..maxRadius = max(max(startPosition.distanceTo(new Point(0, 0)),
+          startPosition.distanceTo(new Point(width, 0))), max(
+          startPosition.distanceTo(new Point(width, height)),
+          startPosition.distanceTo(new Point(0, height))));
+    if (target.classes.contains('recenteringTouch')) {
+      wave
+        ..endPosition = new Point(rectangle.width / 2, rectangle.height / 2)
+        ..slideDistance = wave.startPosition.distanceTo(wave.endPosition);
+    }
+
+    int leftOffset = 0;
+    for (Element wc in wave.wc) {
+      wc.style
+        ..left = '${(wave.clientWidth - wave.clientSize) / 2 - leftOffset}px'
+        ..top = '${(wave.clientHeight - wave.clientSize) / 2}px'
+        ..height = '${wave.clientSize}px'
+        ..width = '${wave.clientSize}px';
+      leftOffset += wc.parent.client.width;
+    }
+    for (Element waveDiv in wave.wave) {
+      waveDiv.style.backgroundColor = wave.fgColor;
+    }
+    if (!_waves.containsKey(wave.row)) {
+      _waves[wave.row] = <_Wave>[];
+    }
+    _waves[wave.row].add(wave);
+    if (_requestedAnimationFrame == null) {
+      _requestedAnimationFrame = window.requestAnimationFrame(_animate);
     }
   }
 
   void receiveUp(Element target, num timeStamp) {
-    for (var wave in _waves[target]) {
-      if (wave.isMouseDown) {
-        wave.isMouseDown = false;
-        wave.mouseUpWallClock = timeStamp;
-        wave.mouseDownMs = wave.mouseUpWallClock - wave.mouseDownWallClock;
+    for (final wave in _waves[target]) {
+      if (wave.isMouseDown && wave.isTouchTriggered) {
+        wave
+          ..isMouseDown = false
+          ..mouseUpWallClock = timeStamp
+          ..mouseDownMs = timeStamp - wave.mouseDownWallClock;
         break;
       }
     }
     if (_requestedAnimationFrame == null) {
-      _requestedAnimationFrame =
-      window.requestAnimationFrame(_animate);
+      _requestedAnimationFrame = window.requestAnimationFrame(_animate);
     }
   }
 
   static String _cssColorWithAlpha(String cssColor, [double alpha = 1.0]) {
-    var cssColorRegex = new RegExp(r'^rgb\((\d+,\s*\d+,s*\d+)\)$');
-    var match = cssColorRegex.firstMatch(cssColor);
+    final cssColorRegex = new RegExp(r'^rgb\((\d+,\s*\d+,s*\d+)\)$');
+    final match = cssColorRegex.firstMatch(cssColor);
     if (match == null) {
       return 'rgba(255, 255, 255, $alpha)';
     }
@@ -285,7 +338,7 @@ class ALaCarteCardView extends ALaCartePageCommon {
   }
 
   void _animate(num timeStamp) {
-    var wavesToDelete = [];
+    final wavesToDelete = [];
     var shouldRenderNextFrame = false;
     var longestTouchDownDuration = 0.0;
     var longestTouchUpDuration = 0.0;
@@ -326,8 +379,14 @@ class ALaCarteCardView extends ALaCartePageCommon {
         var maximumWave = _waveAtMaximum(wave, radius);
         var waveDissipated = _waveDidFinish(wave, radius);
         var shouldKeepWave = !waveDissipated;
+        if (!(wave.isTouchTriggered) && wave.mouseUpWallClock <= 0 && maximumWave) {
+          wave
+            ..isMouseDown = false
+            ..mouseUpWallClock = timeStamp
+            ..mouseDownMs = timeStamp - wave.mouseDownWallClock;
+        }
         var shouldRenderWaveAgain =
-            (wave.mouseUpMs <= 0) ? !maximumWave : !waveDissipated;
+            (wave.mouseUpWallClock <= 0) ? !maximumWave : !waveDissipated;
         if (!shouldKeepWave) {
           wavesToDelete.add(wave);
         }
@@ -381,6 +440,7 @@ class _Wave {
   int mouseDownMs = 0;
   int mouseUpMs = 0;
   bool isMouseDown = false;
+  bool isTouchTriggered = true;
   Point startPosition;
   Point endPosition;
   double slideDistance = 0.0;

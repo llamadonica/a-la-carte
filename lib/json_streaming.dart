@@ -34,6 +34,7 @@ class JsonStreamingParser {
   bool _weAreAtStart = true;
   bool _weAreInObject = false;
   bool _weAreInArray = false;
+  bool _weAreInImplicitArray = false;
   bool _isSemiClosed = false;
   bool _requireComma = false;
   bool _requireColon = false;
@@ -46,6 +47,8 @@ class JsonStreamingParser {
   Object _currentContext;
 
   List _currentPath;
+  final bool _isImplicitArray;
+
   final StreamController<JsonStreamingEvent> _onOpenContainer =
       new StreamController<JsonStreamingEvent>();
   final StreamController<JsonStreamingEvent> _onCloseContainer =
@@ -55,6 +58,13 @@ class JsonStreamingParser {
 
   int _status;
   String _statusText;
+
+  JsonStreamingParser([bool this._isImplicitArray = false]) {
+    _weAreInImplicitArray = _isImplicitArray;
+    if (_weAreInImplicitArray) {
+      _currentPath = [0];
+    }
+  }
 
   Stream<JsonStreamingEvent> get onOpenContainer => _onOpenContainer.stream;
   Stream<JsonStreamingEvent> get onCloseContainer => _onCloseContainer.stream;
@@ -138,7 +148,11 @@ class JsonStreamingParser {
       }
       if (_weAreAtStart && bufferGetter(buffer, i) == 123) {
         // Open brace {
-        _currentPath = new List();
+        if (!_weAreInImplicitArray) {
+          _currentPath = new List();
+        } else {
+          _weAreInImplicitArray = false;
+        }
         _currentContext = new Map();
         _currentContexts.add(_currentContext);
 
@@ -148,6 +162,11 @@ class JsonStreamingParser {
         _weAreInObject = true;
         _requireKey = true;
         _startOfLastSymbol = i + 1;
+        continue;
+      } else if (_weAreInImplicitArray) {
+        _onOpenContainer.addError(new StateError("Expected WHITESPACE or { "));
+        _onCloseContainer.addError(new StateError("Expected WHITESPACE or { "));
+        _onSymbolComplete.addError(new StateError("Expected WHITESPACE or { "));
         continue;
       } else if (_weAreAtStart) {
         this._parserAssertNotReached("Expected {");
@@ -162,6 +181,16 @@ class JsonStreamingParser {
             JsonStreamingBoxType.object, _currentPath, _currentContext));
         if (_currentPath.length == 0) {
           _isSemiClosed = true;
+        } else if (_currentPath.length == 1 && _isImplicitArray) {
+
+          _weAreInObject = false;
+          _requireComma = false;
+          _requireKey = false;
+
+          _weAreInImplicitArray = true;
+          _weAreAtStart = true;
+          _startOfLastSymbol = i + 1;
+          _currentPath[0]++;
         } else {
           var lastKey = _currentPath.removeLast();
           if (lastKey is int) {

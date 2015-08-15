@@ -38,8 +38,14 @@ class ALaCarteProjectInfoPage extends ALaCartePageCommon {
       ..addPath(this, 'project.name')
       ..addPath(this, 'project.serviceAccountName')
       ..open((_) {
-      _projectMayBeCommitted = (project != null && project.jobNumber >= 0 && project.name != null && project.name != "" && project.serviceAccountName != null && project.serviceAccountName != "");
-    });
+        _projectMayBeCommitted = (project != null &&
+            project.jobNumber != null &&
+            project.jobNumber >= 0 &&
+            project.name != null &&
+            project.name != "" &&
+            project.serviceAccountName != null &&
+            project.serviceAccountName != "");
+      });
   }
 
   void projectChanged(oldProject) {
@@ -78,30 +84,31 @@ class ALaCarteProjectInfoPage extends ALaCartePageCommon {
   }
 
   void projectFieldsChanged(List<ChangeRecord> changes) {
-    project.isChanged = true;
-    appPager.setProjectHasChanged();
-    fabIcon = 'check';
+    if (project.isChanged) {
+      appPager.setProjectHasChanged();
+      fabIcon = 'check';
+    }
     for (PropertyChangeRecord change in changes) {
       if (change.name == #streetAddress) {
         final PaperAutogrowTextarea streetAddressTextarea =
-        $['street-address-textarea'];
+            $['street-address-textarea'];
         streetAddressTextarea.rows = null;
       } else if (change.name == #jobNumber &&
-      (change.newValue == null ||
-      (change.newValue is double && change.newValue.isNaN))) {
+          (change.newValue == null ||
+              (change.newValue is double && change.newValue.isNaN))) {
         final PaperInputDecorator jobNumber = $['jobNumber'];
         jobNumber.isInvalid = true;
       } else if (change.name == #jobNumber &&
-      (change.newValue != null &&
-      (!(change.newValue is double) || !change.newValue.isNaN))) {
+          (change.newValue != null &&
+              (!(change.newValue is double) || !change.newValue.isNaN))) {
         final PaperInputDecorator jobNumber = $['jobNumber'];
         jobNumber.isInvalid = false;
       } else if (change.name == #name &&
-      (change.newValue == null || change.newValue == '')) {
+          (change.newValue == null || change.newValue == '')) {
         final PaperInputDecorator name = $['name'];
         name.isInvalid = true;
       } else if (change.name == #name &&
-      (change.newValue != null && change.newValue != '')) {
+          (change.newValue != null && change.newValue != '')) {
         final PaperInputDecorator name = $['name'];
         name.isInvalid = false;
       }
@@ -138,7 +145,7 @@ class ALaCarteProjectInfoPage extends ALaCartePageCommon {
     var jsonHandler = new JsonStreamingParser();
     final subscription = new Ref<StreamSubscription>();
     subscription.value = jsonHandler.onSymbolComplete.listen((event) =>
-    _routeProjectDeletingJsonReply(event, project, subscription));
+        _routeProjectDeletingJsonReply(event, project, subscription));
 
     if (fetch == null) {
       final _request = new HttpRequest();
@@ -148,13 +155,13 @@ class ALaCarteProjectInfoPage extends ALaCartePageCommon {
       _request.onLoad.listen(jsonHandler.httpRequestListener);
       _request.onProgress.listen(jsonHandler.httpRequestListener);
       _request.onError
-      .listen((event) => _onHttpRequestDeletingError(event, _request));
+          .listen((event) => _onHttpRequestDeletingError(event, _request));
 
       _request.send();
     } else {
       fetch('/a_la_carte/${id}?rev=${rev}',
-      method: 'DELETE', headers: {'Content-Type': 'application/json'})
-      .then((Response object) {
+              method: 'DELETE', headers: {'Content-Type': 'application/json'})
+          .then((Response object) {
         jsonHandler.setStreamStateFromResponse(object);
         jsonHandler.streamFromByteStreamReader(object.body.getReader());
       }).catchError((FetchError err) {
@@ -164,7 +171,7 @@ class ALaCarteProjectInfoPage extends ALaCartePageCommon {
   }
 
   void _routeProjectDeletingJsonReply(JsonStreamingEvent event, Project project,
-                                      Ref<StreamSubscription> subscription) {
+      Ref<StreamSubscription> subscription) {
     final Duration enableDelay = new Duration(milliseconds: 1020);
     if (event.status >= 400 && event.status < 599 && event.path.length == 0) {
       _fabWillBeDisabled = false;
@@ -178,7 +185,7 @@ class ALaCarteProjectInfoPage extends ALaCartePageCommon {
       switch (error) {
         case 'conflict':
           message = "I couldn't delete the project because someone else"
-          " changed it at the same time.";
+              " changed it at the same time.";
           break;
       }
       appPager.reportError(ErrorReportModule.projectSaver, message);
@@ -191,7 +198,7 @@ class ALaCarteProjectInfoPage extends ALaCartePageCommon {
         fabDisabled = _fabWillBeDisabled;
       });
       projectsByUuid.remove(project.id);
-      projects.remove(project);
+      Project.removeFromPresortedList(projects, project);
       appPager.selected = 0;
       subscription.value.cancel();
     }
@@ -202,7 +209,7 @@ class ALaCarteProjectInfoPage extends ALaCartePageCommon {
     var jsonHandler = new JsonStreamingParser();
     final subscription = new Ref<StreamSubscription>();
     subscription.value = jsonHandler.onSymbolComplete.listen(
-            (event) => _routeProjectSavingJsonReply(event, project, subscription));
+        (event) => _routeProjectSavingJsonReply(event, project, subscription));
 
     if (fetch == null) {
       final _request = new HttpRequest();
@@ -212,14 +219,14 @@ class ALaCarteProjectInfoPage extends ALaCartePageCommon {
       _request.onLoad.listen(jsonHandler.httpRequestListener);
       _request.onProgress.listen(jsonHandler.httpRequestListener);
       _request.onError
-      .listen((event) => _onHttpRequestSavingError(event, _request));
+          .listen((event) => _onHttpRequestSavingError(event, _request));
 
       _request.send(body);
     } else {
       fetch('/a_la_carte/${id}',
-      method: 'PUT',
-      headers: {'Content-Type': 'application/json'},
-      body: body).then((Response object) {
+          method: 'PUT',
+          headers: {'Content-Type': 'application/json'},
+          body: body).then((Response object) {
         jsonHandler.setStreamStateFromResponse(object);
         jsonHandler.streamFromByteStreamReader(object.body.getReader());
       }).catchError((FetchError err) {
@@ -246,12 +253,12 @@ class ALaCarteProjectInfoPage extends ALaCartePageCommon {
       fabDisabled = _fabWillBeDisabled;
     });
     String message = "I couldn't save the changes because the connection to the"
-    " server was lost.";
+        " server was lost.";
     appPager.reportError(ErrorReportModule.projectSaver, message);
   }
 
   void _routeProjectSavingJsonReply(JsonStreamingEvent event, Project project,
-                                    Ref<StreamSubscription> subscription) {
+      Ref<StreamSubscription> subscription) {
     final Duration enableDelay = new Duration(milliseconds: 1020);
     if (event.status >= 400 && event.status < 599 && event.path.length == 0) {
       _fabWillBeDisabled = false;
@@ -265,7 +272,7 @@ class ALaCarteProjectInfoPage extends ALaCartePageCommon {
       switch (error) {
         case 'conflict':
           message = "I couldn't save the changes because someone else"
-          " changed it at the same time.";
+              " changed it at the same time.";
           break;
       }
       appPager.reportError(ErrorReportModule.projectSaver, message);
@@ -280,6 +287,8 @@ class ALaCarteProjectInfoPage extends ALaCartePageCommon {
       if (!project.committed) {
         projectsByUuid[project.id] = project;
         Project.insertIntoPresortedList(project, projects);
+      } else if (project.jobNumber != project.jobNumberInPresortedList) {
+        Project.repositionInPresortedList(projects, project);
       }
       project.rev = event.symbol['rev'];
       project.committed = true;
