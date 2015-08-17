@@ -3,7 +3,6 @@ library a_la_carte.server;
 import 'dart:async';
 import 'dart:convert';
 import 'dart:html';
-import 'dart:typed_data';
 import 'package:a_la_carte/fetch_interop.dart';
 
 enum JsonStreamingBoxType { array, object, finalSymbol }

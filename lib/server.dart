@@ -10,13 +10,15 @@ import 'package:shelf/shelf.dart' as shelf;
 import 'package:shelf/shelf_io.dart' as io;
 import 'package:stack_trace/stack_trace.dart' as stack_trace;
 import 'package:uuid/uuid.dart';
+import 'package:oauth2/oauth2.dart' as oauth2;
 
-part 'src/couch_datastore_abstraction.dart';
+part 'src/couch_db_backend.dart';
+part 'src/db_backend.dart';
 part 'src/session_data_store.dart';
 part 'src/http_listener_isolate.dart';
 part 'src/session_listener.dart';
 part 'src/session_master.dart';
-part 'src/policy_handler.dart';
+part 'src/policy_validator.dart';
 part 'src/oauth_identity_data_store.dart';
 
 class Server {

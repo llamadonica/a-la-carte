@@ -9,7 +9,4 @@ abstract class AppPager {
   void openProject(String uuid);
 
   void setProjectHasChanged([bool changed=true]);
-
-  void reportError(ErrorReportModule module, String errorMessage);
-  Future<int> nextJobNumber(int year);
 }

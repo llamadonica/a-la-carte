@@ -1,7 +1,5 @@
 import 'dart:async';
-import 'dart:convert';
 import 'dart:html';
-import 'dart:js';
 
 import 'package:polymer/polymer.dart';
 import 'package:paper_elements/paper_toast.dart';
@@ -16,11 +14,8 @@ import 'a_la_carte_card_view.dart';
  * A Polymer click counter element.
  */
 
-typedef void JsonEventRouter(
-    JsonStreamingEvent event, Ref<StreamSubscription> subscription);
-
-@CustomTag('a-la-carte-app')
-class ALaCarteApp extends PolymerElement implements AppRouter {
+@CustomTag('a-la-carte-presenter')
+class ALaCartePresenter extends PolymerElement implements Presenter {
   static const Duration minDuration = const Duration(seconds: 1);
   static const Map<String, String> errorMessages = const <String, String>{
     'not_found':
@@ -31,7 +26,6 @@ class ALaCarteApp extends PolymerElement implements AppRouter {
   @observable String selected = 'main-view';
   @observable String prevSelected = null;
   @observable String connectivityErrorMessage = null;
-  @observable String moduleErrorMessage = null;
   int responsiveWidth = 600;
   @observable bool wide;
   @observable Project project;
@@ -46,26 +40,18 @@ class ALaCarteApp extends PolymerElement implements AppRouter {
   @observable ObservableMap<String, Project> projectsByUuid =
       new ObservableMap();
 
-  AppRouter get router => this;
+  Presenter get router => this;
   StreamController<List<String>> _onAppNavigationEvent =
       new StreamController<List<String>>();
   HttpRequest _request;
-  int _endOfLastRequest = 0;
-  int _startOfLastProject = 0;
-  AppDelegate __appDelegate;
   DateTime readyTime;
   bool _useFragment = true;
   int _currentChangeSeq = 0;
   String _serviceAccountName = null;
   Future _serviceAccountFuture;
 
-  ALaCarteApp.created() : super.created() {
+  ALaCartePresenter.created() : super.created() {
     _useFragment = !History.supportsState;
-  }
-
-  AppDelegate get _appDelegate {
-    if (__appDelegate == null) __appDelegate = new AppDelegate();
-    return __appDelegate;
   }
 
   void _finishStartup() {
@@ -110,7 +96,7 @@ class ALaCarteApp extends PolymerElement implements AppRouter {
     _getProjectsData();
   }
 
-  void _getProjectsData() => _connectTo(
+  void _getProjectsData() => connectTo(
       '/a_la_carte/_design/projects/_view/all_by_job_number?descending=true&include_docs=true&update_seq=true',
       _routeProjectLoadingEvent);
 
@@ -126,8 +112,10 @@ class ALaCarteApp extends PolymerElement implements AppRouter {
 
   Future _getSessionUserName() {
     final completer = new Completer();
-    _connectTo('/_session', (event, subscription) =>
-        _routeSessionEvent(event, subscription, completer));
+    connectTo(
+        '/_session',
+        (event, subscription) =>
+            _routeSessionEvent(event, subscription, completer));
     return completer.future;
   }
 
@@ -183,7 +171,7 @@ class ALaCarteApp extends PolymerElement implements AppRouter {
       connectivityErrorMessage = event.symbol;
       return;
     } else if (event.path.length == 0) {
-      if (isError && !projectsAreLoaded) {
+      if (event.status >= 400 && !projectsAreLoaded) {
         final PaperToast connectivityToast = $['toast-connectivity'];
         connectivityToast.show();
         projectsAreLoaded = true;
@@ -193,8 +181,8 @@ class ALaCarteApp extends PolymerElement implements AppRouter {
       for (var uuid in _pendingProjectRequest.keys) {
         final listOfCompleters = _pendingProjectRequest[uuid];
         for (var completer in listOfCompleters) {
-          completer
-          .completeError(new ArgumentError('No project named $uuid found.'));
+          completer.completeError(
+              new ArgumentError('No project named $uuid found.'));
         }
       }
       _connectToChangeStream();
@@ -211,7 +199,7 @@ class ALaCarteApp extends PolymerElement implements AppRouter {
 
   @override Future<int> nextJobNumber(int year) {
     final Completer<int> completer = new Completer<int>();
-    _connectTo(
+    connectTo(
         '/a_la_carte/_design/projects/_view/greatest_job_number?key=$year',
         (event, subscription) =>
             _processNextJobNumber(event, completer, year, subscription));
@@ -231,9 +219,10 @@ class ALaCarteApp extends PolymerElement implements AppRouter {
     subscription.value.cancel();
   }
 
-  void _connectTo(String uri, JsonEventRouter router, [isImplicitArray = false]) {
+  @override
+  void connectTo(String uri, JsonEventRouter router,
+      {bool isImplicitArray: false}) {
     final jsonHandler = new JsonStreamingParser(isImplicitArray);
-    connectivityErrorMessage = null;
     final subscription = new Ref<StreamSubscription>();
     subscription.value = jsonHandler.onSymbolComplete
         .listen((event) => router(event, subscription));
@@ -272,11 +261,20 @@ class ALaCarteApp extends PolymerElement implements AppRouter {
     }
   }
 
-  Stream<List<String>> get onAppNavigationEvent => _onAppNavigationEvent.stream;
+  Stream<List<String>> get onExternalNavigationEvent =>
+      _onAppNavigationEvent.stream;
 
   @override void reportError(ErrorReportModule module, String message) {
-    moduleErrorMessage = message;
-    final PaperToast toastModuleError = $['toast-module-error'];
+    final PaperToast toastModuleError = new PaperToast();
+    HtmlElement moduleErrors = $['module-errors'];
+    toastModuleError
+      ..duration = 5000
+      ..text = message
+      ..id = new Uuid().v4()
+      ..on['core-overlay-close-completed'].listen((_) {
+        toastModuleError.remove();
+      });
+    moduleErrors.append(toastModuleError);
     toastModuleError.show();
   }
 
@@ -296,28 +294,31 @@ class ALaCarteApp extends PolymerElement implements AppRouter {
     }
   }
 
-  void _windowBecomesVisible(CustomEvent event, Ref<StreamSubscription> subscription) {
+  void _windowBecomesVisible(
+      CustomEvent event, Ref<StreamSubscription> subscription) {
     if (document.visibilityState != 'hidden') {
       _connectToChangeStream();
       subscription.value.cancel();
     }
   }
 
-  void _connectToChangeStream() {
-    getServiceAccountName().then((account) {
-      _connectTo(
-          '/a_la_carte/_changes?feed=continuous&include_docs=true&'
-              'since=${_currentChangeSeq}&'
-              'filter=projects/projects&account=$account',
-          _routeChangeEvent, true);
-    });
+  Future _connectToChangeStream() async {
+    var account = await getServiceAccountName();
+    connectTo(
+        '/a_la_carte/_changes?feed=continuous&include_docs=true&'
+        'since=${_currentChangeSeq}&'
+        'filter=projects/projects&account=$account',
+        _routeChangeEvent,
+        isImplicitArray: true);
   }
 
   void _routeChangeEvent(
       JsonStreamingEvent event, Ref<StreamSubscription> subscription) {
     window.console.log('Got an event ${event.path}');
     if (event.path.length == 1) {
-      if (event.symbol.containsKey('seq') && event.symbol.containsKey('id') && !event.symbol.containsKey('deleted')) {
+      if (event.symbol.containsKey('seq') &&
+          event.symbol.containsKey('id') &&
+          !event.symbol.containsKey('deleted')) {
         if (projectsByUuid.containsKey(event.symbol['id'])) {
           ALaCarteCardView cardView = $['main-view'].$['card-view'];
           cardView.visuallyRippleProject(event.symbol['id']);
@@ -331,8 +332,9 @@ class ALaCarteApp extends PolymerElement implements AppRouter {
         } else {
           _createNewProject(event.symbol['id'], event.symbol['doc'], false);
         }
-      }
-      else if (event.symbol.containsKey('seq') && event.symbol.containsKey('id') && event.symbol.containsKey('deleted')) {
+      } else if (event.symbol.containsKey('seq') &&
+          event.symbol.containsKey('id') &&
+          event.symbol.containsKey('deleted')) {
         final thisProject = projectsByUuid[event.symbol['id']];
         if (!thisProject.isChanged) {
           projectsByUuid.remove(thisProject.id);
@@ -346,12 +348,18 @@ class ALaCarteApp extends PolymerElement implements AppRouter {
         subscription.value.cancel();
         if (document.visibilityState == 'hidden') {
           final subscription = new Ref<StreamSubscription>();
-          subscription.value = document.onVisibilityChange.listen((event) => _windowBecomesVisible(event, subscription));
+          subscription.value = document.onVisibilityChange
+              .listen((event) => _windowBecomesVisible(event, subscription));
         } else {
           //Reconnect
           _connectToChangeStream();
         }
       }
     }
+  }
+
+  @override void showAuthLogin(String uri) {
+    window.open(uri, '_blank',
+        'width=500,height=500,centerscreen=1,toolbar=0,navigation=0');
   }
 }

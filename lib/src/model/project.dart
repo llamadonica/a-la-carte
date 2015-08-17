@@ -18,7 +18,6 @@ class Project extends JsonCanSync {
   Set<Symbol> _locallyChangedSymbols = new Set<Symbol>();
 
   @observable String name;
-  String _oldName;
   @observable num jobNumber;
   @observable bool isActive;
   @observable String initials;

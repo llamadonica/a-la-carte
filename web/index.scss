@@ -1,5 +1,6 @@
 @import '../packages/a_la_carte/dgs-theme.scss';
 
+
 html,
 body {
   @include user-select(none);
@@ -12,7 +13,8 @@ body {
   }
   line-height: 1.2em;
   margin: 15px;
-  
+
+
   /deep/ {
     core-label {
       paper-checkbox {
@@ -32,6 +34,7 @@ body {
       width: auto;
       display: block;
       
+      
       &[focused]::shadow .floated-label {
         color: $accent-color;
       }
@@ -44,7 +47,7 @@ body {
         }
         
       }
-      
+
       &.invalid::shadow {
         .focused-underline, 
         .cursor {
@@ -52,8 +55,8 @@ body {
           background-color: $accent-color;
         }
       }
-      
-      &.invalid[focused]::shadow .floated-label, 
+
+      &.invalid[focused]::shadow .floated-label,
       &[focused]::shadow .error-text,
       &[focused]::shadow .error-icon {
         //error text, icon, and floating label color when input is invalid
@@ -103,6 +106,7 @@ body {
     }
     
     paper-tabs::shadow {
+      @at-root polyfill-next-selector {}
       #selection-bar {
         background-color: $accent-color-lighter;
       }
@@ -170,25 +174,25 @@ body {
         #bottom-bar {
           @include transform(rotate(135deg) translateY(-.33px) scaleX(.629));
         }
-      
+
         #middle-bar {
           @include transform(rotate(180deg) translateX(-1px) scaleX(.889));
         }
-      
+
         #top-bar {
           @include transform(rotate(225deg) translateY(.33px) scaleX(.629));
         }
       }
-    
+
       &[animate]:not([arrow])::shadow {
         #bottom-bar {
           @include transform(rotate(360deg) translateY(0) scaleX(1));
         }
-      
+
         #middle-bar {
           @include transform(rotate(360deg) translateY(0) scaleX(1));
         }
-      
+
         #top-bar {
           @include transform(rotate(360deg) translateY(0) scaleX(1));
         } 

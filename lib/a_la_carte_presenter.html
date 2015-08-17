@@ -11,9 +11,9 @@
     href="../../packages/core_elements/src/core-animated-pages/transitions/scale-up.html"/>
 <link rel="import" href="../../packages/a_la_carte/a_la_carte_main_view.html"/>
 
-<polymer-element name="a-la-carte-app" attributes="templateUrl" vertical layout>
+<polymer-element name="a-la-carte-presenter" attributes="templateUrl" vertical layout>
   <template bind>
-    <link rel="stylesheet" href="a_la_carte_app.css" />
+    <link rel="stylesheet" href="a_la_carte_presenter.css" />
     <core-animated-pages
         on-core-animated-pages-transition-prepare="{{
           prepareAnimatedTransition}}"
@@ -34,20 +34,22 @@
           noProjectsFound="{{noProjectsFound}}"
           wide="{{wide}}"
           responsiveWidth="{{responsiveWidth - 1}}px"
-          appRouter="{{this}}">
+          appPresenter="{{this}}">
       </a-la-carte-main-view>
     </core-animated-pages>
     <paper-toast duration="600000" autoCloseDisabled id="toast-connectivity" text="{{connectivityErrorMessage}}">
       <div class="toast-connectivity-retry" on-tap="{{retryProjectsData}}">Retry
       </div>
     </paper-toast>
+      <section id="module-errors">
       <paper-toast duration="5000" id="toast-module-error"
                    text="{{moduleErrorMessage}}">
       </paper-toast>
+          </section>
     <core-media-query
         query="min-width: {{responsiveWidth}}px"
         queryMatches="{{wide}}">
     </core-media-query>
   </template>
-  <script type="application/dart" src="a_la_carte_app.dart"></script>
+  <script type="application/dart" src="a_la_carte_presenter.dart"></script>
 </polymer-element>

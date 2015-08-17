@@ -4,10 +4,10 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <link rel="import" href="packages/a_la_carte/a_la_carte_app.html"/>
+    <link rel="import" href="packages/a_la_carte/a_la_carte_presenter.html"/>
     <link rel="stylesheet" type="text/css"
         href="http://fonts.googleapis.com/css?family=Roboto" />
-    <link rel="stylesheet" href="index.css" />
+    <link rel="stylesheet" href="index.css" shim-shadowdom />
     <script type="application/dart" src="index.dart" async></script>
     <script src="packages/browser/dart.js" async></script>
     
@@ -15,6 +15,6 @@
   </head>
   
   <body unresolved>
-    <a-la-carte-app fit></a-la-carte-app>
+    <a-la-carte-presenter fit></a-la-carte-presenter>
   </body>
 </html>

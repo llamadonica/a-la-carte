@@ -5,12 +5,15 @@ part of a_la_carte.server;
 
 class SessionDataStore {
   final String uuid;
+  final String id;
+
   final Set<SendPort> sendPorts;
+
   DateTime expires;
   DateTime lastRefreshed;
   Timer removeTimer;
   
-  SessionDataStore(String this.uuid, DateTime this.expires)
+  SessionDataStore(String this.uuid, String this.id, DateTime this.expires)
       : sendPorts = new HashSet<SendPort>();
 }
 

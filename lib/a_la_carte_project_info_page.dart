@@ -20,6 +20,7 @@ class ALaCarteProjectInfoPage extends ALaCartePageCommon {
   StreamSubscription _projectSubscription;
   @published int selected = 0;
   @published AppPager appPager;
+  @published Presenter appPresenter;
   @published Map<String, Project> projectsByUuid;
   @published List<Project> projects;
   @observable bool projectIsCommitted;
@@ -188,7 +189,7 @@ class ALaCarteProjectInfoPage extends ALaCartePageCommon {
               " changed it at the same time.";
           break;
       }
-      appPager.reportError(ErrorReportModule.projectSaver, message);
+      appPresenter.reportError(ErrorReportModule.projectSaver, message);
       subscription.value.cancel();
     } else if (event.status == 200 && event.path.length == 0) {
       _fabWillBeDisabled = false;
@@ -208,8 +209,8 @@ class ALaCarteProjectInfoPage extends ALaCartePageCommon {
     final String body = JSON.encode(project.jsonGetter());
     var jsonHandler = new JsonStreamingParser();
     final subscription = new Ref<StreamSubscription>();
-    subscription.value = jsonHandler.onSymbolComplete.listen(
-        (event) => _routeProjectSavingJsonReply(event, project, subscription));
+    subscription.value = jsonHandler.onSymbolComplete.listen((event) =>
+        _routeProjectSavingJsonReply(event, project, subscription, id, data));
 
     if (fetch == null) {
       final _request = new HttpRequest();
@@ -245,7 +246,7 @@ class ALaCarteProjectInfoPage extends ALaCartePageCommon {
 
   void _routeProjectServerError(String err) {
     final Duration enableDelay = new Duration(milliseconds: 1020);
-    appPager.reportError(ErrorReportModule.projectSaver, err.toString());
+    appPresenter.reportError(ErrorReportModule.projectSaver, err.toString());
     _fabWillBeDisabled = false;
     //$['showProgress'].classes.remove('showing');
     showProgress = false;
@@ -254,30 +255,79 @@ class ALaCarteProjectInfoPage extends ALaCartePageCommon {
     });
     String message = "I couldn't save the changes because the connection to the"
         " server was lost.";
-    appPager.reportError(ErrorReportModule.projectSaver, message);
+    appPresenter.reportError(ErrorReportModule.projectSaver, message);
   }
 
-  void _routeProjectSavingJsonReply(JsonStreamingEvent event, Project project,
-      Ref<StreamSubscription> subscription) {
+  void _cancelSavingWithErrorFromEvent(JsonStreamingEvent event) =>
+      _cancelSavingWithError(event.symbol['reason'], event.symbol['message'],
+          event.symbol['error']);
+
+  void _cancelSavingWithError(String reason, String message, String error) {
     final Duration enableDelay = new Duration(milliseconds: 1020);
-    if (event.status >= 400 && event.status < 599 && event.path.length == 0) {
-      _fabWillBeDisabled = false;
-      //$['showProgress'].classes.remove('showing');
-      showProgress = false;
-      new Timer(enableDelay, () {
-        fabDisabled = _fabWillBeDisabled;
-      });
-      final error = event.symbol['error'];
-      String message = event.symbol['reason'];
+    _fabWillBeDisabled = false;
+    //$['showProgress'].classes.remove('showing');
+    showProgress = false;
+    new Timer(enableDelay, () {
+      fabDisabled = _fabWillBeDisabled;
+    });
+    if (message == null) {
+      message = reason;
       switch (error) {
         case 'conflict':
           message = "I couldn't save the changes because someone else"
               " changed it at the same time.";
           break;
       }
-      appPager.reportError(ErrorReportModule.projectSaver, message);
+    }
+    appPresenter.reportError(ErrorReportModule.projectSaver, message);
+  }
+
+  void _routeProjectAuthorizationReply(
+      JsonStreamingEvent event,
+      JsonStreamingEvent originalEvent,
+      Ref<StreamSubscription> subscription,
+      String id,
+      Map data) {
+    if (event.status >= 300) {
+      subscription.value.cancel();
+      _cancelSavingWithErrorFromEvent(originalEvent);
+      return;
+    }
+    if (event.path.length == 1 && event.symbol.containsKey('seq')) {
+      if (event.symbol.containsKey('deleted')) {
+        _putProjectDataToServer(id, data);
+      }
+    } else if (event.path.length == 1 && event.symbol.containsKey('last_seq')) {
+      subscription.value.cancel();
+    }
+  }
+
+  void _routeProjectSavingJsonReply(JsonStreamingEvent event, Project project,
+      Ref<StreamSubscription> subscription, String id, Map data) {
+    if (event.status == 401 && event.path.length == 0) {
+      if (event.symbol.containsKey('auth_uri') &&
+          event.symbol.containsKey('auth_watcher')) {
+        appPresenter.showAuthLogin(event.symbol['auth_uri']);
+        appPresenter.connectTo(
+            '/a_la_carte/_changes?feed=continuous&'
+            'filter=_doc_ids&doc_ids=%5B%22${event.symbol["auth_watcher"]}%22%5D',
+            (newEvent, subscription) => _routeProjectAuthorizationReply(
+                newEvent, event, subscription, id, data),
+            isImplicitArray: true);
+      } else {
+        if (event.symbol.containsKey('auth_uri')) {
+          appPresenter.showAuthLogin(event.symbol['auth_uri']);
+        }
+        _cancelSavingWithErrorFromEvent(event);
+        subscription.value.cancel();
+      }
+    } else if (event.status >= 400 &&
+        event.status < 599 &&
+        event.path.length == 0) {
+      _cancelSavingWithErrorFromEvent(event);
       subscription.value.cancel();
     } else if (event.status == 201 && event.path.length == 0) {
+      final Duration enableDelay = new Duration(milliseconds: 1020);
       _fabWillBeDisabled = false;
       //$['showProgress'].classes.remove('showing');
       showProgress = false;

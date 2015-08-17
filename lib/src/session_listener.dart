@@ -3,6 +3,7 @@ part of a_la_carte.server;
 class _SessionListener {
   final Map<String, SessionDataStore> sessions;
   final Set<String> recentlyExpiredSessions;
+
   final SendPort sessionMaster;
   final int sessionIdNumber;
   

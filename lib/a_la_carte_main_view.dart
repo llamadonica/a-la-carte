@@ -35,16 +35,16 @@ class ALaCarteMainView extends PolymerElement implements AppPager {
   @PublishedProperty(reflect: true) int selected = 0;
   @observable int selectedPage = 0;
 
-  @published AppRouter appRouter;
+  @published Presenter appPresenter;
 
   StreamSubscription<List<String>> _appRouterNavigationSubscription;
   List<String> allSelectable = <String>['+all', '+new'];
 
-  void appRouterChanged(AppRouter oldAppRouter) {
+  void appRouterChanged(Presenter oldAppRouter) {
     if (_appRouterNavigationSubscription != null) {
       _appRouterNavigationSubscription.cancel();
     }
-    appRouter.onAppNavigationEvent.listen(_onAppNavigationEvent);
+    appPresenter.onExternalNavigationEvent.listen(_onAppNavigationEvent);
   }
 
   ALaCarteMainView.created() : super.created();
@@ -67,16 +67,16 @@ class ALaCarteMainView extends PolymerElement implements AppPager {
 
   selectedChanged(int oldValue) {
     if (selected == 1 && project != null && project.isChanged && project.committed) {
-      appRouter.setUrl('/+edit/${project.id}', '');
+      appPresenter.setUrl('/+edit/${project.id}', '');
     }
     else if (selected == 1 && project == null) {
-      appRouter.setUrl('/+view/${_projectLookupId}', '');
+      appPresenter.setUrl('/+view/${_projectLookupId}', '');
     }
     else if (selected == 1 && project.committed) {
-      appRouter.setUrl('/+view/${project.id}', '');
+      appPresenter.setUrl('/+view/${project.id}', '');
     }
     else {
-      appRouter.setUrl('/${appAllSelectable[selected]}', '');
+      appPresenter.setUrl('/${appAllSelectable[selected]}', '');
     }
     if (selected >= pages.length) {
       currentPage = null;
@@ -106,7 +106,7 @@ class ALaCarteMainView extends PolymerElement implements AppPager {
 
   void _onAppNavigationEvent(List<String> event) {
     if (event.length < 1) {
-      appRouter.setUrl('/+all', '');
+      appPresenter.setUrl('/+all', '');
       return;
     }
     switch (event[0]) {
@@ -129,24 +129,24 @@ class ALaCarteMainView extends PolymerElement implements AppPager {
     project = new Project(new Uuid().v4());
     projectEditViewCaption = "Add a project";
     DateTime currentTime = new DateTime.now();
-    appRouter.nextJobNumber(currentTime.year).then((nextNumber) {
+    appPresenter.nextJobNumber(currentTime.year).then((nextNumber) {
       if (project.jobNumber == null) {
         project.jobNumber = nextNumber;
       }
     });
-    appRouter.getServiceAccountName().then((serviceAccount) {
+    appPresenter.getServiceAccountName().then((serviceAccount) {
       project.serviceAccountName = serviceAccount;
     });
 
   }
 
   @override void openProject(String uuid) {
-    appRouter.ensureProjectIsLoaded(uuid).then((foundProject) {
+    appPresenter.ensureProjectIsLoaded(uuid).then((foundProject) {
       project = foundProject;
       projectEditViewCaption = "View this project";
       window.console.log('Found project $uuid');
     }, onError: (err) {
-      appRouter.setUrl('/+new', '');
+      appPresenter.setUrl('/+new', '');
       _onAppNavigationEvent(['+new']);
       window.console.log('Could not find project $uuid');
     });
@@ -154,16 +154,16 @@ class ALaCarteMainView extends PolymerElement implements AppPager {
 
   @override void setProjectHasChanged([bool changed=true]) {
     if (selected == 1 && changed && project.committed) {
-      appRouter.setUrl('/+edit/${project.id}', '');
+      appPresenter.setUrl('/+edit/${project.id}', '');
       projectEditViewCaption = "Edit this project";
     } else if (selected == 1 && project.committed) {
-      appRouter.setUrl('/+view/${project.id}', '');
+      appPresenter.setUrl('/+view/${project.id}', '');
       projectEditViewCaption = "View this project";
     }
   }
 
-  @override void reportError(ErrorReportModule module, String errorMessage) => appRouter.reportError(module, errorMessage);
+  @override void reportError(ErrorReportModule module, String errorMessage) => appPresenter.reportError(module, errorMessage);
 
-  @override Future<int> nextJobNumber(int year) => appRouter.nextJobNumber(year);
+  @override Future<int> nextJobNumber(int year) => appPresenter.nextJobNumber(year);
 
 }
