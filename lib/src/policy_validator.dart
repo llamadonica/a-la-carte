@@ -41,7 +41,7 @@ class OAuth2PolicyValidator extends PolicyValidator {
   static const String _oauth2ClientSecret = 'XH7Vsmfeb_Jl9Ywf3Ng6TSTP';
   static const String _oauth2AuthorizationEndpoint =
       'https://accounts.google.com/o/oauth2/auth';
-  static const String _oauth2TokenEndpoint = 'http://24.10.123.177/_auth/token';
+  static const String _oauth2TokenEndpoint = 'https://accounts.google.com/o/oauth2/token';
   static const String _oauth2Redirect = 'http://localhost:8080/_auth/landing';
 
   @override
@@ -113,9 +113,14 @@ class OAuth2PolicyValidator extends PolicyValidator {
         _oauth2ClientSecret,
         Uri.parse(_oauth2AuthorizationEndpoint),
         Uri.parse(_oauth2TokenEndpoint));
-    grant.getAuthorizationUrl(Uri.parse(_oauth2Redirect), scopes: ['profile', 'email'], state: uuid);
-    var client =
-        await grant.handleAuthorizationResponse({'code': code, 'state': uuid});
+    try {
+      grant.getAuthorizationUrl(Uri.parse(_oauth2Redirect), scopes: ['profile', 'email'], state: uuid);
+      oauth2.Client client = await grant.handleAuthorizationResponse({'code': code, 'state': uuid});
+      var response = await client.get('https://www.googleapis.com/oauth2/v2/userinfo');
+      print(response.body);
+    } catch (error) {
+      print(error.toString());
+    }
     return null;
   }
 }
