@@ -25,9 +25,12 @@ class ALaCarteProjectInfoPage extends ALaCartePageCommon {
   @published List<Project> projects;
   @observable bool projectIsCommitted;
   @observable bool showProgress = false;
+
   StreamSubscription _projectChangeListener;
   bool _fabWillBeDisabled = false;
   bool _projectMayBeCommitted = false;
+  final Set<String> _cancelledAuthorizationSubscriptions = new Set<String>();
+  StreamSubscription _activeAuthorizationSubscriptionDiscardListener = null;
 
   ALaCarteProjectInfoPage.created() : super.created() {
     fabIcon = null;
@@ -262,7 +265,7 @@ class ALaCarteProjectInfoPage extends ALaCartePageCommon {
       _cancelSavingWithError(event.symbol['reason'], event.symbol['message'],
           event.symbol['error']);
 
-  void _cancelSavingWithError(String reason, String message, String error) {
+  void _cancelSaving() {
     final Duration enableDelay = new Duration(milliseconds: 1020);
     _fabWillBeDisabled = false;
     //$['showProgress'].classes.remove('showing');
@@ -270,6 +273,10 @@ class ALaCarteProjectInfoPage extends ALaCartePageCommon {
     new Timer(enableDelay, () {
       fabDisabled = _fabWillBeDisabled;
     });
+  }
+
+  void _cancelSavingWithError(String reason, String message, String error) {
+    _cancelSaving();
     if (message == null) {
       message = reason;
       switch (error) {
@@ -287,18 +294,23 @@ class ALaCarteProjectInfoPage extends ALaCartePageCommon {
       JsonStreamingEvent originalEvent,
       Ref<StreamSubscription> subscription,
       String id,
-      Map data) {
+      Map data,
+      String authorizationSubscriptionDocId) {
     if (event.status >= 300) {
       subscription.value.cancel();
       _cancelSavingWithErrorFromEvent(originalEvent);
       return;
     }
     if (event.path.length == 1 && event.symbol.containsKey('seq')) {
-      if (event.symbol.containsKey('deleted')) {
+      if (event.symbol.containsKey('deleted') && !_cancelledAuthorizationSubscriptions.contains(authorizationSubscriptionDocId)) {
         _putProjectDataToServer(id, data);
+        _activeAuthorizationSubscriptionDiscardListener.cancel();
       }
+      subscription.value.cancel();
     } else if (event.path.length == 1 && event.symbol.containsKey('last_seq')) {
       subscription.value.cancel();
+      _cancelSavingWithErrorFromEvent(originalEvent);
+      return;
     }
   }
 
@@ -308,11 +320,17 @@ class ALaCarteProjectInfoPage extends ALaCartePageCommon {
       if (event.symbol.containsKey('auth_uri') &&
           event.symbol.containsKey('auth_watcher')) {
         appPresenter.showAuthLogin(event.symbol['auth_uri']);
+        final activeAuthorizationSubscription = event.symbol["auth_watcher"];
+        _activeAuthorizationSubscriptionDiscardListener = appPager.onDiscardEdits.listen((_) {
+          _cancelledAuthorizationSubscriptions.add(activeAuthorizationSubscription);
+          _cancelSaving();
+          _activeAuthorizationSubscriptionDiscardListener.cancel();
+        });
         appPresenter.connectTo(
             '/a_la_carte/_changes?feed=continuous&'
-            'filter=_doc_ids&doc_ids=%5B%22${event.symbol["auth_watcher"]}%22%5D',
+            'filter=_doc_ids&doc_ids=%5B%22${activeAuthorizationSubscription}%22%5D',
             (newEvent, subscription) => _routeProjectAuthorizationReply(
-                newEvent, event, subscription, id, data),
+                newEvent, event, subscription, id, data, activeAuthorizationSubscription),
             isImplicitArray: true);
       } else {
         if (event.symbol.containsKey('auth_uri')) {

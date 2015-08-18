@@ -5,18 +5,6 @@ typedef int Comparator<T>(T a, T b);
 class Project extends JsonCanSync {
   final String id;
 
-  bool committed = false;
-  bool _isChanged = false;
-
-  bool get isChanged => _isChanged;
-
-  void set isChanged(bool value) {
-    _isChanged = value;
-    if (!value) _locallyChangedSymbols.clear();
-  }
-
-  Set<Symbol> _locallyChangedSymbols = new Set<Symbol>();
-
   @observable String name;
   @observable num jobNumber;
   @observable bool isActive;
@@ -25,13 +13,21 @@ class Project extends JsonCanSync {
   @observable String serviceAccountName;
 
   String rev;
-
-  int _jobNumberInPresortedList;
+  bool committed = false;
+  bool get isChanged => _isChanged;
+  void set isChanged(bool value) {
+    _isChanged = value;
+    if (!value) _locallyChangedSymbols.clear();
+  }
   int get jobNumberInPresortedList => _jobNumberInPresortedList;
+  Map get json => _json;
 
   Map _json = {};
+  int _jobNumberInPresortedList;
+  Set<Symbol> _locallyChangedSymbols = new Set<Symbol>();
+  bool _isChanged = false;
+
   Project(String this.id);
-  Map get json => _json;
 
   static insertIntoPresortedList(Project project, List<Project> projects,
       [Comparator comparison = null]) {
@@ -56,6 +52,7 @@ class Project extends JsonCanSync {
     projects.insert(projectsMin + offset, project);
     project._jobNumberInPresortedList = project.jobNumber;
   }
+
   static void removeFromPresortedList(List<Project> projects, Project project,
       [Comparator comparison = null]) {
     if (comparison == null) {
@@ -93,11 +90,16 @@ class Project extends JsonCanSync {
     insertIntoPresortedList(project, projects, comparison);
   }
 
+  static void addAtTail(ObservableList<Project> projects, Project project) {
+    project._jobNumberInPresortedList = project.jobNumber;
+    projects.add(project);
+  }
 
   static _compareProjectsForInsert(Project a, Project b) {
     var jobNumberSort = b._jobNumberInPresortedList - a.jobNumber;
     return (jobNumberSort == 0) ? b.id.compareTo(a.id) : jobNumberSort;
   }
+
   static _compareProjectsForRemove(Project a, Project b) {
     var jobNumberSort = b._jobNumberInPresortedList - a._jobNumberInPresortedList;
     return (jobNumberSort == 0) ? b.id.compareTo(a.id) : jobNumberSort;
@@ -105,15 +107,14 @@ class Project extends JsonCanSync {
 
   void initFromJSON(Map values) {
     _json = values;
-
-    _oldName = name = values['name'];
+    name = values['name'];
     jobNumber = values['jobNumber'];
     initials = values['initials'];
     streetAddress = values['streetAddress'];
     serviceAccountName = values['account'];
-    assert(values['_id'] == null || values['_id'] == id);
     rev = values['_rev'];
     _isChanged = false;
+    assert(values['_id'] == null || values['_id'] == id);
   }
 
   void resetToSavedState() {
@@ -147,8 +148,4 @@ class Project extends JsonCanSync {
     super.notifyChange(record);
   }
 
-  static void addAtTail(ObservableList<Project> projects, Project project) {
-    project._jobNumberInPresortedList = project.jobNumber;
-    projects.add(project);
-  }
 }

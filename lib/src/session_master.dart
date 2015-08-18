@@ -1,24 +1,21 @@
 part of a_la_carte.server;
 
-class SendPortEntry extends LinkedListEntry<SendPortEntry> {
-  final SendPort sendPort;
-  SendPortEntry(SendPort this.sendPort);
-}
-
 class SessionMaster {
+  final int delegates;
+  int _initialLoadOrder = 0;
   final Map<String, SendPort> _sessionHandlers;
   final Map<String, SendPort> _oauthIdentityHandlers;
-  final LinkedList<SendPortEntry> _sessionHandlerByOrderOfLoad;
+  final SplayTreeMap<int, SendPort> _sessionHandlerByOrderOfLoad;
   final Map<SendPort,int> _sessionHandlerLoad;
   final ReceivePort _sessionReceivePort;
   final ReceivePort _httpReceivePort;
   
   SendPort get httpSendPort => _httpReceivePort.sendPort;
   
-  SessionMaster(int delegates)
+  SessionMaster(int this.delegates)
       : _sessionHandlers = new Map<String, SendPort>()
       , _oauthIdentityHandlers = new Map<String, SendPort>()
-      , _sessionHandlerByOrderOfLoad = new LinkedList<SendPortEntry>()
+      , _sessionHandlerByOrderOfLoad = new SplayTreeMap<int, SendPort>()
       , _sessionHandlerLoad = new Map<SendPort,int>()
       , _sessionReceivePort = new ReceivePort()
       , _httpReceivePort = new ReceivePort() {
@@ -33,19 +30,21 @@ class SessionMaster {
   void listenForHttpListenerRequest(List args) {
     var basicFunction = args[0] as String;
     switch (basicFunction) {
-      case 'getSessionDelegateByUuid':
-        _getSessionDelegateByUuid(args[1], args[2]);
+      case 'getSessionDelegateByTsid':
+        _getSessionDelegateByTsid(args[1], args[2]);
         return;
       case 'getNewSessionDelegate':
-        _getNewSessionDelegate(args[2]);
+        _getNewSessionDelegate(args[1], args[2]);
         return;
       default:
         throw new StateError('SessionMaster did not understand $basicFunction message from http listener.');
     }
   }
 
-  void _getNewSessionDelegate(SendPort responsePort) {
-    responsePort.send(_sessionHandlerByOrderOfLoad.first.sendPort);
+  void _getNewSessionDelegate(SendPort responsePort, String uuid) {
+    var newPort = _sessionHandlerByOrderOfLoad[_sessionHandlerByOrderOfLoad.firstKey()];
+    _sessionAdded(uuid, newPort);
+    responsePort.send(_sessionHandlerByOrderOfLoad[_sessionHandlerByOrderOfLoad.firstKey()]);
   }
   
   void listenForSessionListenerRequest(List args) {
@@ -69,26 +68,32 @@ class SessionMaster {
 
   void _sessionAdded(String uuid, SendPort myPort) {
     _sessionHandlers[uuid] = myPort;
-    _sessionHandlerLoad[myPort]++;
+    final oldLoad = _sessionHandlerLoad[myPort];
+    _sessionHandlerLoad[myPort] += delegates;
+    _sessionHandlerByOrderOfLoad.remove(oldLoad);
+    _sessionHandlerByOrderOfLoad[_sessionHandlerLoad[myPort]] = myPort;
   }
   
-  void _getSessionDelegateByUuid(String uuid, SendPort responsePort) {
-    var sessionDelegate = _sessionHandlers[uuid];
+  void _getSessionDelegateByTsid(String tsid, SendPort responsePort) {
+    var sessionDelegate = _sessionHandlers[tsid];
     responsePort.send([sessionDelegate]);
   }
   
-  void _sessionDropped(String uuid, SendPort myPort) {
-    var sessionDelegate = _sessionHandlers[uuid];
-    _sessionHandlerLoad[myPort]--;
-    _sessionHandlers.remove(uuid);
-    myPort.send(['confirmedSessionDropped', uuid]);
+  void _sessionDropped(String tsid, SendPort myPort) {
+    var sessionDelegate = _sessionHandlers[tsid];
+    final oldLoad = _sessionHandlerLoad[myPort];
+    _sessionHandlerLoad[myPort] -= delegates;
+    _sessionHandlerByOrderOfLoad.remove(oldLoad);
+    _sessionHandlerByOrderOfLoad[_sessionHandlerLoad[myPort]] = myPort;
+    _sessionHandlers.remove(tsid);
+    myPort.send(['confirmedSessionDropped', tsid]);
     assert(sessionDelegate != null);
   }
   
   void _createdSessionDelegate(SendPort sendPort) {
-    _sessionHandlerLoad[sendPort] = 0;
-    var entry = new SendPortEntry(sendPort);
-    _sessionHandlerByOrderOfLoad.addFirst(entry);
+    _sessionHandlerLoad[sendPort] = _initialLoadOrder;
+    _sessionHandlerByOrderOfLoad[_initialLoadOrder] = sendPort;
+    _initialLoadOrder++;
   }
   
   static void _createSessionDelegate(List args) {

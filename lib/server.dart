@@ -16,6 +16,7 @@ part 'src/couch_db_backend.dart';
 part 'src/db_backend.dart';
 part 'src/session_data_store.dart';
 part 'src/http_listener_isolate.dart';
+part 'src/session_client.dart';
 part 'src/session_listener.dart';
 part 'src/session_master.dart';
 part 'src/policy_validator.dart';

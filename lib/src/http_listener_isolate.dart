@@ -1,14 +1,26 @@
 part of a_la_carte.server;
 
-class HttpListenerIsolate {
+class HttpListenerIsolate extends SessionClient {
   final int _port;
   final int _isolateId;
+
+  static const String _selfClosingPage = """
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <script type=async>close();</script>
+    <title>A la carte</title>
+  </head>
+  <body></body>
+</html>
+
+""";
 
   // TODO: Move these to a config file.
   static const String _user = 'a_la_carte';
   static const String _password = 'a_la_carte';
   static const int _responseShouldCascade = 550;
-  final SendPort _sessionMasterSendPort;
   final int couchPort;
   PolicyValidator _policyModule;
   static const List<String> servedStatic = const [
@@ -37,43 +49,43 @@ class HttpListenerIsolate {
       new Map<int, DateTime>(); //This really should be a WeakMap.
 
   HttpListenerIsolate(int this._port, int this._isolateId, int this.couchPort,
-      SendPort this._sessionMasterSendPort)
-      : _refresh = new Map<String, DateTime>(),
+      SendPort sessionMasterSendPort)
+      : super(sessionMasterSendPort),
+        _refresh = new Map<String, DateTime>(),
         _refreshTimeout = new Map<String, Timer>();
 
   shelf.Handler _addCookies(shelf.Handler innerHandler) =>
       (shelf.Request request) {
-        String value = null;
-        bool cookieIsNew = false;
+        String tsid = null;
+        bool tsidCookieIsNew = false;
 
         if (request.headers.containsKey(r'Cookie')) {
           var rawCookie = request.headers['Cookie'];
           for (String cookie in rawCookie.split(r'; ')) {
             if (cookie.startsWith('TSID=')) {
-              value = cookie.split('=')[1];
+              tsid = cookie.split('=')[1];
               break;
             }
           }
         }
-        if (value == null) {
-          value = new Uuid().v1();
-          cookieIsNew = true;
+        if (tsid == null) {
+          tsid = new Uuid().v1();
+          tsidCookieIsNew = true;
         }
 
-        var context = new Map<String, Object>.from(request.context);
-        var result = innerHandler(request.change(context: context));
+        request = request.change(context: {'session': getSessionContainer(tsid)});
+        var result = innerHandler(request);
 
         shelf.Response processResult(shelf.Response response) {
           var responseHeaders = new Map<String, Object>.from(response.headers);
-          if (cookieIsNew) {
+          if (tsidCookieIsNew) {
             responseHeaders['Set-Cookie'] = [
-              "TSID=${value}; Path=/; "
-                  "HttpOnly; Expires=${HttpDate.format(new DateTime.now().add(new Duration(days: 15)))}"
+              "TSID=${tsid}; Path=/; "
+                  "HttpOnly"
             ];
           }
           return response.change(headers: responseHeaders);
         }
-
         if (result is Future) {
           return result.then(processResult);
         } else {

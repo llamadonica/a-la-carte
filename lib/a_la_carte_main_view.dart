@@ -21,24 +21,25 @@ class ALaCarteMainView extends PolymerElement implements AppPager {
   @published Map<String, Project> projectsByUuid;
   @published bool projectsAreLoaded;
   @published bool noProjectsFound;
-
   @published String prevAppSelected;
-  List<String> appAllSelectable = ['+all', '+new'];
   @published String responsiveWidth;
 
-  String _projectLookupId;
 
   @observable String projectEditViewCaption = "Add a project";
-
   @observable ALaCartePageCommon currentPage;
   @observable ObservableList<ALaCartePageCommon> pages;
   @PublishedProperty(reflect: true) int selected = 0;
   @observable int selectedPage = 0;
-
   @published Presenter appPresenter;
 
-  StreamSubscription<List<String>> _appRouterNavigationSubscription;
   List<String> allSelectable = <String>['+all', '+new'];
+  List<String> appAllSelectable = ['+all', '+new'];
+  Stream get onDiscardEdits => _onDiscardEditsController.stream;
+
+  StreamSubscription<List<String>> _appRouterNavigationSubscription;
+  final StreamController _onDiscardEditsController = new StreamController();
+  String _projectLookupId;
+
 
   void appRouterChanged(Presenter oldAppRouter) {
     if (_appRouterNavigationSubscription != null) {
@@ -98,6 +99,7 @@ class ALaCarteMainView extends PolymerElement implements AppPager {
     selectedPage = selected;
     project.resetToSavedState();
     setToNewProject();
+    _onDiscardEditsController.add(null);
   }
 
   void cancelDiscardEdits(MouseEvent event) {
