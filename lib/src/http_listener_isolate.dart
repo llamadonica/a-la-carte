@@ -56,6 +56,8 @@ class HttpListenerIsolate extends SessionClient {
 
   shelf.Handler _addCookies(shelf.Handler innerHandler) =>
       (shelf.Request request) {
+        String psid = null;
+        bool psidCookieIsNew = false;
         String tsid = null;
         bool tsidCookieIsNew = false;
 
@@ -64,7 +66,10 @@ class HttpListenerIsolate extends SessionClient {
           for (String cookie in rawCookie.split(r'; ')) {
             if (cookie.startsWith('TSID=')) {
               tsid = cookie.split('=')[1];
-              break;
+              if (psid != null) break;
+            } else if (cookie.startsWith('PSID=')) {
+              psid = cookie.split('=')[1];
+              if (tsid != null) break;
             }
           }
         }
@@ -73,7 +78,9 @@ class HttpListenerIsolate extends SessionClient {
           tsidCookieIsNew = true;
         }
 
-        request = request.change(context: {'session': getSessionContainer(tsid)});
+        var sessionContainerFuture = getSessionContainer(tsid, psid);
+
+        request = request.change(context: {'session': sessionContainerFuture});
         var result = innerHandler(request);
 
         shelf.Response processResult(shelf.Response response) {

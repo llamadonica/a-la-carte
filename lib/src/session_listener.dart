@@ -66,6 +66,7 @@ class _SessionListener {
       currentTimeInMillisecondsSinceEpoch
     ]);
     sessions[tsid] = session;
+    sessionMaster.send(['sessionAdded', tsid, myPort]);
   }
 
   void _touchCookie(String tsid, int currentTimeInMillisecondsSinceEpoch) {
