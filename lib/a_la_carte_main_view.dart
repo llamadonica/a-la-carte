@@ -8,6 +8,7 @@ import 'package:polymer/polymer.dart';
 import 'package:uuid/uuid.dart';
 
 import 'package:a_la_carte/models.dart';
+import 'package:a_la_carte/json_streaming.dart';
 import 'package:a_la_carte/a_la_carte_page_common.dart';
 
 /**
@@ -24,7 +25,6 @@ class ALaCarteMainView extends PolymerElement implements AppPager {
   @published String prevAppSelected;
   @published String responsiveWidth;
 
-
   @observable String projectEditViewCaption = "Add a project";
   @observable ALaCartePageCommon currentPage;
   @observable ObservableList<ALaCartePageCommon> pages;
@@ -39,7 +39,6 @@ class ALaCarteMainView extends PolymerElement implements AppPager {
   StreamSubscription<List<String>> _appRouterNavigationSubscription;
   final StreamController _onDiscardEditsController = new StreamController();
   String _projectLookupId;
-
 
   void appRouterChanged(Presenter oldAppRouter) {
     if (_appRouterNavigationSubscription != null) {
@@ -67,16 +66,16 @@ class ALaCarteMainView extends PolymerElement implements AppPager {
   }
 
   selectedChanged(int oldValue) {
-    if (selected == 1 && project != null && project.isChanged && project.committed) {
+    if (selected == 1 &&
+        project != null &&
+        project.isChanged &&
+        project.committed) {
       appPresenter.setUrl('/+edit/${project.id}', '');
-    }
-    else if (selected == 1 && project == null) {
+    } else if (selected == 1 && project == null) {
       appPresenter.setUrl('/+view/${_projectLookupId}', '');
-    }
-    else if (selected == 1 && project.committed) {
+    } else if (selected == 1 && project.committed) {
       appPresenter.setUrl('/+view/${project.id}', '');
-    }
-    else {
+    } else {
       appPresenter.setUrl('/${appAllSelectable[selected]}', '');
     }
     if (selected >= pages.length) {
@@ -84,7 +83,10 @@ class ALaCarteMainView extends PolymerElement implements AppPager {
     } else {
       currentPage = pages[selected];
     }
-    if (project != null && project.isChanged && selected == 0 && selectedPage == 1) {
+    if (project != null &&
+        project.isChanged &&
+        selected == 0 &&
+        selectedPage == 1) {
       PaperActionDialog discardDialog = $['discardDialog'];
       discardDialog.open();
       return;
@@ -104,6 +106,10 @@ class ALaCarteMainView extends PolymerElement implements AppPager {
 
   void cancelDiscardEdits(MouseEvent event) {
     selected = selectedPage;
+  }
+
+  void tapSignIn(MouseEvent event) {
+    appPresenter.connectTo('/_auth/login', _routeProjectLoginReply);
   }
 
   void _onAppNavigationEvent(List<String> event) {
@@ -139,7 +145,6 @@ class ALaCarteMainView extends PolymerElement implements AppPager {
     appPresenter.getServiceAccountName().then((serviceAccount) {
       project.serviceAccountName = serviceAccount;
     });
-
   }
 
   @override void openProject(String uuid) {
@@ -154,7 +159,7 @@ class ALaCarteMainView extends PolymerElement implements AppPager {
     });
   }
 
-  @override void setProjectHasChanged([bool changed=true]) {
+  @override void setProjectHasChanged([bool changed = true]) {
     if (selected == 1 && changed && project.committed) {
       appPresenter.setUrl('/+edit/${project.id}', '');
       projectEditViewCaption = "Edit this project";
@@ -164,8 +169,48 @@ class ALaCarteMainView extends PolymerElement implements AppPager {
     }
   }
 
-  @override void reportError(ErrorReportModule module, String errorMessage) => appPresenter.reportError(module, errorMessage);
+  @override void reportError(ErrorReportModule module, String errorMessage) =>
+      appPresenter.reportError(module, errorMessage);
 
-  @override Future<int> nextJobNumber(int year) => appPresenter.nextJobNumber(year);
+  @override Future<int> nextJobNumber(int year) =>
+      appPresenter.nextJobNumber(year);
 
+  void _routeProjectLoginReply(
+      JsonStreamingEvent event, Ref<StreamSubscription> subscription) {
+    if (event.status == 401 && event.path.length == 0) {
+      if (event.symbol.containsKey('auth_uri') &&
+          event.symbol.containsKey('auth_watcher')) {
+        appPresenter.showAuthLogin(event.symbol['auth_uri']);
+        final activeAuthorizationSubscription = event.symbol["auth_watcher"];
+        appPresenter.connectTo('/a_la_carte/_changes?feed=continuous&'
+            'filter=_doc_ids&doc_ids=%5B%22${activeAuthorizationSubscription}%22%5D',
+            (newEvent, subscription) => _routeProjectAuthorizationReply(
+                newEvent, subscription, activeAuthorizationSubscription),
+            isImplicitArray: true);
+      } else {
+        if (event.symbol.containsKey('auth_uri')) {
+          appPresenter.showAuthLogin(event.symbol['auth_uri']);
+        }
+        subscription.value.cancel();
+      }
+    } else if (event.path.length == 0) {
+      appPresenter.reportError(ErrorReportModule.login, 'Could not log in.');
+      subscription.value.cancel();
+    }
+  }
+  void _routeProjectAuthorizationReply(JsonStreamingEvent event,
+      Ref<StreamSubscription> subscription,
+      String activeAuthorizationSubscription) {
+    if (event.status >= 300) {
+      subscription.value.cancel();
+      return;
+    }
+    if (event.path.length == 1 && event.symbol.containsKey('seq')) {
+      if (event.symbol.containsKey('deleted')) {}
+      subscription.value.cancel();
+    } else if (event.path.length == 1 && event.symbol.containsKey('last_seq')) {
+      subscription.value.cancel();
+      return;
+    }
+  }
 }

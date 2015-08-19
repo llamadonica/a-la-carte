@@ -20,16 +20,15 @@ abstract class PolicyIdentity {
 abstract class PolicyValidator extends Object {
   Future validateMethodIsPermittedOnResource(
       String method, Uri uri, PolicyIdentity identity, DbBackend dataStore);
+  Future prepareUnauthorizedRequest(
+      PolicyIdentity identity, DbBackend dataStore);
   Future convoluteUnchunkedRequest(
       HttpClientRequest request, PolicyIdentity identity, String addCookie);
   Future convoluteChunkedRequest(
       HttpClientRequest request, PolicyIdentity identity, String addCookie);
 
-  Future hijackUnauthorizedMethod(
-      Stream<List<int>> input,
-      StreamSink<List<int>> output,
-      String method,
-      Uri uri,
+  Future hijackUnauthorizedMethod(Stream<List<int>> input,
+      StreamSink<List<int>> output, String method, Uri uri,
       Map<String, Object> headers);
   Future<PolicyIdentity> createEmptyPolicyIdentity(String serviceAccount);
 }
@@ -41,7 +40,8 @@ class OAuth2PolicyValidator extends PolicyValidator {
   static const String _oauth2ClientSecret = 'XH7Vsmfeb_Jl9Ywf3Ng6TSTP';
   static const String _oauth2AuthorizationEndpoint =
       'https://accounts.google.com/o/oauth2/auth';
-  static const String _oauth2TokenEndpoint = 'https://accounts.google.com/o/oauth2/token';
+  static const String _oauth2TokenEndpoint =
+      'https://accounts.google.com/o/oauth2/token';
   static const String _oauth2Redirect = 'http://localhost:8080/_auth/landing';
 
   @override
@@ -57,13 +57,37 @@ class OAuth2PolicyValidator extends PolicyValidator {
   }
 
   @override
-  Future hijackUnauthorizedMethod(
-      Stream<List<int>> input,
-      StreamSink<List<int>> output,
-      String method,
-      Uri uri,
+  Future hijackUnauthorizedMethod(Stream<List<int>> input,
+      StreamSink<List<int>> output, String method, Uri uri,
       Map<String, Object> headers) {
     // TODO: implement hijackUnauthorizedMethod
+  }
+
+  @override
+  Future prepareUnauthorizedRequest(
+      PolicyIdentity identity, DbBackend dataStore) async {
+    final watchMessage = new Uuid().v4();
+    try {
+      await dataStore.makeServicePut(Uri.parse('/a_la_carte/$watchMessage'), {
+        'type': 'authentication_attempt'
+      });
+      final grant = new oauth2.AuthorizationCodeGrant(_oauth2ClientId,
+          _oauth2ClientSecret, Uri.parse(_oauth2AuthorizationEndpoint),
+          Uri.parse(_oauth2TokenEndpoint));
+      throw new PolicyStateError.redirect(grant
+          .getAuthorizationUrl(Uri.parse(_oauth2Redirect),
+              scopes: ['profile', 'email'], state: watchMessage)
+          .toString(), watchMessage);
+    } catch (error, stackTrace) {
+      if (error is ServiceError) {
+        error.result['message'] =
+            'I couldn\'t log in a user because I couldn\'t get the list of'
+            ' authorized users from the database.';
+        throw new PolicyStateError(error.result);
+      } else {
+        throw error;
+      }
+    }
   }
 
   @override
@@ -72,31 +96,7 @@ class OAuth2PolicyValidator extends PolicyValidator {
     if (method == 'GET' || method == 'HEAD') {
       return null;
     } else {
-      final watchMessage = new Uuid().v4();
-      try {
-        await dataStore.makeServicePut(Uri.parse('/a_la_carte/$watchMessage'),
-            {'type': 'authentication_attempt'});
-        final grant = new oauth2.AuthorizationCodeGrant(
-            _oauth2ClientId,
-            _oauth2ClientSecret,
-            Uri.parse(_oauth2AuthorizationEndpoint),
-            Uri.parse(_oauth2TokenEndpoint));
-        throw new PolicyStateError.redirect(
-            grant
-                .getAuthorizationUrl(Uri.parse(_oauth2Redirect),
-                    scopes: ['profile', 'email'], state: watchMessage)
-                .toString(),
-            watchMessage);
-      } catch (error, stackTrace) {
-        if (error is ServiceError) {
-          error.result['message'] =
-              'I couldn\'t log in a user because I couldn\'t get the list of'
-              ' authorized users from the database.';
-          throw new PolicyStateError(error.result);
-        } else {
-          throw error;
-        }
-      }
+      prepareUnauthorizedRequest(identity, dataStore);
     }
   }
 
@@ -108,15 +108,16 @@ class OAuth2PolicyValidator extends PolicyValidator {
   @override
   Future<PolicyIdentity> createPolicyIdentityFromState(
       String code, String uuid, String serviceAccount) async {
-    final grant = new oauth2.AuthorizationCodeGrant(
-        _oauth2ClientId,
-        _oauth2ClientSecret,
-        Uri.parse(_oauth2AuthorizationEndpoint),
+    final grant = new oauth2.AuthorizationCodeGrant(_oauth2ClientId,
+        _oauth2ClientSecret, Uri.parse(_oauth2AuthorizationEndpoint),
         Uri.parse(_oauth2TokenEndpoint));
     try {
-      grant.getAuthorizationUrl(Uri.parse(_oauth2Redirect), scopes: ['profile', 'email'], state: uuid);
-      oauth2.Client client = await grant.handleAuthorizationResponse({'code': code, 'state': uuid});
-      var response = await client.get('https://www.googleapis.com/oauth2/v2/userinfo');
+      grant.getAuthorizationUrl(Uri.parse(_oauth2Redirect),
+          scopes: ['profile', 'email'], state: uuid);
+      oauth2.Client client = await grant
+          .handleAuthorizationResponse({'code': code, 'state': uuid});
+      var response =
+          await client.get('https://www.googleapis.com/oauth2/v2/userinfo');
       print(response.body);
     } catch (error) {
       print(error.toString());

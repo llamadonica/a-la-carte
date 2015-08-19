@@ -9,14 +9,19 @@ import 'package:args/args.dart';
 
 import 'package:a_la_carte/server.dart';
 
-
 var activeSessions;
 
 void main(List<String> args) {
   var parser = new ArgParser()
-      ..addOption('port', abbr: 'p', defaultsTo: '8080')
-      ..addOption('listeners', abbr: 'l', help: 'Number of isolates to spawn', defaultsTo: '3')
-      ..addOption('couchPort', abbr: 'c', help: 'Port for the related CouchDB instance', defaultsTo: '5984');
+    ..addOption('port', abbr: 'p', defaultsTo: '8080')
+    ..addOption('listeners',
+        abbr: 'l', help: 'Number of isolates to spawn', defaultsTo: '3')
+    ..addFlag('debug-over-wire',
+        help: 'Send additional debugging information from the server if available.')
+    ..addOption('couchPort',
+        abbr: 'c',
+        help: 'Port for the related CouchDB instance',
+        defaultsTo: '5984');
 
   var result = parser.parse(args);
 
@@ -32,24 +37,22 @@ void main(List<String> args) {
     stdout.writeln('Could not parse listeners value "$val" into a number.');
     exit(1);
   });
-  
-  var server = new Server(port, couchPort, listeners);
-  
+  var debugOverWire = result['debug-over-wire'];
+
+  var server =
+      new Server(port, couchPort, listeners, debugOverWire: debugOverWire);
+
   ProcessSignal.SIGINT.watch().listen((sig) {
     print('Got SIGINT');
     exit(0);
   });
-  
+
   if (!Platform.isWindows) {
     ProcessSignal.SIGTERM.watch().listen((sig) {
       print('Got SIGTERM');
       exit(0);
     });
   }
-  
+
   server.serve();
-  
-
 }
-
-

@@ -1,12 +1,9 @@
 part of a_la_carte_models;
 
-enum ErrorReportModule {
-  projectSaver
-}
+enum ErrorReportModule { projectSaver, login }
 
 typedef void JsonEventRouter(
     JsonStreamingEvent event, Ref<StreamSubscription> subscription);
-
 
 abstract class Presenter {
   void setUrl(String url, String title);
@@ -18,6 +15,7 @@ abstract class Presenter {
   Future<Project> ensureProjectIsLoaded(String uuid);
   Future<String> getServiceAccountName();
 
-  void connectTo(String uri, JsonEventRouter router, {bool isImplicitArray: false});
+  void connectTo(String uri, JsonEventRouter router,
+      {bool isImplicitArray: false});
   void showAuthLogin(String uri);
 }

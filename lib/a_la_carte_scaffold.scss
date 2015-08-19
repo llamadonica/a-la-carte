@@ -41,7 +41,7 @@
   core-toolbar {
     margin-left: $drawer-width;
   }
-  
+
   &[narrow] {
     core-toolbar {
       margin-left: 0;
@@ -93,6 +93,7 @@
     display: none;
   }
 }
+
 #header-container {
   @include box-shadow(2px 2px 4px rgba(0, 0, 0, .15));
   position: fixed;
@@ -102,6 +103,7 @@
   height: 192px;
   pointer-events: none;
 }
+
 #scroll-track {
   @include transition(right .25s ease-out);
   bottom: 0;

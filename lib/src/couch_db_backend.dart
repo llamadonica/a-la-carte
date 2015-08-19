@@ -18,13 +18,14 @@ class CouchDbBackend extends DbBackend {
   final String _user;
   final String _password;
   final PolicyValidator policyHandler;
+  final bool _debugOverWire;
 
   List<String> _authCookie = null;
   bool hasValidated = false;
   Future _ensuringHasValidated;
 
   CouchDbBackend(int this.port, String this._user, String this._password,
-      PolicyValidator this.policyHandler);
+      PolicyValidator this.policyHandler, bool this._debugOverWire);
 
   _validateSession() {
     final client = new HttpClient();
@@ -84,46 +85,8 @@ class CouchDbBackend extends DbBackend {
     return _ensuringHasValidated;
   }
 
-  Future _writeShelfResponse(
-      StreamSink<List<int>> output, shelf.Response response) {
-    final completer = new Completer();
-    final encoder = new Utf8Encoder();
-    output.add(encoder.convert(
-        'HTTP/1.1 ${response.statusCode} ${DbBackend.statusReasons[response.statusCode]}\r\n'));
-    response.headers.forEach((headerName, headerValues) {
-      if (headerValues is String) {
-        output.add(encoder.convert('$headerName: $headerValues\r\n'));
-      } else {
-        assert(headerValues is List<String>);
-        for (var headerValue in headerValues) {
-          output.add(encoder.convert('$headerName: $headerValue\r\n'));
-        }
-      }
-    });
-    output.add(encoder.convert('Transfer-Encoding: chunked\r\n'));
-    output.add(encoder.convert('Access-Control-Allow-Origin: *\r\n'));
-    output.add([13, 10]);
-    response.read().listen((data) {
-      output.add(encoder.convert('${data.length.toRadixString(16)}\r\n'));
-      output.add(data);
-      output.add([13, 10]);
-    }, onDone: () {
-      output.add([48, 13, 10, 13, 10]);
-      output.close();
-      completer.complete();
-    }, onError: (error, stackTrace) {
-      output.addError(error, stackTrace);
-      completer.completeError(error, stackTrace);
-    });
-    return completer.future;
-  }
-
-  void hijackRequest(
-      Stream<List<int>> input,
-      StreamSink<List<int>> output,
-      String method,
-      Uri uri,
-      Map<String, Object> headers,
+  void hijackRequest(Stream<List<int>> input, StreamSink<List<int>> output,
+      String method, Uri uri, Map<String, Object> headers,
       PolicyIdentity identity) {
     final client = new HttpClient();
     final couchUri = new Uri(
@@ -235,9 +198,8 @@ class CouchDbBackend extends DbBackend {
         shelf.Response response;
         if (error.redirectUri != null) {
           response = new shelf.Response(401,
-              body:
-                  '{"error": "must_authenticate", "message": "You must log in before '
-                  'performing this action.", "auth_uri": "${error.redirectUri}", "auth_watcher": "${error.awakenUuid}"}',
+              body: '{"error": "must_authenticate", "message": "You must log in before '
+              'performing this action.", "auth_uri": "${error.redirectUri}", "auth_watcher": "${error.awakenUuid}"}',
               headers: {"Content-Type": "application/json"},
               encoding: Encoding.getByName('identity'));
         } else {
@@ -252,9 +214,22 @@ class CouchDbBackend extends DbBackend {
         throw error;
       }
     }).catchError((error, stackTrace) {
+      String body;
+      if (_debugOverWire) {
+        body = '''{
+  "error":"internal_server_error",
+  "message": "I couldn\'t connect to the database. Contact your database administrator.",
+  "dart_error": "$error",
+  "dart_stacktrace": "$stackTrace"
+}''';
+      } else {
+        body = '''{
+  "error":"internal_server_error",
+  "message": "I couldn\'t connect to the database. Contact your database administrator."
+}''';
+      }
       final response = new shelf.Response.internalServerError(
-          body: '{"error":"internal_server_error",'
-              ' "message": "I couldn\'t connect to the database. Contact your database administrator."}',
+          body: body,
           headers: {"Content-Type": "application/json"},
           encoding: Encoding.getByName('identity'));
       return _writeShelfResponse(output, response);
@@ -340,8 +315,7 @@ class CouchDbBackend extends DbBackend {
     for (var cookie in _authCookie) {
       request.headers.add(HttpHeaders.COOKIE, cookie);
     }
-    request.headers
-      .add(HttpHeaders.CONTENT_TYPE, 'application/json');
+    request.headers.add(HttpHeaders.CONTENT_TYPE, 'application/json');
     final HttpClientResponse response = await request.close();
     final data = await response.toList();
     final utfDecoder = new Utf8Decoder();

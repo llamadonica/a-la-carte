@@ -27,47 +27,12 @@ class SessionClient {
     sessions.remove(tsid);
   }
 
-  Future _createOrCheckoutNewSession(
-      String tsid, int currentTimeInMillisecondsSinceEpoch, String psid) async {
-    final ReceivePort response = new ReceivePort();
-    final Completer<SessionClientRow> completer =
-        new Completer<SessionClientRow>();
-    response.listen((data) {
-      if (data == null) {
-        completer.completeError(
-            new StateError("Could not understand response to create session"));
-      } else {
-        completer.complete(_sessionCheckedOut(data[0], data[1], data[2]));
-      }
-    });
-    var sessionListener = await _getOrCreateSessionListener(tsid);
-    if (sessionListener == null) {
-      sessionListener = await _bestSessionListener(tsid);
-      sessionListener.send([
-        'addNewCookie',
-        tsid,
-        _expirationDelay + currentTimeInMillisecondsSinceEpoch,
-        currentTimeInMillisecondsSinceEpoch,
-        response.sendPort,
-        _sessionMessagePort.sendPort
-      ]);
-    } else {
-      sessionListener.send([
-        'checkOutCookie',
-        tsid,
-        response.sendPort,
-        _sessionMessagePort.sendPort
-      ]);
-      sessionListener
-          .send(['touchCookie', tsid, currentTimeInMillisecondsSinceEpoch]);
-    }
-  }
-
   Future<SendPort> _getOrCreateSessionListener(
-      String tsid, int currentTimeInMillisecondsSinceEpoch) {
+      String tsid, int currentTimeInMillisecondsSinceEpoch, String psid) {
     final ReceivePort response = new ReceivePort();
-    final Completer<SendPort> completer = new Completer<SendPort>();
-    response.listen((data) {
+    _sessionMasterSendPort
+        .send(['getSessionDelegateByTsidOrCreateNew', tsid, response.sendPort]);
+    return response.first.then((data) {
       if (data[1]) {
         data[0].send([
           'addNewCookie',
@@ -75,29 +40,37 @@ class SessionClient {
           _expirationDelay + currentTimeInMillisecondsSinceEpoch,
           currentTimeInMillisecondsSinceEpoch,
           response.sendPort,
-          _sessionMessagePort.sendPort
+          _sessionMessagePort.sendPort,
+          psid
         ]);
+        return new SessionClientRow(tsid,
+            new DateTime.fromMillisecondsSinceEpoch(
+                _expirationDelay + currentTimeInMillisecondsSinceEpoch), psid);
       }
-      completer.complete(data[0]);
+      final ReceivePort innerResponse = new ReceivePort();
+      data[0].send([
+        'checkOutCookie',
+        tsid,
+        innerResponse.sendPort,
+        _sessionMessagePort.sendPort
+      ]);
+      return innerResponse.first.then((data) => new SessionClientRow(
+          data[0], new DateTime.fromMillisecondsSinceEpoch(data[2]), data[1]));
     });
-    _sessionMasterSendPort
-        .send(['getSessionDelegateByTsidOrCreateNew', tsid, response.sendPort]);
-    return completer.future;
   }
 
   Future<SessionClientRow> getSessionContainer(String tsid,
-      [String psid = null]) {
+      [String psid = null]) async {
     if (sessions[tsid] != null) {
-      return new Future.value(sessions[tsid]);
+      return sessions[tsid];
     } else if (_pendingSessions[tsid] == null) {
-      _pendingSessions[tsid] = _createOrCheckoutNewSession(
+      _pendingSessions[tsid] = _getOrCreateSessionListener(
           tsid, new DateTime.now().millisecondsSinceEpoch, psid);
     }
-    return _pendingSessions[tsid];
+    var sessionListener = await _pendingSessions[tsid];
   }
 
-  SessionClientRow _sessionCheckedOut(
-      String tsid,
+  SessionClientRow _sessionCheckedOut(String tsid,
       int expiresMillisecondsSinceEpoch,
       int lastRefreshedMillisecondsSinceEpoch) {
     final clientSession = new SessionClientRow(tsid,

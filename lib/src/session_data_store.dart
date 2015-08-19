@@ -7,7 +7,7 @@ class SessionListenerRow {
   final String tsid;
   final _SessionListener _parent;
   String psid;
-  String id;
+  String identifier;
 
   final Set<SendPort> sendPorts = new HashSet<SendPort>();
 
@@ -20,9 +20,9 @@ class SessionListenerRow {
   DateTime lastRefreshed;
   Timer removeTimer;
 
-  SessionListenerRow(String this.tsid, DateTime this._expires, DateTime this.lastRefreshed,
-                     _SessionListener this._parent,
-      [String this.psid = null, String this.id = null]) {
+  SessionListenerRow(String this.tsid, DateTime this._expires,
+      DateTime this.lastRefreshed, _SessionListener this._parent,
+      [String this.psid = null, String this.identifier = null]) {
     updateExpirationTimer();
   }
 

@@ -16,7 +16,7 @@ class _SessionListener {
     var requestCode = data[0] as String;
     switch (requestCode) {
       case 'addNewCookie':
-        _addNewCookie(data[1], data[2], data[3], data[4], data[5]);
+        _addNewCookie(data[1], data[2], data[3], data[4], data[5], data[6]);
         break;
       case 'touchCookie':
         _touchCookie(data[1], data[2]);
@@ -49,7 +49,8 @@ class _SessionListener {
   }
 
   void _addNewCookie(String tsid, int expirationTimeInMillisecondsSinceEpoch,
-      int currentTimeInMillisecondsSinceEpoch, SendPort initialResponsePort, SendPort responsePort) {
+      int currentTimeInMillisecondsSinceEpoch, SendPort initialResponsePort,
+      SendPort responsePort, String psid) {
     if (sessions.containsKey(tsid)) {
       initialResponsePort.send(null);
       return;
@@ -58,7 +59,7 @@ class _SessionListener {
         new DateTime.fromMillisecondsSinceEpoch(
             expirationTimeInMillisecondsSinceEpoch),
         new DateTime.fromMillisecondsSinceEpoch(
-            currentTimeInMillisecondsSinceEpoch), this)
+            currentTimeInMillisecondsSinceEpoch), this, psid)
       ..sendPorts.add(responsePort);
     initialResponsePort.send([
       tsid,
@@ -79,26 +80,33 @@ class _SessionListener {
         session.expires.millisecondsSinceEpoch -
             currentTimeInMillisecondsSinceEpoch) {
       final lastExpiration = session.lastRefreshed;
-      session.lastRefreshed = new DateTime.fromMillisecondsSinceEpoch(currentTimeInMillisecondsSinceEpoch);
-      session.expires = new DateTime.fromMillisecondsSinceEpoch(session.expires.millisecondsSinceEpoch - lastExpiration.millisecondsSinceEpoch + currentTimeInMillisecondsSinceEpoch);
+      session.lastRefreshed = new DateTime.fromMillisecondsSinceEpoch(
+          currentTimeInMillisecondsSinceEpoch);
+      session.expires = new DateTime.fromMillisecondsSinceEpoch(
+          session.expires.millisecondsSinceEpoch -
+              lastExpiration.millisecondsSinceEpoch +
+              currentTimeInMillisecondsSinceEpoch);
       for (var sendPort in session.sendPorts) {
-        sendPort.send(['sessionUpdated', tsid, currentTimeInMillisecondsSinceEpoch, session.expires.millisecondsSinceEpoch]);
+        sendPort.send([
+          'sessionUpdated',
+          tsid,
+          currentTimeInMillisecondsSinceEpoch,
+          session.expires.millisecondsSinceEpoch
+        ]);
       }
     }
     return;
   }
 
-  void _checkOutCookie(String tsid, SendPort initialResponsePort, SendPort responsePort) {
+  void _checkOutCookie(
+      String tsid, SendPort initialResponsePort, SendPort responsePort) {
     var session = sessions[tsid];
     if (session == null) {
       initialResponsePort.send(null);
       return;
     }
-    initialResponsePort.send([
-      session.tsid,
-      session.expires.millisecondsSinceEpoch,
-      session.lastRefreshed.millisecondsSinceEpoch
-    ]);
+    initialResponsePort.send(
+        [session.tsid, session.psid, session.expires.millisecondsSinceEpoch]);
     session.sendPorts.add(responsePort);
     return;
   }

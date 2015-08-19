@@ -46,6 +46,9 @@
                 narrow="{{!wide}}"
                 responsiveWidth="{{responsiveWidth}}"
                 on-dgs-fab-action="{{routeFabAction}}">
+            <section class="tool">
+              <paper-button class="tool" on-tap="{{tapSignIn}}">sign in</paper-button>
+            </section>
             <core-header-panel navigation flex mode="seamed">
                 <div id="nav-menu-box">
                     <core-menu selected="{{selected}}" theme="core-light-theme">
@@ -72,6 +75,9 @@
             <paper-button affirmative on-tap="{{confirmDiscardEdits}}">Discard</paper-button>
             <paper-button affirmative on-tap="{{cancelDiscardEdits}}">Cancel</paper-button>
         </paper-action-dialog>
+        <paper-dropdown id="personal-info-dropdown">
+          Hi
+        </paper-dropdown>
     </template>
     <script type="application/dart" src="a_la_carte_main_view.dart"></script>
 </polymer-element>

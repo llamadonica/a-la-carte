@@ -26,15 +26,24 @@ class Server {
   final int port;
   final int couchPort;
   final int listeners;
-  
-  Server(int this.port, int this.couchPort, int this.listeners);
+  final bool debugOverWire;
+
+  Server(int this.port, int this.couchPort, int this.listeners,
+      {this.debugOverWire: false});
   void serve() {
     var sessionResponse = new ReceivePort();
     sessionResponse.first.then((SendPort sessionPort) {
       for (var i = 1; i < listeners; i++) {
-        Isolate.spawn(_mainListenerIsolate, [port, i, couchPort, sessionPort]);
+        Isolate.spawn(_mainListenerIsolate, [
+          port,
+          i,
+          couchPort,
+          sessionPort,
+          debugOverWire
+        ]);
       }
-      var listener = new HttpListenerIsolate(port, 0, couchPort, sessionPort);
+      var listener = new HttpListenerIsolate(
+          port, 0, couchPort, sessionPort, debugOverWire);
       listener.listen();
     });
     Isolate.spawn(_sessionMasterIsolate, [sessionResponse.sendPort]);
@@ -42,11 +51,8 @@ class Server {
 }
 
 void _mainListenerIsolate(List args) {
-  var listener = new HttpListenerIsolate(
-      args[0] as int,
-      args[1] as int,
-      args[2] as int,
-      args[3] as SendPort);
+  var listener = new HttpListenerIsolate(args[0] as int, args[1] as int,
+      args[2] as int, args[3] as SendPort, args[4] as bool);
   listener.listen();
 }
 

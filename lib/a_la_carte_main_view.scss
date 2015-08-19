@@ -14,3 +14,17 @@ core-header-panel::shadow {
   background-color: #fff;
   overflow-y: auto;
 }
+
+paper-button.tool {
+  min-width: 0;
+  width: initial;
+  color: white;
+  font: {
+    family: 'Roboto', sans-serif;
+    size: 14px;
+    weight: normal;
+  }
+  &::shadow .button-content {
+    color: white;
+  }
+}
