@@ -17,6 +17,7 @@ class SessionListenerRow {
     _expires = value;
     updateExpirationTimer();
   }
+
   DateTime lastRefreshed;
   Timer removeTimer;
 
@@ -44,8 +45,8 @@ class SessionListenerRow {
 class SessionClientRow {
   final String tsid;
   String psid;
-  String id;
   DateTime expires;
+  PolicyIdentity credentialIdentity;
   SessionClientRow(String this.tsid, DateTime this.expires,
-      [String this.psid = null, String this.id = null]);
+      [String this.psid = null, PolicyIdentity this.credentialIdentity = null]);
 }

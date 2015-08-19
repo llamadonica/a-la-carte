@@ -214,8 +214,23 @@ class HttpListenerIsolate extends SessionClient {
       bool psidCookieIsNew) async {
     var responseHeaders = {};
     var sessionContainer = await sessionContainerFuture;
-    if (tsidCookieIsNew && psidCookieIsNew) {
+    if (tsidCookieIsNew) {
       responseHeaders['Set-Cookie'] = ["TSID=${tsid}; Path=/; HttpOnly"];
+      if (!psidCookieIsNew) {
+        final psidUri = Uri.parse('/a_la_carte/${Uri.encodeComponent(psid)}');
+        _couchConnection.makeServiceGet(psidUri);
+        .then((couchReply) => _policyModule.createPolicyIdentityFromReply(couchReply))
+        .catchError((error, stackTrace) {
+          if (error is CouchError && error.result['error'] == 'not_found') {
+            final policy = _policyModule.createEmptyPolicyIdentity(_user);
+            _couchConnection.makeServicePut(psidUri, policy); 
+            return policy;
+          }
+          throw error;
+        })
+        .then((policy) => sessionContainer.credentialIdentity = policy);
+        responseHeaders['Set-Cookie'].add("PSID=${psid}; Path=/; HttpOnly")
+      }
     }
     return response.change(headers: responseHeaders);
   }
