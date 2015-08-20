@@ -32,37 +32,58 @@ class SessionClient {
     sessions.remove(tsid);
   }
 
-  Future<SendPort> _getOrCreateSessionListener(
-      String tsid, int currentTimeInMillisecondsSinceEpoch, String psid) {
+  Future<List> _getOrCreateSessionListener(
+      String tsid, int currentTimeInMillisecondsSinceEpoch, String psid) async {
+    _defaultLogger('$tsid: Looking up session $tsid.', false);
     final ReceivePort response = new ReceivePort();
     _sessionMasterSendPort
         .send(['getSessionDelegateByTsidOrCreateNew', tsid, response.sendPort]);
-    return response.first.then((data) {
-      if (data[1]) {
-        data[0].send([
-          'addNewCookie',
-          tsid,
-          _expirationDelay + currentTimeInMillisecondsSinceEpoch,
-          currentTimeInMillisecondsSinceEpoch,
-          response.sendPort,
-          _sessionMessagePort.sendPort,
-          psid
-        ]);
-        return new SessionClientRow(tsid,
+    var data = await response.first;
+    if (data[1]) {
+      _defaultLogger('$tsid: Session $tsid. Creating.', false);
+      if (psid == null) {
+        psid = new Uuid().v1();
+      }
+      data[0].send([
+        'addNewCookie',
+        tsid,
+        _expirationDelay + currentTimeInMillisecondsSinceEpoch,
+        currentTimeInMillisecondsSinceEpoch,
+        response.sendPort,
+        _sessionMessagePort.sendPort,
+        psid
+      ]);
+      return [
+        new SessionClientRow(
+            tsid,
             new DateTime.fromMillisecondsSinceEpoch(
                 _expirationDelay + currentTimeInMillisecondsSinceEpoch),
-            currentTimeInMillisecondsSinceEpoch, psid);
-      }
-      final ReceivePort innerResponse = new ReceivePort();
-      data[0].send([
-        'checkOutCookie',
-        tsid,
-        innerResponse.sendPort,
-        _sessionMessagePort.sendPort
-      ]);
-      return innerResponse.first.then((data) => new SessionClientRow(
-          data[0], new DateTime.fromMillisecondsSinceEpoch(data[2]), data[3], data[1]));
-    });
+            currentTimeInMillisecondsSinceEpoch,
+            psid),
+        data
+      ];
+    }
+    _defaultLogger('$tsid: Found $tsid. Caching.', false);
+    final ReceivePort innerResponse = new ReceivePort();
+    data[0].send([
+      'checkOutCookie',
+      tsid,
+      innerResponse.sendPort,
+      _sessionMessagePort.sendPort
+    ]);
+    var sessionParameters = await innerResponse.first;
+    _defaultLogger('Checked out $tsid.', false);
+    return [
+      new SessionClientRow(
+          sessionParameters[0] as String,
+          new DateTime.fromMillisecondsSinceEpoch(sessionParameters[2] as int),
+          sessionParameters[3] as int,
+          sessionParameters[1] as String)
+        ..email = sessionParameters[4]
+        ..fullName = sessionParameters[5]
+        ..picture = sessionParameters[6],
+      data
+    ];
   }
 
   Future<SessionClientRow> getSessionContainer(String tsid,
@@ -72,13 +93,20 @@ class SessionClient {
     } else if (_pendingSessions[tsid] == null) {
       _pendingSessions[tsid] = _getOrCreateSessionListener(
           tsid, new DateTime.now().millisecondsSinceEpoch, psid);
+      _pendingSessions[tsid].then((data) {
+        sessions[tsid] = data[0];
+      });
     }
-    return await _pendingSessions[tsid];
+    return (await _pendingSessions[tsid])[0];
   }
 
-  Future pushClientAuthorizationToListener(String tsid,
-      int currentTimeInMillisecondsSinceEpoch, String psid,
-      PolicyIdentity identity, {bool isPassivePush: false}) async {
+  Future pushClientAuthorizationToListener(
+      String tsid,
+      int currentTimeInMillisecondsSinceEpoch,
+      String psid,
+      PolicyIdentity identity,
+      {bool isPassivePush: false}) async {
+    _defaultLogger('$tsid received authorization.', false);
     var data = await _getOrCreateSessionListener(
         tsid, currentTimeInMillisecondsSinceEpoch, psid);
     if (sessions[tsid].lastSeenTime >
@@ -102,17 +130,33 @@ class SessionClient {
     ]);
   }
 
-  void _sessionUpdated(String tsid, String psid,
-      int currentTimeInMillisecondsSinceEpoch, int expirationTimeInMillisecondsSinceEpoch, String serviceAccount,
-      String email, String fullName, String picture, bool isPusher) {
+  void _sessionUpdated(
+      String tsid,
+      String psid,
+      int currentTimeInMillisecondsSinceEpoch,
+      int expirationTimeInMillisecondsSinceEpoch,
+      String serviceAccount,
+      String email,
+      String fullName,
+      String picture,
+      bool isPusher) {
     if (sessions[tsid].lastSeenTime >
         currentTimeInMillisecondsSinceEpoch) return;
     sessions[tsid]
-      ..expires = new DateTime.fromMillisecondsSinceEpoch(expirationTimeInMillisecondsSinceEpoch)
+      ..expires = new DateTime.fromMillisecondsSinceEpoch(
+          expirationTimeInMillisecondsSinceEpoch)
       ..psid = psid
       ..serviceAccount = serviceAccount
       ..email = email
       ..fullName = fullName
       ..picture = picture;
+  }
+}
+
+void _defaultLogger(String msg, bool isError) {
+  if (isError) {
+    print('[ERROR] $msg');
+  } else {
+    print(msg);
   }
 }

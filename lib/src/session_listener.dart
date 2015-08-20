@@ -65,6 +65,7 @@ class _SessionListener {
   void _addNewCookie(String tsid, int expirationTimeInMillisecondsSinceEpoch,
       int currentTimeInMillisecondsSinceEpoch, SendPort initialResponsePort,
       SendPort responsePort, String psid) {
+    _defaultLogger('$tsid: Created a new session $tsid as part of persistent session $psid', false);
     if (sessions.containsKey(tsid)) {
       initialResponsePort.send(null);
       return;

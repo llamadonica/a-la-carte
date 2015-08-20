@@ -231,13 +231,17 @@ class ALaCartePresenter extends PolymerElement implements Presenter {
       _request = new HttpRequest();
       _request.open('GET', uri);
       _request.setRequestHeader('Accept', 'application/json');
+      _request.setRequestHeader('Cookie', window.document.cookie);
 
       _request.onLoad.listen(jsonHandler.httpRequestListener);
       _request.onProgress.listen(jsonHandler.httpRequestListener);
 
       _request.send();
     } else {
-      fetch(uri, headers: {'Accept': 'application/json'}).then((object) {
+      fetch(uri, headers: {
+        'Accept': 'application/json',
+        'Cookie': window.document.cookie
+      }, mode: RequestMode.sameOrigin, credentials: RequestCredentials.sameOrigin).then((object) {
         jsonHandler.setStreamStateFromResponse(object);
         jsonHandler.streamFromByteStreamReader(object.body.getReader());
       });

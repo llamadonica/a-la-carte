@@ -70,12 +70,15 @@ class SessionMaster {
 
   void _getSessionDelegateByTsidOrCreateNew(
       String tsid, SendPort responsePort) {
+    _defaultLogger('$tsid: Got a request for $tsid.', false);
     var sessionDelegate = _sessionHandlers[tsid];
     if (sessionDelegate != null) {
+      _defaultLogger('$tsid: $tsid already exists.', false);
       responsePort.send([sessionDelegate, false]);
       return;
     }
     if (!_sessionHandlerFutures.containsKey(tsid)) {
+      _defaultLogger('$tsid: $tsid must be created.', false);
       _sessionHandlerFutures[tsid] = [];
       sessionDelegate =
           _sessionHandlerByOrderOfLoad[_sessionHandlerByOrderOfLoad.firstKey()];
