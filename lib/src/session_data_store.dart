@@ -12,6 +12,11 @@ class SessionListenerRow {
   final Set<SendPort> sendPorts = new HashSet<SendPort>();
 
   DateTime _expires;
+  String serviceAccount;
+  String email;
+  String fullName;
+  String picture;
+
   DateTime get expires => _expires;
   void set expires(DateTime value) {
     _expires = value;
@@ -44,9 +49,13 @@ class SessionListenerRow {
 
 class SessionClientRow {
   final String tsid;
+  String serviceAccount;
   String psid;
+  String fullName;
+  String email;
+  String picture;
+  int lastSeenTime;
   DateTime expires;
-  PolicyIdentity credentialIdentity;
-  SessionClientRow(String this.tsid, DateTime this.expires,
-      [String this.psid = null, PolicyIdentity this.credentialIdentity = null]);
+  SessionClientRow(String this.tsid, DateTime this.expires, int lastSeenTime,
+      [String this.psid = null]);
 }

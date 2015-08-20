@@ -7,6 +7,6 @@ class ServiceError {
 
 abstract class DbBackend {
   Future<Map> makeServiceGet(Uri uri);
-  Future makeServicePut(Uri uri, Map message, [String revId = null]);
+  Future<Map> makeServicePut(Uri uri, Map message, [String revId = null]);
   Future makeServiceDelete(Uri uri, String revId);
 }

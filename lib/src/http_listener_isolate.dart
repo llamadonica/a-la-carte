@@ -116,7 +116,7 @@ class HttpListenerIsolate extends SessionClient {
 <html>
   <head>
     <meta charset="utf-8">
-    <script type=async>close();</script>
+    <script>close();</script>
     <title>A la carte</title>
   </head>
   <body></body>
@@ -192,9 +192,12 @@ class HttpListenerIsolate extends SessionClient {
       psidCookieIsNew = true;
     }
 
+    var policyIdentity = null;
+
     var sessionContainerFuture = getSessionContainer(tsid, psid);
 
-    request = request.change(context: {'session': sessionContainerFuture});
+    request = request.change(
+        context: {'session': sessionContainerFuture, 'psid': psid});
     var result = innerHandler(request);
 
     if (result is Future) {
@@ -213,24 +216,25 @@ class HttpListenerIsolate extends SessionClient {
       Future<SessionClientRow> sessionContainerFuture, String psid,
       bool psidCookieIsNew) async {
     var responseHeaders = {};
-    var sessionContainer = await sessionContainerFuture;
+
+    var policy;
+    final psidUri = Uri.parse('/a_la_carte/${Uri.encodeComponent(psid)}');
     if (tsidCookieIsNew) {
       responseHeaders['Set-Cookie'] = ["TSID=${tsid}; Path=/; HttpOnly"];
       if (!psidCookieIsNew) {
-        final psidUri = Uri.parse('/a_la_carte/${Uri.encodeComponent(psid)}');
-        _couchConnection.makeServiceGet(psidUri);
-        .then((couchReply) => _policyModule.createPolicyIdentityFromReply(couchReply))
-        .catchError((error, stackTrace) {
-          if (error is CouchError && error.result['error'] == 'not_found') {
-            final policy = _policyModule.createEmptyPolicyIdentity(_user);
-            _couchConnection.makeServicePut(psidUri, policy); 
-            return policy;
-          }
-          throw error;
-        })
-        .then((policy) => sessionContainer.credentialIdentity = policy);
-        responseHeaders['Set-Cookie'].add("PSID=${psid}; Path=/; HttpOnly")
+        _policyModule
+            .createPolicyIdentityFromState(psid, _user, _couchConnection)
+            .then((policy) async {
+          await sessionContainerFuture;
+          this.pushClientAuthorizationToListener(
+              tsid, new DateTime.now().millisecondsSinceEpoch, psid, policy,
+              isPassivePush: true);
+        });
+      } else {
+        responseHeaders['Set-Cookie'].add("PSID=${psid}; Path=/; HttpOnly");
       }
+    } else if (psidCookieIsNew) {
+      responseHeaders['Set-Cookie'] = ["PSID=${psid}; Path=/; HttpOnly"];
     }
     return response.change(headers: responseHeaders);
   }
@@ -297,22 +301,24 @@ class HttpListenerIsolate extends SessionClient {
     if (!_isJsonRequest(request)) {
       return new shelf.Response(_responseShouldCascade);
     }
-    return _policyModule
-        .createEmptyPolicyIdentity(_user)
-        .then((policyIdentity) {
-      request.hijack((input, output) => datastore.hijackRequest(input, output,
-          request.method, request.requestedUri, request.headers,
-          policyIdentity));
-    });
+    String psid = request.context['psid'];
+    request.hijack((input, output) => datastore.hijackRequest(
+        input, output, request.method, request.requestedUri, request.headers));
   };
 
   dynamic _authLandingHandler(shelf.Request request) {
     if (request.url.path == '_auth/landing') {
-      (_policyModule as OAuth2PolicyValidator).createPolicyIdentityFromState(
-          request.url.queryParameters['code'],
-          request.url.queryParameters['state'], _user);
-      var completer = new Completer();
-      return completer.future;
+      final state = request.url.queryParameters['state'];
+      return (_policyModule as OAuth2PolicyValidator)
+          .createPolicyIdentityFromState(
+              request.context['psid'], _user, _couchConnection,
+              code: request.url.queryParameters['code'],
+              notifyOnAuth: state)
+          .then((identity) {
+
+            return new shelf.Response.ok(_selfClosingPage,
+              headers: {'Content-Type': 'text/html; charset=utf-8'});
+      });
     } else {
       return new shelf.Response(_responseShouldCascade);
     }
@@ -320,17 +326,16 @@ class HttpListenerIsolate extends SessionClient {
 
   dynamic _authLoginHandler(shelf.Request request) async {
     if (request.url.path == '_auth/login') {
-      var emptyIdentity = _policyModule.createEmptyPolicyIdentity(_user);
+      String psid = request.context['psid'];
       try {
-        await _policyModule.prepareUnauthorizedRequest(
-            emptyIdentity, _couchConnection);
+        await _policyModule.createPolicyIdentityFromState(psid, _user, _couchConnection);
       } catch (error, stackTrace) {
         if (error is PolicyStateError) {
           shelf.Response response;
           if (error.redirectUri != null) {
             response = new shelf.Response(401,
                 body: '{"error": "must_authenticate", "message": "You must log in before '
-                'performing this action.", "auth_uri": "${error.redirectUri}", "auth_watcher": "${error.awakenUuid}"}',
+                'performing this action.", "auth_uri": "${error.redirectUri}", "auth_watcher_id": "${error.awakenId}", "auth_watcher_rev": "${error.awakenRev}"}',
                 headers: {"Content-Type": "application/json"},
                 encoding: Encoding.getByName('identity'));
           } else {

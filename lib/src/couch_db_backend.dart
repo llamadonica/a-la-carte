@@ -85,9 +85,8 @@ class CouchDbBackend extends DbBackend {
     return _ensuringHasValidated;
   }
 
-  void hijackRequest(Stream<List<int>> input, StreamSink<List<int>> output,
-      String method, Uri uri, Map<String, Object> headers,
-      PolicyIdentity identity) {
+  Future hijackRequest(Stream<List<int>> input, StreamSink<List<int>> output,
+      String method, Uri uri, Map<String, Object> headers) async {
     final client = new HttpClient();
     final couchUri = new Uri(
         scheme: uri.scheme,
@@ -97,10 +96,10 @@ class CouchDbBackend extends DbBackend {
         pathSegments: uri.pathSegments,
         queryParameters: uri.queryParameters,
         fragment: uri.fragment);
-    _ensureHasValidated()
-        .then((_) => policyHandler.validateMethodIsPermittedOnResource(
-            method, uri, identity, this))
-        .catchError((error, stackTrace) {
+    await _ensureHasValidated();
+    try {
+      policyHandler.validateMethodIsPermittedOnResource(method, uri, this);
+    } catch (error) {
       var contentLength = new Ref<int>();
       var postRequestIsChunked = false;
       if (headers.containsKey('Transfer-Encoding') &&
@@ -121,50 +120,46 @@ class CouchDbBackend extends DbBackend {
           }
         }
       });
-      return completer.future.then((_) {
-        throw error;
-      });
-    })
-        .then((_) => client.openUrl(method, couchUri))
-        .then((HttpClientRequest request) {
-      for (var header in headers.keys) {
-        request.headers.add(header, headers[header]);
-      }
-      for (var cookie in _authCookie) {
-        request.headers.add(HttpHeaders.COOKIE, cookie);
-      }
-      bool postRequestIsChunked = false;
-      var contentLength = new Ref<int>.withValue(0);
+      await completer.future;
+      throw error;
+    }
+    HttpClientRequest request = await client.openUrl(method, couchUri);
+    for (var header in headers.keys) {
+      request.headers.add(header, headers[header]);
+    }
+    for (var cookie in _authCookie) {
+      request.headers.add(HttpHeaders.COOKIE, cookie);
+    }
+    bool postRequestIsChunked = false;
+    var contentLength = new Ref<int>.withValue(0);
 
-      if (method == 'GET' || method == 'HEAD' || method == 'DELETE') {
+    if (method == 'GET' || method == 'HEAD' || method == 'DELETE') {
+      request.close();
+    } else if (headers.containsKey('Transfer-Encoding') &&
+        headers['Transfer-Encoding'] == 'chunked') {
+      postRequestIsChunked = true;
+    } else {
+      try {
+        contentLength.value = int.parse(headers['Content-Length']);
+      } catch (err) {
         request.close();
-      } else {
-        if (headers.containsKey('Transfer-Encoding') &&
-            headers['Transfer-Encoding'] == 'chunked') {
-          postRequestIsChunked = true;
-        } else {
-          try {
-            contentLength.value = int.parse(headers['Content-Length']);
-          } catch (err) {
-            request.close();
-          }
+      }
+    }
+    input.listen((data) {
+      request.add(data);
+      if (postRequestIsChunked && data.length == 0) {
+        request.close();
+      } else if (!postRequestIsChunked) {
+        contentLength.value -= data.length;
+        if (contentLength.value <= 0) {
+          request.close();
         }
       }
-      input.listen((data) {
-        request.add(data);
-        if (postRequestIsChunked && data.length == 0) {
-          request.close();
-        } else if (!postRequestIsChunked) {
-          contentLength.value -= data.length;
-          if (contentLength.value <= 0) {
-            request.close();
-          }
-        }
-      }, onDone: () {
-        request.close();
-      });
-      return request.done;
-    }).then((HttpClientResponse response) {
+    }, onDone: () {
+      request.close();
+    });
+    HttpClientResponse response = await request.done;
+    try {
       final encoder = new AsciiEncoder();
       output.add(encoder.convert(
           'HTTP/1.1 ${response.statusCode} ${response.reasonPhrase}\r\n'));
@@ -193,7 +188,7 @@ class CouchDbBackend extends DbBackend {
       }, onError: (error, stackTrace) {
         output.addError(error, stackTrace);
       });
-    }).catchError((error, stackTrace) {
+    } catch (error, stackTrace) {
       if (error is PolicyStateError) {
         shelf.Response response;
         if (error.redirectUri != null) {
@@ -209,31 +204,31 @@ class CouchDbBackend extends DbBackend {
               headers: {"Content-Type": "application/json"},
               encoding: Encoding.getByName('identity'));
         }
-        return _writeShelfResponse(output, response);
+        await _writeShelfResponse(output, response);
+        return;
       } else {
-        throw error;
-      }
-    }).catchError((error, stackTrace) {
-      String body;
-      if (_debugOverWire) {
-        body = '''{
+        String body;
+        if (_debugOverWire) {
+          body = '''{
   "error":"internal_server_error",
   "message": "I couldn\'t connect to the database. Contact your database administrator.",
   "dart_error": "$error",
   "dart_stacktrace": "$stackTrace"
 }''';
-      } else {
-        body = '''{
+        } else {
+          body = '''{
   "error":"internal_server_error",
   "message": "I couldn\'t connect to the database. Contact your database administrator."
 }''';
+        }
+        final response = new shelf.Response.internalServerError(
+            body: body,
+            headers: {"Content-Type": "application/json"},
+            encoding: Encoding.getByName('identity'));
+        await _writeShelfResponse(output, response);
+        return;
       }
-      final response = new shelf.Response.internalServerError(
-          body: body,
-          headers: {"Content-Type": "application/json"},
-          encoding: Encoding.getByName('identity'));
-      return _writeShelfResponse(output, response);
-    });
+    }
   }
 
   @override Future<Map> makeServiceGet(Uri uri) async {
@@ -302,13 +297,14 @@ class CouchDbBackend extends DbBackend {
 
   @override Future<Map> makeServiceDelete(Uri uri, String revId) async {
     final client = new HttpClient();
-    uri.queryParameters['rev'] = revId;
+    final queryParameters = new Map.from(uri.queryParameters);
+    queryParameters['rev'] = revId;
     final couchUri = new Uri(
         scheme: 'http',
         host: '127.0.0.1',
         port: port,
         pathSegments: uri.pathSegments,
-        queryParameters: uri.queryParameters,
+        queryParameters: queryParameters,
         fragment: uri.fragment);
     await _ensureHasValidated();
     HttpClientRequest request = await client.openUrl('DELETE', couchUri);

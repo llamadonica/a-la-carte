@@ -6,6 +6,7 @@ class SessionClient {
   static const int _expirationDelay = 900000;
   Map<String, SessionClientRow> sessions = new Map<String, SessionClientRow>();
   Map<String, Future> _pendingSessions = new Map<String, Future>();
+  Map<String, List<String>> tsidsByPsid = new Map();
 
   SessionClient(SendPort this._sessionMasterSendPort) {
     _sessionMessagePort.listen(_handleSessionClientRequest);
@@ -16,6 +17,10 @@ class SessionClient {
     switch (requestCode) {
       case 'sessionExpired':
         _sessionExpired(data[1]);
+        break;
+      case 'sessionUpdated':
+        _sessionUpdated(data[1], data[2], data[3], data[4], data[5], data[6],
+            data[7], data[8], data[9]);
         break;
       default:
         throw new StateError(
@@ -45,7 +50,8 @@ class SessionClient {
         ]);
         return new SessionClientRow(tsid,
             new DateTime.fromMillisecondsSinceEpoch(
-                _expirationDelay + currentTimeInMillisecondsSinceEpoch), psid);
+                _expirationDelay + currentTimeInMillisecondsSinceEpoch),
+            currentTimeInMillisecondsSinceEpoch, psid);
       }
       final ReceivePort innerResponse = new ReceivePort();
       data[0].send([
@@ -55,7 +61,7 @@ class SessionClient {
         _sessionMessagePort.sendPort
       ]);
       return innerResponse.first.then((data) => new SessionClientRow(
-          data[0], new DateTime.fromMillisecondsSinceEpoch(data[2]), data[1]));
+          data[0], new DateTime.fromMillisecondsSinceEpoch(data[2]), data[3], data[1]));
     });
   }
 
@@ -67,15 +73,46 @@ class SessionClient {
       _pendingSessions[tsid] = _getOrCreateSessionListener(
           tsid, new DateTime.now().millisecondsSinceEpoch, psid);
     }
-    var sessionListener = await _pendingSessions[tsid];
+    return await _pendingSessions[tsid];
   }
 
-  SessionClientRow _sessionCheckedOut(String tsid,
-      int expiresMillisecondsSinceEpoch,
-      int lastRefreshedMillisecondsSinceEpoch) {
-    final clientSession = new SessionClientRow(tsid,
-        new DateTime.fromMillisecondsSinceEpoch(expiresMillisecondsSinceEpoch));
-    sessions[tsid] = clientSession;
-    return clientSession;
+  Future pushClientAuthorizationToListener(String tsid,
+      int currentTimeInMillisecondsSinceEpoch, String psid,
+      PolicyIdentity identity, {bool isPassivePush: false}) async {
+    var data = await _getOrCreateSessionListener(
+        tsid, currentTimeInMillisecondsSinceEpoch, psid);
+    if (sessions[tsid].lastSeenTime >
+        currentTimeInMillisecondsSinceEpoch) return;
+    sessions[tsid]
+      ..psid = psid
+      ..serviceAccount = identity.serviceAccount
+      ..email = identity.email
+      ..fullName = identity.fullName
+      ..picture = identity.picture;
+    data[0].send([
+      'authenticatedSession',
+      tsid,
+      psid,
+      currentTimeInMillisecondsSinceEpoch,
+      identity.serviceAccount,
+      identity.email,
+      identity.fullName,
+      identity.picture,
+      isPassivePush
+    ]);
+  }
+
+  void _sessionUpdated(String tsid, String psid,
+      int currentTimeInMillisecondsSinceEpoch, int expirationTimeInMillisecondsSinceEpoch, String serviceAccount,
+      String email, String fullName, String picture, bool isPusher) {
+    if (sessions[tsid].lastSeenTime >
+        currentTimeInMillisecondsSinceEpoch) return;
+    sessions[tsid]
+      ..expires = new DateTime.fromMillisecondsSinceEpoch(expirationTimeInMillisecondsSinceEpoch)
+      ..psid = psid
+      ..serviceAccount = serviceAccount
+      ..email = email
+      ..fullName = fullName
+      ..picture = picture;
   }
 }

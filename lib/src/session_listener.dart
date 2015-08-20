@@ -24,16 +24,30 @@ class _SessionListener {
       case 'checkOutCookie':
         _checkOutCookie(data[1], data[2], data[3]);
         break;
-      case 'checkInCookie':
-        _checkInCookie(data[1], data[2]);
-        break;
       case 'confirmedSessionDropped':
         _confirmedSessionDropped(data[1]);
+        break;
+      case 'authenticatedSession':
+        _authenticatedSession(data[1], data[2], data[3], data[4], data[5],
+            data[6], data[7], data[8]);
         break;
       default:
         throw new StateError(
             'Received an invalid reply to a session request: $requestCode.');
     }
+  }
+
+  void _authenticatedSession(String tsid, String psid,
+      int currentTimeInMillisecondsSinceEpoch, String serviceAccount,
+      String email, String fullName, String picture, bool isPassivePush) {
+    if (sessions[tsid].lastRefreshed.millisecondsSinceEpoch >
+        currentTimeInMillisecondsSinceEpoch) return;
+    sessions[tsid]
+      ..psid = psid
+      ..serviceAccount = serviceAccount
+      ..email = email
+      ..fullName = fullName
+      ..picture = picture;
   }
 
   void _confirmedSessionDropped(String tsid) {
@@ -91,7 +105,13 @@ class _SessionListener {
           'sessionUpdated',
           tsid,
           currentTimeInMillisecondsSinceEpoch,
-          session.expires.millisecondsSinceEpoch
+          session.expires.millisecondsSinceEpoch,
+          session.psid,
+          session.serviceAccount,
+          session.email,
+          session.fullName,
+          session.picture,
+          false
         ]);
       }
     }
@@ -105,8 +125,15 @@ class _SessionListener {
       initialResponsePort.send(null);
       return;
     }
-    initialResponsePort.send(
-        [session.tsid, session.psid, session.expires.millisecondsSinceEpoch]);
+    initialResponsePort.send([
+      session.tsid,
+      session.psid,
+      session.expires.millisecondsSinceEpoch,
+      session.lastRefreshed.millisecondsSinceEpoch,
+      session.email,
+      session.fullName,
+      session.picture
+    ]);
     session.sendPorts.add(responsePort);
     return;
   }
