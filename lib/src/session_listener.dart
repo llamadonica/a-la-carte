@@ -1,7 +1,7 @@
 part of a_la_carte.server;
 
 class _SessionListener {
-  final Map<String, SessionListenerRow> sessions;
+  final Map<String, GlobalSessionData> sessions;
   final Set<String> recentlyExpiredSessions;
 
   final SendPort sessionMaster;
@@ -10,7 +10,7 @@ class _SessionListener {
   SendPort myPort;
 
   _SessionListener(SendPort this.sessionMaster, int this.sessionIdNumber)
-      : sessions = new Map<String, SessionListenerRow>(),
+      : sessions = new Map<String, GlobalSessionData>(),
         recentlyExpiredSessions = new Set<String>();
   void handleRequests(List data) {
     var requestCode = data[0] as String;
@@ -19,16 +19,16 @@ class _SessionListener {
         _addNewCookie(data[1], data[2], data[3], data[4], data[5], data[6]);
         break;
       case 'touchCookie':
-        _touchCookie(data[1], data[2]);
+        _touchedSession(data[1], data[2]);
         break;
       case 'checkOutCookie':
-        _checkOutCookie(data[1], data[2], data[3]);
+        _checkedOutSession(data[1], data[2], data[3]);
         break;
       case 'confirmedSessionDropped':
-        _confirmedSessionDropped(data[1]);
+        _sessionWasDropped(data[1]);
         break;
       case 'authenticatedSession':
-        _authenticatedSession(data[1], data[2], data[3], data[4], data[5],
+        _sessionWasAuthenticated(data[1], data[2], data[3], data[4], data[5],
             data[6], data[7], data[8]);
         break;
       default:
@@ -37,35 +37,35 @@ class _SessionListener {
     }
   }
 
-  void _authenticatedSession(String tsid, String psid,
+  void _sessionWasAuthenticated(String tsid, String psid,
       int currentTimeInMillisecondsSinceEpoch, String serviceAccount,
       String email, String fullName, String picture, bool isPassivePush) {
-    final sessionsTsid = sessions[tsid];
-    if (sessionsTsid.lastRefreshed.millisecondsSinceEpoch >
+    final localSession = sessions[tsid];
+    if (localSession.lastRefreshed.millisecondsSinceEpoch >
         currentTimeInMillisecondsSinceEpoch) return;
-    sessionsTsid
+    localSession
       ..psid = psid
       ..serviceAccount = serviceAccount
       ..email = email
       ..fullName = fullName
       ..picture = picture;
-    for (var sessionClient in sessionsTsid.sendPorts) {
+    for (var sessionClient in localSession.sendPorts) {
       sessionClient.send([
         'sessionUpdated',
         tsid,
         currentTimeInMillisecondsSinceEpoch,
-        sessionsTsid.expires.millisecondsSinceEpoch,
-        sessionsTsid.psid,
-        sessionsTsid.serviceAccount,
-        sessionsTsid.email,
-        sessionsTsid.fullName,
-        sessionsTsid.picture,
+        localSession.expires.millisecondsSinceEpoch,
+        localSession.psid,
+        localSession.serviceAccount,
+        localSession.email,
+        localSession.fullName,
+        localSession.picture,
         isPassivePush
       ]);
     }
   }
 
-  void _confirmedSessionDropped(String tsid) {
+  void _sessionWasDropped(String tsid) {
     recentlyExpiredSessions.remove(tsid);
   }
 
@@ -85,7 +85,7 @@ class _SessionListener {
       initialResponsePort.send(null);
       return;
     }
-    var session = new SessionListenerRow(tsid,
+    var session = new GlobalSessionData(tsid,
         new DateTime.fromMillisecondsSinceEpoch(
             expirationTimeInMillisecondsSinceEpoch),
         new DateTime.fromMillisecondsSinceEpoch(
@@ -100,7 +100,7 @@ class _SessionListener {
     sessionMaster.send(['sessionAdded', tsid, myPort]);
   }
 
-  void _touchCookie(String tsid, int currentTimeInMillisecondsSinceEpoch) {
+  void _touchedSession(String tsid, int currentTimeInMillisecondsSinceEpoch) {
     final session = sessions[tsid];
     if (session == null) {
       return;
@@ -134,7 +134,7 @@ class _SessionListener {
     return;
   }
 
-  void _checkOutCookie(
+  void _checkedOutSession(
       String tsid, SendPort initialResponsePort, SendPort responsePort) {
     var session = sessions[tsid];
     if (session == null) {
@@ -152,13 +152,6 @@ class _SessionListener {
     ]);
     session.sendPorts.add(responsePort);
     return;
-  }
-
-  void _checkInCookie(String tsid, SendPort responsePort) {
-    var session = sessions[tsid];
-    if (session != null) {
-      session.sendPorts.remove(responsePort);
-    }
   }
 
   void dropCookie(String tsid) {

@@ -155,8 +155,9 @@ class HttpListenerIsolate extends SessionClient {
   final Map<String, Timer> _refreshTimeout = new Map<String, Timer>();
   final Map<String, Ref<bool>> _cancellationListener =
       new Map<String, Ref<bool>>();
-  final Map<String, Completer> _sessionsWithNoSpecialKnowledgeByPsid =
+  final Map<String, Completer> _policyCompletersWithNoSpecialKnowledgeByPsid =
       new Map<String, Completer<PolicyIdentity>>();
+  final Map<String, PolicyIdentity> _policiesByPsid = new Map<String, PolicyIdentity>();
   final Set<String> sessionsThatHaveBeenSentTheirCredentials =
       new Set<String>();
 
@@ -189,17 +190,15 @@ class HttpListenerIsolate extends SessionClient {
     }
     if (tsid == null) {
       tsid = new Uuid().v1();
-      _defaultLogger(
-          '$tsid: Starting request for ${request.url} with a new cookie.',
-          false);
       tsidCookieIsNew = true;
     }
-    Completer psidSessionCompleter;
+    Completer<PolicyIdentity> psidSessionCompleter;
     if (psid != null) {
-      if (_sessionsWithNoSpecialKnowledgeByPsid[psid] != null) {
-        psidSessionCompleter = _sessionsWithNoSpecialKnowledgeByPsid[psid];
+      if (_policiesByPsid[psid] != null) {
+      } else if (_policyCompletersWithNoSpecialKnowledgeByPsid[psid] != null) {
+        psidSessionCompleter = _policyCompletersWithNoSpecialKnowledgeByPsid[psid];
       } else {
-        psidSessionCompleter = new Completer();
+        psidSessionCompleter = new Completer<PolicyIdentity>();
       }
     }
 
@@ -226,7 +225,7 @@ class HttpListenerIsolate extends SessionClient {
 
   Future<shelf.Response> _processCookieResult(shelf.Response response,
       String tsid, bool tsidCookieIsNew,
-      Future<SessionClientRow> sessionContainerFuture, String psid,
+      Future<LocalSessionData> sessionContainerFuture, String psid,
       int timestamp, Completer psidSessionCompleter) async {
     bool psidCookieIsNew = false;
 
@@ -244,33 +243,8 @@ class HttpListenerIsolate extends SessionClient {
     if (tsidCookieIsNew) {
       responseHeaders['Set-Cookie'] = ["TSID=${tsid}; Path=/"];
       if (!psidCookieIsNew) {
-        if (_sessionsWithNoSpecialKnowledgeByPsid[psid] == null) {
-          final cancellationRef = new Ref.withValue(true);
-          _cancellationListener[psid] = cancellationRef;
-          var sessionData = await sessionContainerFuture;
-          _sessionsWithNoSpecialKnowledgeByPsid[psid] = psidSessionCompleter;
-          _policyModule
-              .createPolicyIdentityFromState(
-                  sessionData, _user, _couchConnection, timestamp, this)
-              .then((PolicyIdentity policy) async {
-            await sessionContainerFuture;
-            pushClientAuthorizationToListener(
-                tsid, new DateTime.now().millisecondsSinceEpoch, psid, policy,
-                isPassivePush: true);
-            if (cancellationRef.value) {
-              _sessionsWithNoSpecialKnowledgeByPsid[psid].complete(policy);
-            } else {
-              throw new OperationCanceled();
-            }
-          }).catchError((error, stackTrace) {
-            if (error is OperationCanceled) return;
-            if (cancellationRef.value &&
-                !_sessionsWithNoSpecialKnowledgeByPsid[psid].isCompleted) {
-              _sessionsWithNoSpecialKnowledgeByPsid[psid].completeError(
-                  error, stackTrace);
-            }
-          });
-        }
+        _passivelyCreateSessionIdentityFromState(psid, sessionContainerFuture,
+            psidSessionCompleter, timestamp, tsid);
       } else {
         final DateTime expires = new DateTime.now().add(new Duration(days: 15));
         responseHeaders['Set-Cookie'].add(
@@ -283,6 +257,43 @@ class HttpListenerIsolate extends SessionClient {
       ];
     }
     return response.change(headers: responseHeaders);
+  }
+
+  Future _passivelyCreateSessionIdentityFromState(String psid, Future<LocalSessionData> sessionContainerFuture,
+      Completer<PolicyIdentity> policyIdentityCompleter, int timestamp,
+      String tsid) async {
+    if (_policiesByPsid[psid] != null) {
+      return _policiesByPsid[psid];
+    }
+    if (_policyCompletersWithNoSpecialKnowledgeByPsid[psid] == null) {
+      final cancellationRef = new Ref.withValue(true);
+      _cancellationListener[psid] = cancellationRef;
+      var sessionData = await sessionContainerFuture;
+      _policyCompletersWithNoSpecialKnowledgeByPsid[psid] = policyIdentityCompleter;
+      _policyModule.createPolicyIdentityFromState(sessionData, _user, _couchConnection, timestamp, this)
+      .then((PolicyIdentity policy) async {
+        pushClientAuthorizationToMaster(
+            tsid, new DateTime.now().millisecondsSinceEpoch, psid, policy,
+            isPassivePush: true);
+        if (cancellationRef.value) {
+          _policiesByPsid[psid] = policy;
+          _policyCompletersWithNoSpecialKnowledgeByPsid[psid].complete(policy);
+        } else {
+          throw new OperationCanceled();
+        }
+      }).catchError((error, stackTrace) {
+        if (error is OperationCanceled) {
+          assert(_policyCompletersWithNoSpecialKnowledgeByPsid[psid].isCompleted);
+        }
+        if (cancellationRef.value &&
+            !_policyCompletersWithNoSpecialKnowledgeByPsid[psid].isCompleted) {
+          _policyCompletersWithNoSpecialKnowledgeByPsid[psid].completeError(
+              error, stackTrace);
+          return;
+        }
+      });
+    }
+    return await _policyCompletersWithNoSpecialKnowledgeByPsid[psid];
   }
 
   bool _shouldCascade(shelf.Response response) {
@@ -360,8 +371,8 @@ class HttpListenerIsolate extends SessionClient {
   dynamic _authLandingHandler(shelf.Request request) async {
     if (request.url.path == '_auth/landing') {
       final state = request.url.queryParameters['state'];
-      final SessionClientRow session = await request.context['session'];
-      if (_sessionsWithNoSpecialKnowledgeByPsid[session.psid] != null) {
+      final LocalSessionData session = await request.context['session'];
+      if (_policyCompletersWithNoSpecialKnowledgeByPsid[session.psid] != null) {
         _cancellationListener[session.psid].value = false;
       }
       return (_policyModule as OAuth2PolicyValidator)
@@ -370,8 +381,10 @@ class HttpListenerIsolate extends SessionClient {
               code: request.url.queryParameters['code'], notifyOnAuth: state)
           .then((identity) {
         sessionsThatHaveBeenSentTheirCredentials.add(request.context['tsid']);
-        if (!_sessionsWithNoSpecialKnowledgeByPsid[session.psid].isCompleted) {
-          _sessionsWithNoSpecialKnowledgeByPsid[session.psid]
+        if (_policyCompletersWithNoSpecialKnowledgeByPsid[session.psid] == null) {
+          _policiesByPsid[session.psid] = identity;
+        } else if (!_policyCompletersWithNoSpecialKnowledgeByPsid[session.psid].isCompleted) {
+          _policyCompletersWithNoSpecialKnowledgeByPsid[session.psid]
               .complete(identity);
         }
         return new shelf.Response.ok(_selfClosingPage,
@@ -384,24 +397,24 @@ class HttpListenerIsolate extends SessionClient {
 
   dynamic _authLoginHandler(shelf.Request request) async {
     if (request.url.path == '_auth/login') {
-      Future<SessionClientRow> sessionFuture = request.context['session'];
+      Future<LocalSessionData> sessionFuture = request.context['session'];
       try {
         var session = await sessionFuture;
-        if (_sessionsWithNoSpecialKnowledgeByPsid[session.psid] == null) {
+        if (_policyCompletersWithNoSpecialKnowledgeByPsid[session.psid] == null) {
           final cancellationRef = new Ref.withValue(true);
           _cancellationListener[session.psid] = cancellationRef;
-          _sessionsWithNoSpecialKnowledgeByPsid[session.psid] = new Completer();
+          _policyCompletersWithNoSpecialKnowledgeByPsid[session.psid] = new Completer();
 
           _policyModule
               .createPolicyIdentityFromState(session, _user, _couchConnection,
                   request.context['timestamp'], this, isPassivePush: false)
               .then((PolicyIdentity policy) async {
             await sessionFuture;
-            pushClientAuthorizationToListener(session.tsid,
+            pushClientAuthorizationToMaster(session.tsid,
                 new DateTime.now().millisecondsSinceEpoch, session.psid, policy,
                 isPassivePush: true);
             if (cancellationRef.value) {
-              _sessionsWithNoSpecialKnowledgeByPsid[session.psid]
+              _policyCompletersWithNoSpecialKnowledgeByPsid[session.psid]
                   .complete(policy);
             } else {
               throw new OperationCanceled();
@@ -409,14 +422,14 @@ class HttpListenerIsolate extends SessionClient {
           }).catchError((error, stackTrace) {
             if (error is OperationCanceled) return;
             if (cancellationRef.value &&
-                !_sessionsWithNoSpecialKnowledgeByPsid[
+                !_policyCompletersWithNoSpecialKnowledgeByPsid[
                 session.psid].isCompleted) {
-              _sessionsWithNoSpecialKnowledgeByPsid[session.psid].completeError(
+              _policyCompletersWithNoSpecialKnowledgeByPsid[session.psid].completeError(
                   error, stackTrace);
             }
           });
         }
-        await _sessionsWithNoSpecialKnowledgeByPsid[session.psid].future;
+        await _policyCompletersWithNoSpecialKnowledgeByPsid[session.psid].future;
         final response = new shelf.Response(200,
             body: '{"ok": true}',
             headers: {"Content-Type": "application/json"},
@@ -472,7 +485,7 @@ class HttpListenerIsolate extends SessionClient {
 
   dynamic _authSessionHandler(shelf.Request request) async {
     if (request.url.path == '_auth/session') {
-      final SessionClientRow session = await request.context['session'];
+      final LocalSessionData session = await request.context['session'];
       String body = '''{
   "tsid": "${session.tsid}",
   "psid": "${session.psid}",

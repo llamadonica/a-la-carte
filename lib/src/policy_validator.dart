@@ -40,7 +40,7 @@ abstract class PolicyValidator extends Object {
   Future<PolicyIdentity> createEmptyPolicyIdentity(
       String psid, String serviceAccount);
   Future<PolicyIdentity> createPolicyIdentityFromState(
-      SessionClientRow sessionFuture, String serviceAccount,
+      LocalSessionData sessionFuture, String serviceAccount,
       DbBackend dbBackend, int currentTimeInMillisecondsSinceEpoch,
       SessionClient sessionClient, {String code: null,
       String notifyOnAuth: null, bool isPassivePush: false,
@@ -121,7 +121,7 @@ class OAuth2PolicyValidator extends PolicyValidator {
     return new OAuth2PolicyIdentity(null, serviceAccount);
   }
 
-  Future<PolicyIdentity> createPolicyIdentityFromState(SessionClientRow session,
+  Future<PolicyIdentity> createPolicyIdentityFromState(LocalSessionData session,
       String serviceAccount, DbBackend dbBackend,
       int currentTimeInMillisecondsSinceEpoch, SessionClient sessionClient,
       {String code: null, String notifyOnAuth: null, bool isPassivePush: false,
@@ -217,7 +217,7 @@ class OAuth2PolicyValidator extends PolicyValidator {
       ..email = responseMap['email']
       ..fullName = responseMap['name']
       ..picture = responseMap['picture'];
-    var isAuthorized = sessionClient.pushClientAuthorizationToListener(
+    var isAuthorized = sessionClient.pushClientAuthorizationToMaster(
         tsid, currentTimeInMillisecondsSinceEpoch + 1, psid, identity,
         isPassivePush: isPassivePush);
     if (!isPassivePush) {

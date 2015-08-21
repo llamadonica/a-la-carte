@@ -3,7 +3,7 @@
 
 part of a_la_carte.server;
 
-class SessionListenerRow {
+class GlobalSessionData {
   final String tsid;
   final _SessionListener _parent;
   String psid;
@@ -26,7 +26,7 @@ class SessionListenerRow {
   DateTime lastRefreshed;
   Timer removeTimer;
 
-  SessionListenerRow(String this.tsid, DateTime this._expires,
+  GlobalSessionData(String this.tsid, DateTime this._expires,
       DateTime this.lastRefreshed, _SessionListener this._parent,
       [String this.psid = null, String this.identifier = null]) {
     updateExpirationTimer();
@@ -47,7 +47,7 @@ class SessionListenerRow {
   }
 }
 
-class SessionClientRow {
+class LocalSessionData {
   final String tsid;
   String serviceAccount;
   String psid;
@@ -58,7 +58,7 @@ class SessionClientRow {
   int lastSeenTime;
 
   DateTime expires;
-  SessionClientRow(
+  LocalSessionData(
       String this.tsid, DateTime this.expires, int this.lastSeenTime,
       [String this.psid = null]);
 }

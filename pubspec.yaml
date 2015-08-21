@@ -10,6 +10,7 @@ dependencies:
   polymer: any
   sass: any
   oauth2: any
+  dice: any
   shelf:
     git:
       ref: master

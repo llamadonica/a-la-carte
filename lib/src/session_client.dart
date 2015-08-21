@@ -4,7 +4,7 @@ class SessionClient {
   final SendPort _sessionMasterSendPort;
   final ReceivePort _sessionMessagePort = new ReceivePort();
   static const int _expirationDelay = 900000;
-  Map<String, SessionClientRow> sessions = new Map<String, SessionClientRow>();
+  Map<String, LocalSessionData> sessions = new Map<String, LocalSessionData>();
   Map<String, Future> _pendingSessions = new Map<String, Future>();
   Map<String, List<String>> tsidsByPsid = new Map();
 
@@ -54,7 +54,7 @@ class SessionClient {
         psid
       ]);
       return [
-        new SessionClientRow(tsid, new DateTime.fromMillisecondsSinceEpoch(
+        new LocalSessionData(tsid, new DateTime.fromMillisecondsSinceEpoch(
                 _expirationDelay + currentTimeInMillisecondsSinceEpoch),
             currentTimeInMillisecondsSinceEpoch, psid),
         data[0]
@@ -71,7 +71,7 @@ class SessionClient {
     var sessionParameters = await innerResponse.first;
     //_defaultLogger('Checked out $tsid.', false);
     return [
-      new SessionClientRow(sessionParameters[0] as String,
+      new LocalSessionData(sessionParameters[0] as String,
           new DateTime.fromMillisecondsSinceEpoch(sessionParameters[2] as int),
           sessionParameters[3] as int, sessionParameters[1] as String)
         ..email = sessionParameters[4]
@@ -81,7 +81,7 @@ class SessionClient {
     ];
   }
 
-  Future<SessionClientRow> getSessionContainer(String tsid,
+  Future<LocalSessionData> getSessionContainer(String tsid,
       [String psid = null]) async {
     if (sessions[tsid] != null) {
       return sessions[tsid];
@@ -95,10 +95,9 @@ class SessionClient {
     return (await _pendingSessions[tsid])[0];
   }
 
-  Future pushClientAuthorizationToListener(String tsid,
+  Future pushClientAuthorizationToMaster(String tsid,
       int currentTimeInMillisecondsSinceEpoch, String psid,
       PolicyIdentity identity, {bool isPassivePush: false}) async {
-    _defaultLogger('$tsid: received authorization.', false);
     var data = await _getOrCreateSessionListener(
         tsid, currentTimeInMillisecondsSinceEpoch, psid);
     if (sessions[tsid].lastSeenTime >
