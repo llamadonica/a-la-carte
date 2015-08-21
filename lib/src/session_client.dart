@@ -34,13 +34,13 @@ class SessionClient {
 
   Future<List> _getOrCreateSessionListener(
       String tsid, int currentTimeInMillisecondsSinceEpoch, String psid) async {
-    _defaultLogger('$tsid: Looking up session $tsid.', false);
+    //_defaultLogger('$tsid: Looking up session $tsid.', false);
     final ReceivePort response = new ReceivePort();
     _sessionMasterSendPort
         .send(['getSessionDelegateByTsidOrCreateNew', tsid, response.sendPort]);
     var data = await response.first;
     if (data[1]) {
-      _defaultLogger('$tsid: Session $tsid. Creating.', false);
+      //_defaultLogger('$tsid: Session $tsid. Creating.', false);
       if (psid == null) {
         psid = new Uuid().v1();
       }
@@ -54,16 +54,13 @@ class SessionClient {
         psid
       ]);
       return [
-        new SessionClientRow(
-            tsid,
-            new DateTime.fromMillisecondsSinceEpoch(
+        new SessionClientRow(tsid, new DateTime.fromMillisecondsSinceEpoch(
                 _expirationDelay + currentTimeInMillisecondsSinceEpoch),
-            currentTimeInMillisecondsSinceEpoch,
-            psid),
-        data
+            currentTimeInMillisecondsSinceEpoch, psid),
+        data[0]
       ];
     }
-    _defaultLogger('$tsid: Found $tsid. Caching.', false);
+    //_defaultLogger('$tsid: Found $tsid. Caching.', false);
     final ReceivePort innerResponse = new ReceivePort();
     data[0].send([
       'checkOutCookie',
@@ -72,17 +69,15 @@ class SessionClient {
       _sessionMessagePort.sendPort
     ]);
     var sessionParameters = await innerResponse.first;
-    _defaultLogger('Checked out $tsid.', false);
+    //_defaultLogger('Checked out $tsid.', false);
     return [
-      new SessionClientRow(
-          sessionParameters[0] as String,
+      new SessionClientRow(sessionParameters[0] as String,
           new DateTime.fromMillisecondsSinceEpoch(sessionParameters[2] as int),
-          sessionParameters[3] as int,
-          sessionParameters[1] as String)
+          sessionParameters[3] as int, sessionParameters[1] as String)
         ..email = sessionParameters[4]
         ..fullName = sessionParameters[5]
         ..picture = sessionParameters[6],
-      data
+      data[0]
     ];
   }
 
@@ -100,13 +95,10 @@ class SessionClient {
     return (await _pendingSessions[tsid])[0];
   }
 
-  Future pushClientAuthorizationToListener(
-      String tsid,
-      int currentTimeInMillisecondsSinceEpoch,
-      String psid,
-      PolicyIdentity identity,
-      {bool isPassivePush: false}) async {
-    _defaultLogger('$tsid received authorization.', false);
+  Future pushClientAuthorizationToListener(String tsid,
+      int currentTimeInMillisecondsSinceEpoch, String psid,
+      PolicyIdentity identity, {bool isPassivePush: false}) async {
+    _defaultLogger('$tsid: received authorization.', false);
     var data = await _getOrCreateSessionListener(
         tsid, currentTimeInMillisecondsSinceEpoch, psid);
     if (sessions[tsid].lastSeenTime >
@@ -116,8 +108,9 @@ class SessionClient {
       ..serviceAccount = identity.serviceAccount
       ..email = identity.email
       ..fullName = identity.fullName
-      ..picture = identity.picture;
-    data[0].send([
+      ..picture = identity.picture
+      ..shouldPush = isPassivePush;
+    data[1].send([
       'authenticatedSession',
       tsid,
       psid,
@@ -130,16 +123,10 @@ class SessionClient {
     ]);
   }
 
-  void _sessionUpdated(
-      String tsid,
-      String psid,
+  void _sessionUpdated(String tsid,
       int currentTimeInMillisecondsSinceEpoch,
-      int expirationTimeInMillisecondsSinceEpoch,
-      String serviceAccount,
-      String email,
-      String fullName,
-      String picture,
-      bool isPusher) {
+      int expirationTimeInMillisecondsSinceEpoch, String psid, String serviceAccount,
+      String email, String fullName, String picture, bool isPusher) {
     if (sessions[tsid].lastSeenTime >
         currentTimeInMillisecondsSinceEpoch) return;
     sessions[tsid]
@@ -149,7 +136,8 @@ class SessionClient {
       ..serviceAccount = serviceAccount
       ..email = email
       ..fullName = fullName
-      ..picture = picture;
+      ..picture = picture
+      ..shouldPush = isPusher;
   }
 }
 

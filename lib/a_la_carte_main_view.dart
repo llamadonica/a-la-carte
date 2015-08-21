@@ -24,6 +24,7 @@ class ALaCarteMainView extends PolymerElement implements AppPager {
   @published bool noProjectsFound;
   @published String prevAppSelected;
   @published String responsiveWidth;
+  @published bool isLoggedIn;
 
   @observable String projectEditViewCaption = "Add a project";
   @observable ALaCartePageCommon currentPage;
@@ -179,9 +180,9 @@ class ALaCarteMainView extends PolymerElement implements AppPager {
       JsonStreamingEvent event, Ref<StreamSubscription> subscription) {
     if (event.status == 401 && event.path.length == 0) {
       if (event.symbol.containsKey('auth_uri') &&
-          event.symbol.containsKey('auth_watcher')) {
+          event.symbol.containsKey('auth_watcher_id')) {
         appPresenter.showAuthLogin(event.symbol['auth_uri']);
-        final activeAuthorizationSubscription = event.symbol["auth_watcher"];
+        final activeAuthorizationSubscription = event.symbol["auth_watcher_id"];
         appPresenter.connectTo('/a_la_carte/_changes?feed=continuous&'
             'filter=_doc_ids&doc_ids=%5B%22${activeAuthorizationSubscription}%22%5D',
             (newEvent, subscription) => _routeProjectAuthorizationReply(
@@ -193,6 +194,8 @@ class ALaCarteMainView extends PolymerElement implements AppPager {
         }
         subscription.value.cancel();
       }
+    } else if (event.status == 200 && event.path.length == 0) {
+      appPresenter.receiveAuthenticationSessionData();
     } else if (event.path.length == 0) {
       appPresenter.reportError(ErrorReportModule.login, 'Could not log in.');
       subscription.value.cancel();
@@ -206,8 +209,10 @@ class ALaCarteMainView extends PolymerElement implements AppPager {
       return;
     }
     if (event.path.length == 1 && event.symbol.containsKey('seq')) {
-      if (event.symbol.containsKey('deleted')) {}
-      subscription.value.cancel();
+      if (event.symbol.containsKey('deleted')) {
+        appPresenter.receiveAuthenticationSessionData();
+        subscription.value.cancel();
+      }
     } else if (event.path.length == 1 && event.symbol.containsKey('last_seq')) {
       subscription.value.cancel();
       return;

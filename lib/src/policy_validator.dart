@@ -23,28 +23,28 @@ abstract class PolicyIdentity {
   String get picture;
 }
 
+class OperationCanceled {}
+
 abstract class PolicyValidator extends Object {
-  Future validateMethodIsPermittedOnResource(
-      String method, Uri uri, DbBackend dataStore);
+  Future validateMethodIsPermittedOnResource(String method, Uri uri,
+      DbBackend dataStore, Future<PolicyIdentity> policyFuture);
   Future prepareUnauthorizedRequest(DbBackend dataStore);
   Future convoluteUnchunkedRequest(
       HttpClientRequest request, PolicyIdentity identity, String addCookie);
   Future convoluteChunkedRequest(
       HttpClientRequest request, PolicyIdentity identity, String addCookie);
 
-  Future hijackUnauthorizedMethod(
-      Stream<List<int>> input,
-      StreamSink<List<int>> output,
-      String method,
-      Uri uri,
+  Future hijackUnauthorizedMethod(Stream<List<int>> input,
+      StreamSink<List<int>> output, String method, Uri uri,
       Map<String, Object> headers);
   Future<PolicyIdentity> createEmptyPolicyIdentity(
       String psid, String serviceAccount);
   Future<PolicyIdentity> createPolicyIdentityFromState(
-      Future<SessionClientRow> sessionFuture,
-      String serviceAccount,
-      DbBackend dbBackend,
-      {String code: null});
+      SessionClientRow sessionFuture, String serviceAccount,
+      DbBackend dbBackend, int currentTimeInMillisecondsSinceEpoch,
+      SessionClient sessionClient, {String code: null,
+      String notifyOnAuth: null, bool isPassivePush: false,
+      Ref<bool> canceller: null});
 }
 
 class OAuth2PolicyValidator extends PolicyValidator {
@@ -56,8 +56,7 @@ class OAuth2PolicyValidator extends PolicyValidator {
       'https://accounts.google.com/o/oauth2/auth';
   static const String _oauth2TokenEndpoint =
       'https://accounts.google.com/o/oauth2/token';
-  static const String _oauth2Redirect =
-      'http://www.a-la-carte.com:8080/_auth/landing';
+  static const String _oauth2Redirect = 'http://localhost:8080/_auth/landing';
 
   @override
   Future convoluteChunkedRequest(
@@ -72,11 +71,8 @@ class OAuth2PolicyValidator extends PolicyValidator {
   }
 
   @override
-  Future hijackUnauthorizedMethod(
-      Stream<List<int>> input,
-      StreamSink<List<int>> output,
-      String method,
-      Uri uri,
+  Future hijackUnauthorizedMethod(Stream<List<int>> input,
+      StreamSink<List<int>> output, String method, Uri uri,
       Map<String, Object> headers) {
     // TODO: implement hijackUnauthorizedMethod
   }
@@ -86,21 +82,17 @@ class OAuth2PolicyValidator extends PolicyValidator {
     final watchMessage = new Uuid().v4();
     try {
       var replyMap = await dataStore.makeServicePut(
-          Uri.parse('/a_la_carte/$watchMessage'),
-          {'type': 'authentication_attempt'});
+          Uri.parse('/a_la_carte/$watchMessage'), {
+        'type': 'authentication_attempt'
+      });
       final revId = replyMap['rev'];
-      final grant = new oauth2.AuthorizationCodeGrant(
-          _oauth2ClientId,
-          _oauth2ClientSecret,
-          Uri.parse(_oauth2AuthorizationEndpoint),
+      final grant = new oauth2.AuthorizationCodeGrant(_oauth2ClientId,
+          _oauth2ClientSecret, Uri.parse(_oauth2AuthorizationEndpoint),
           Uri.parse(_oauth2TokenEndpoint));
-      throw new PolicyStateError.redirect(
-          grant
-              .getAuthorizationUrl(Uri.parse(_oauth2Redirect),
-                  scopes: ['profile', 'email'], state: '$watchMessage,$revId')
-              .toString(),
-          watchMessage,
-          revId);
+      throw new PolicyStateError.redirect(grant
+          .getAuthorizationUrl(Uri.parse(_oauth2Redirect),
+              scopes: ['profile', 'email'], state: '$watchMessage,$revId')
+          .toString(), watchMessage, revId);
     } catch (error, stackTrace) {
       if (error is ServiceError) {
         error.result['message'] =
@@ -114,39 +106,37 @@ class OAuth2PolicyValidator extends PolicyValidator {
   }
 
   @override
-  Future validateMethodIsPermittedOnResource(
-      String method, Uri uri, DbBackend dataStore) async {
+  Future validateMethodIsPermittedOnResource(String method, Uri uri,
+      DbBackend dataStore, Future<PolicyIdentity> policyFuture) async {
     if (method == 'GET' || method == 'HEAD') {
       return null;
     } else {
-      prepareUnauthorizedRequest(dataStore);
+      return prepareUnauthorizedRequest(dataStore);
     }
   }
 
   @override
   Future<PolicyIdentity> createEmptyPolicyIdentity(
-      String psid, String serviceAccount) {
-    return new Future.value(new OAuth2PolicyIdentity(null, serviceAccount));
+      String psid, String serviceAccount) async {
+    return new OAuth2PolicyIdentity(null, serviceAccount);
   }
 
-  Future<PolicyIdentity> createPolicyIdentityFromState(
-      Future<SessionClientRow> sessionFuture,
-      String serviceAccount,
-      DbBackend dbBackend,
-      int currentTimeInMillisecondsSinceEpoch,
-      {String code: null,
-      String notifyOnAuth: null,
-      bool isPassivePush: false}) async {
+  Future<PolicyIdentity> createPolicyIdentityFromState(SessionClientRow session,
+      String serviceAccount, DbBackend dbBackend,
+      int currentTimeInMillisecondsSinceEpoch, SessionClient sessionClient,
+      {String code: null, String notifyOnAuth: null, bool isPassivePush: false,
+      Ref<bool> canceller: null}) async {
+    if (canceller != null && !canceller.value) throw new OperationCanceled();
     String rev = null;
     Map psidState = null;
     int expirationClock = null;
-    final session = await sessionFuture;
     final psid = session.psid;
 
     final psidUri = Uri.parse('/a_la_carte/${Uri.encodeComponent(psid)}');
 
     try {
       psidState = await dbBackend.makeServiceGet(psidUri);
+      if (canceller != null && !canceller.value) throw new OperationCanceled();
       rev = psidState['_rev'];
       assert(psidState['type'] == 'persistent_session');
       expirationClock = psidState['expiration'];
@@ -159,10 +149,8 @@ class OAuth2PolicyValidator extends PolicyValidator {
 
     oauth2.Client client;
     bool clientIsNew = false;
-    final grant = new oauth2.AuthorizationCodeGrant(
-        _oauth2ClientId,
-        _oauth2ClientSecret,
-        Uri.parse(_oauth2AuthorizationEndpoint),
+    final grant = new oauth2.AuthorizationCodeGrant(_oauth2ClientId,
+        _oauth2ClientSecret, Uri.parse(_oauth2AuthorizationEndpoint),
         Uri.parse(_oauth2TokenEndpoint));
 
     if (code != null) {
@@ -172,14 +160,14 @@ class OAuth2PolicyValidator extends PolicyValidator {
           .handleAuthorizationResponse({'code': code, 'state': notifyOnAuth});
       clientIsNew = true;
     } else if (psidState != null) {
-      client = new oauth2.Client(
-          grant.identifier,
-          grant.secret,
+      client = new oauth2.Client(grant.identifier, grant.secret,
           new oauth2.Credentials.fromJson(
               new JsonEncoder().convert(psidState)));
-      if (client.credentials.isExpired) {
+      if (client.credentials.isExpired && client.credentials.canRefresh) {
         client = await client.refreshCredentials();
         clientIsNew = true;
+      } else if (client.credentials.isExpired) {
+        client = null;
       }
     }
 
@@ -200,44 +188,42 @@ class OAuth2PolicyValidator extends PolicyValidator {
         dbBackend.makeServiceDelete(
             Uri.parse('/a_la_carte/$originalDocumentId'), originalDocumentRev);
       }
-      return await _createPolicyIdentityFromCredentialedClient(
-          psid,
-          serviceAccount,
-          client,
-          session,
-          session.tsid,
+      final identity = await _createPolicyIdentityFromCredentialedClient(psid,
+          serviceAccount, client, sessionClient, session.tsid,
           currentTimeInMillisecondsSinceEpoch,
-          isPassivePush: isPassivePush);
+          isPassivePush: isPassivePush, canceller: canceller);
+      return identity;
     }
-    return await prepareUnauthorizedRequest(dbBackend);
+    await prepareUnauthorizedRequest(dbBackend);
+    return null;
   }
 
   Future<PolicyIdentity> _createPolicyIdentityFromExistingState(String psid,
-      {String accessToken: null,
-      String refreshToken: null,
-      String tokenEndpoint: null,
-      List<String> scopes: const <String>[],
+      {String accessToken: null, String refreshToken: null,
+      String tokenEndpoint: null, List<String> scopes: const <String>[],
       int expiration: 0}) {}
 
   Future<PolicyIdentity> _createPolicyIdentityFromCredentialedClient(
-      String psid,
-      String serviceAccount,
-      oauth2.Client client,
-      SessionClient sessionClient,
-      String tsid,
+      String psid, String serviceAccount, oauth2.Client client,
+      SessionClient sessionClient, String tsid,
       int currentTimeInMillisecondsSinceEpoch,
-      {bool isPassivePush: false}) async {
+      {bool isPassivePush: false, Ref<bool> canceller: null}) async {
     var response =
         await client.get('https://www.googleapis.com/oauth2/v2/userinfo');
+    if (canceller != null && !canceller.value) throw new OperationCanceled();
     final JsonDecoder jsonDecoder = new JsonDecoder();
     final responseMap = jsonDecoder.convert(response.body);
     final identity = new OAuth2PolicyIdentity(psid, serviceAccount)
       ..email = responseMap['email']
       ..fullName = responseMap['name']
       ..picture = responseMap['picture'];
-    sessionClient.pushClientAuthorizationToListener(
-        tsid, currentTimeInMillisecondsSinceEpoch, psid, identity,
+    var isAuthorized = sessionClient.pushClientAuthorizationToListener(
+        tsid, currentTimeInMillisecondsSinceEpoch + 1, psid, identity,
         isPassivePush: isPassivePush);
+    if (!isPassivePush) {
+      await isAuthorized;
+      if (canceller != null && !canceller.value) throw new OperationCanceled();
+    }
     return identity;
   }
 }

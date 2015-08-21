@@ -30,6 +30,7 @@ class ALaCartePresenter extends PolymerElement implements Presenter {
   @observable bool wide;
   @observable Project project;
   @observable bool projectsAreLoaded = false;
+  @observable bool isLoggedIn = false;
 
   Map<String, List<Completer<Project>>> _pendingProjectRequest = new Map();
 
@@ -112,10 +113,8 @@ class ALaCartePresenter extends PolymerElement implements Presenter {
 
   Future _getSessionUserName() {
     final completer = new Completer();
-    connectTo(
-        '/_session',
-        (event, subscription) =>
-            _routeSessionEvent(event, subscription, completer));
+    connectTo('/_session', (event, subscription) =>
+        _routeSessionEvent(event, subscription, completer));
     return completer.future;
   }
 
@@ -220,6 +219,11 @@ class ALaCartePresenter extends PolymerElement implements Presenter {
   }
 
   @override
+  void receiveAuthenticationSessionData() {
+    window.console.log('we authenticated from somewhere');
+  }
+
+  @override
   void connectTo(String uri, JsonEventRouter router,
       {bool isImplicitArray: false}) {
     final jsonHandler = new JsonStreamingParser(isImplicitArray);
@@ -231,17 +235,27 @@ class ALaCartePresenter extends PolymerElement implements Presenter {
       _request = new HttpRequest();
       _request.open('GET', uri);
       _request.setRequestHeader('Accept', 'application/json');
-      _request.setRequestHeader('Cookie', window.document.cookie);
+      //_request.setRequestHeader('Cookie', window.document.cookie);
+      _request.withCredentials = true;
 
       _request.onLoad.listen(jsonHandler.httpRequestListener);
-      _request.onProgress.listen(jsonHandler.httpRequestListener);
+      var previouslyGotHeaders = new Ref.withValue(false);
+      _request.onProgress.listen((ProgressEvent event) {
+        if (previouslyGotHeaders.value && _request.readyState >= 2) {
+          if (_request.responseHeaders.containsKey('X-Push-Session-Data')) {
+            receiveAuthenticationSessionData();
+          }
+          previouslyGotHeaders.value = true;
+        }
+        jsonHandler.httpRequestListener(event);
+      });
 
       _request.send();
     } else {
-      fetch(uri, headers: {
-        'Accept': 'application/json',
-        'Cookie': window.document.cookie
-      }, mode: RequestMode.sameOrigin, credentials: RequestCredentials.sameOrigin).then((object) {
+      fetch(uri,
+          headers: {'Accept': 'application/json'},
+          mode: RequestMode.sameOrigin,
+          credentials: RequestCredentials.sameOrigin).then((object) {
         jsonHandler.setStreamStateFromResponse(object);
         jsonHandler.streamFromByteStreamReader(object.body.getReader());
       });
@@ -308,11 +322,9 @@ class ALaCartePresenter extends PolymerElement implements Presenter {
 
   Future _connectToChangeStream() async {
     var account = await getServiceAccountName();
-    connectTo(
-        '/a_la_carte/_changes?feed=continuous&include_docs=true&'
+    connectTo('/a_la_carte/_changes?feed=continuous&include_docs=true&'
         'since=${_currentChangeSeq}&'
-        'filter=projects/projects&account=$account',
-        _routeChangeEvent,
+        'filter=projects/projects&account=$account', _routeChangeEvent,
         isImplicitArray: true);
   }
 

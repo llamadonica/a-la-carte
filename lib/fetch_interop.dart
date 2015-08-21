@@ -49,7 +49,7 @@ String enumToString(t) {
   var buffer = new StringBuffer();
   var rawString = t.toString().split('.')[1];
   regex.allMatches(rawString).forEach((match) {
-    buffer.write(rawString.substring(i, match.start - 1));
+    buffer.write(rawString.substring(i, match.start));
     buffer.write('-');
     buffer.write(match.group(0).toLowerCase());
     i = match.end;
@@ -115,7 +115,7 @@ Future<Response> fetch_internal(String url, {String method,
   JsObject promise = _fetch.apply([url, new JsObject.jsify(options)]);
   promise.callMethod('then', [
     (JsObject object) => completer.complete(new Response._internal(object)),
-        (JsObject object) {
+    (JsObject object) {
       completer.completeError(new FetchError(object['message']));
     }
   ]);

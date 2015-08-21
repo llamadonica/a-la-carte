@@ -18,4 +18,5 @@ abstract class Presenter {
   void connectTo(String uri, JsonEventRouter router,
       {bool isImplicitArray: false});
   void showAuthLogin(String uri);
+  void receiveAuthenticationSessionData();
 }

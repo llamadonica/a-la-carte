@@ -86,7 +86,9 @@ class CouchDbBackend extends DbBackend {
   }
 
   Future hijackRequest(Stream<List<int>> input, StreamSink<List<int>> output,
-      String method, Uri uri, Map<String, Object> headers) async {
+      String method, Uri uri, Map<String, Object> headers,
+      Future<PolicyIdentity> policyFuture,
+      Set<String> sessionsThatHaveBeenSentTheirCredentials, String tsid) async {
     final client = new HttpClient();
     final couchUri = new Uri(
         scheme: uri.scheme,
@@ -98,7 +100,8 @@ class CouchDbBackend extends DbBackend {
         fragment: uri.fragment);
     await _ensureHasValidated();
     try {
-      policyHandler.validateMethodIsPermittedOnResource(method, uri, this);
+      policyHandler.validateMethodIsPermittedOnResource(
+          method, uri, this, policyFuture);
     } catch (error) {
       var contentLength = new Ref<int>();
       var postRequestIsChunked = false;
@@ -165,12 +168,36 @@ class CouchDbBackend extends DbBackend {
           'HTTP/1.1 ${response.statusCode} ${response.reasonPhrase}\r\n'));
       response.headers.forEach((headerName, headerValues) {
         for (var headerValue in headerValues) {
-          output.add(encoder.convert('$headerName: $headerValue\r\n'));
+          if (headerName.toLowerCase() != 'set-cookie') {
+            //Authentication cookies don't need to be leaked to the end user,
+            //even though it's not clear what they would do with it.
+            output.add(encoder.convert('$headerName: $headerValue\r\n'));
+          }
         }
       });
       bool chunkedResponse = false;
       chunkedResponse = response.headers.chunkedTransferEncoding;
       output.add(encoder.convert('Access-Control-Allow-Origin: *\r\n'));
+      if (policyFuture != null) {
+        try {
+          final PolicyIdentity identity =
+              await policyFuture.timeout(new Duration(milliseconds: 1));
+          output.add(encoder.convert(
+              'Access-Control-Allow-Headers: X-Push-Session-Data\r\n'));
+          output
+              .add(encoder.convert('X-Push-Session-Data: /_auth/session\r\n'));
+          sessionsThatHaveBeenSentTheirCredentials.add(tsid);
+        } catch (error) {
+          if (error is TimeoutException) {
+          } else if (error is PolicyStateError) {
+            //We haven't really been sent our credentials, but we no that we're
+            //not going to get any more notifications if we log in.
+            sessionsThatHaveBeenSentTheirCredentials.add(tsid);
+          } else {
+            throw error;
+          }
+        }
+      }
       output.add([13, 10]);
       response.listen((data) {
         if (chunkedResponse) {
@@ -194,7 +221,7 @@ class CouchDbBackend extends DbBackend {
         if (error.redirectUri != null) {
           response = new shelf.Response(401,
               body: '{"error": "must_authenticate", "message": "You must log in before '
-              'performing this action.", "auth_uri": "${error.redirectUri}", "auth_watcher": "${error.awakenUuid}"}',
+              'performing this action.", "auth_uri": "${error.redirectUri}", "auth_watcher_id": "${error.awakenId}", "auth_watcher_rev": "${error.awakenRev}"}',
               headers: {"Content-Type": "application/json"},
               encoding: Encoding.getByName('identity'));
         } else {
@@ -209,11 +236,15 @@ class CouchDbBackend extends DbBackend {
       } else {
         String body;
         if (_debugOverWire) {
+          final JsonEncoder encoder = new JsonEncoder.withIndent('    ');
+          final Map error_info = {
+            'error': error.toString(),
+            'stack_trace': stackTrace.toString()
+          };
           body = '''{
   "error":"internal_server_error",
   "message": "I couldn\'t connect to the database. Contact your database administrator.",
-  "dart_error": "$error",
-  "dart_stacktrace": "$stackTrace"
+  "dart_error": ${encoder.convert(error_info)}
 }''';
         } else {
           body = '''{

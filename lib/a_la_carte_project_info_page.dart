@@ -304,6 +304,7 @@ class ALaCarteProjectInfoPage extends ALaCartePageCommon {
     if (event.path.length == 1 && event.symbol.containsKey('seq')) {
       if (event.symbol.containsKey('deleted') && !_cancelledAuthorizationSubscriptions.contains(authorizationSubscriptionDocId)) {
         _putProjectDataToServer(id, data);
+        appPresenter.receiveAuthenticationSessionData();
         _activeAuthorizationSubscriptionDiscardListener.cancel();
       }
       subscription.value.cancel();
@@ -318,9 +319,9 @@ class ALaCarteProjectInfoPage extends ALaCartePageCommon {
       Ref<StreamSubscription> subscription, String id, Map data) {
     if (event.status == 401 && event.path.length == 0) {
       if (event.symbol.containsKey('auth_uri') &&
-          event.symbol.containsKey('auth_watcher')) {
+          event.symbol.containsKey('auth_watcher_id')) {
         appPresenter.showAuthLogin(event.symbol['auth_uri']);
-        final activeAuthorizationSubscription = event.symbol["auth_watcher"];
+        final activeAuthorizationSubscription = event.symbol["auth_watcher_id"];
         _activeAuthorizationSubscriptionDiscardListener = appPager.onDiscardEdits.listen((_) {
           _cancelledAuthorizationSubscriptions.add(activeAuthorizationSubscription);
           _cancelSaving();

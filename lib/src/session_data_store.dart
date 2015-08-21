@@ -54,8 +54,11 @@ class SessionClientRow {
   String fullName;
   String email;
   String picture;
+  bool shouldPush = false;
   int lastSeenTime;
+
   DateTime expires;
-  SessionClientRow(String this.tsid, DateTime this.expires, int lastSeenTime,
+  SessionClientRow(
+      String this.tsid, DateTime this.expires, int this.lastSeenTime,
       [String this.psid = null]);
 }

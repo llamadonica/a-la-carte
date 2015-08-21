@@ -32,7 +32,7 @@
 <link rel="import" href="../../packages/a_la_carte/a_la_carte_card_view.html">
 
 <polymer-element name="a-la-carte-main-view"
-                 attributes="project projects wide appSelected prevAppSelected responsiveWidth projectsAreLoaded noProjectsFound selected appPresenter projectsByUuid"
+                 attributes="project projects wide appSelected prevAppSelected responsiveWidth projectsAreLoaded noProjectsFound selected appPresenter projectsByUuid isLoggedIn"
                  vertical
                  layout>
     <template bind>
@@ -46,8 +46,8 @@
                 narrow="{{!wide}}"
                 responsiveWidth="{{responsiveWidth}}"
                 on-dgs-fab-action="{{routeFabAction}}">
-            <section class="tool">
-              <paper-button class="tool" on-tap="{{tapSignIn}}">sign in</paper-button>
+            <section id="tap-sign-in-section" class="tool">
+              <paper-button id="tap-sign-in" on-tap="{{tapSignIn}}" hidden?="{{isLoggedIn}}">sign in</paper-button>
             </section>
             <core-header-panel navigation flex mode="seamed">
                 <div id="nav-menu-box">

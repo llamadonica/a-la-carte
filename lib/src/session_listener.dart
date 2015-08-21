@@ -40,14 +40,29 @@ class _SessionListener {
   void _authenticatedSession(String tsid, String psid,
       int currentTimeInMillisecondsSinceEpoch, String serviceAccount,
       String email, String fullName, String picture, bool isPassivePush) {
-    if (sessions[tsid].lastRefreshed.millisecondsSinceEpoch >
+    final sessionsTsid = sessions[tsid];
+    if (sessionsTsid.lastRefreshed.millisecondsSinceEpoch >
         currentTimeInMillisecondsSinceEpoch) return;
-    sessions[tsid]
+    sessionsTsid
       ..psid = psid
       ..serviceAccount = serviceAccount
       ..email = email
       ..fullName = fullName
       ..picture = picture;
+    for (var sessionClient in sessionsTsid.sendPorts) {
+      sessionClient.send([
+        'sessionUpdated',
+        tsid,
+        currentTimeInMillisecondsSinceEpoch,
+        sessionsTsid.expires.millisecondsSinceEpoch,
+        sessionsTsid.psid,
+        sessionsTsid.serviceAccount,
+        sessionsTsid.email,
+        sessionsTsid.fullName,
+        sessionsTsid.picture,
+        isPassivePush
+      ]);
+    }
   }
 
   void _confirmedSessionDropped(String tsid) {

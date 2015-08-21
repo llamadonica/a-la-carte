@@ -151,68 +151,83 @@ class HttpListenerIsolate extends SessionClient {
     '_static'
   ];
 
-  final Map<String, DateTime> _refresh;
-  final Map<String, Timer> _refreshTimeout;
-  final Map<int, DateTime> _httpRequestTimestamps =
-      new Map<int, DateTime>(); //This really should be a WeakMap.
+  final Map<String, DateTime> _refresh = new Map<String, DateTime>();
+  final Map<String, Timer> _refreshTimeout = new Map<String, Timer>();
+  final Map<String, Ref<bool>> _cancellationListener =
+      new Map<String, Ref<bool>>();
+  final Map<String, Completer> _sessionsWithNoSpecialKnowledgeByPsid =
+      new Map<String, Completer<PolicyIdentity>>();
+  final Set<String> sessionsThatHaveBeenSentTheirCredentials =
+      new Set<String>();
 
   CouchDbBackend _couchConnection;
 
   HttpListenerIsolate(int this._port, int this._isolateId, int this.couchPort,
       SendPort sessionMasterSendPort, bool this._debugOverWire)
-      : super(sessionMasterSendPort),
-        _refresh = new Map<String, DateTime>(),
-        _refreshTimeout = new Map<String, Timer>();
+      : super(sessionMasterSendPort);
 
   shelf.Handler _addCookies(shelf.Handler innerHandler) =>
       (shelf.Request request) {
-        String psid = null;
-        String tsid = null;
-        bool tsidCookieIsNew = false;
+    String psid = null;
+    String tsid = null;
+    bool tsidCookieIsNew = false;
 
-        if (request.headers.containsKey(r'Cookie')) {
-          var rawCookie = request.headers['Cookie'];
-          for (String cookie in rawCookie.split(r'; ')) {
-            if (cookie.startsWith('TSID=')) {
-              tsid = cookie.split('=')[1];
-              _defaultLogger('$tsid: Starting request for ${request.url} with an existing cookie.', false);
-              if (psid != null) break;
-            } else if (cookie.startsWith('PSID=')) {
-              psid = cookie.split('=')[1];
-              if (tsid != null) break;
-            }
-          }
+    if (request.headers.containsKey(r'Cookie')) {
+      var rawCookie = request.headers['Cookie'];
+      for (String cookie in rawCookie.split(r'; ')) {
+        if (cookie.startsWith('TSID=')) {
+          tsid = cookie.split('=')[1];
+          _defaultLogger(
+              '$tsid: Starting request for ${request.url} with an existing cookie.',
+              false);
+          if (psid != null) break;
+        } else if (cookie.startsWith('PSID=')) {
+          psid = cookie.split('=')[1];
+          if (tsid != null) break;
         }
-        if (tsid == null) {
-          tsid = new Uuid().v1();
-          _defaultLogger('$tsid: Starting request for ${request.url} with a new cookie.', false);
-          tsidCookieIsNew = true;
-        }
+      }
+    }
+    if (tsid == null) {
+      tsid = new Uuid().v1();
+      _defaultLogger(
+          '$tsid: Starting request for ${request.url} with a new cookie.',
+          false);
+      tsidCookieIsNew = true;
+    }
+    Completer psidSessionCompleter;
+    if (psid != null) {
+      if (_sessionsWithNoSpecialKnowledgeByPsid[psid] != null) {
+        psidSessionCompleter = _sessionsWithNoSpecialKnowledgeByPsid[psid];
+      } else {
+        psidSessionCompleter = new Completer();
+      }
+    }
 
-        var policyIdentity = null;
+    var sessionContainerFuture = getSessionContainer(tsid, psid);
+    request = request.change(
+        context: {
+      'session': sessionContainerFuture,
+      'loginCompleter': psidSessionCompleter,
+      'tsid': tsid
+    });
+    var result = innerHandler(request);
 
+    if (result is Future) {
+      return result.then((innerResult) => _processCookieResult(innerResult,
+          tsid, tsidCookieIsNew, sessionContainerFuture, psid,
+          request.context['timestamp'], psidSessionCompleter));
+    } else {
+      assert(result is shelf.Response);
+      return _processCookieResult(result, tsid, tsidCookieIsNew,
+          sessionContainerFuture, psid, request.context['timestamp'],
+          psidSessionCompleter);
+    }
+  };
 
-        var sessionContainerFuture = getSessionContainer(tsid, psid);
-
-        request = request.change(context: {'session': sessionContainerFuture});
-        var result = innerHandler(request);
-
-        if (result is Future) {
-          return result.then((innerResult) => _processCookieResult(innerResult,
-              tsid, tsidCookieIsNew, sessionContainerFuture, psid));
-        } else {
-          assert(result is shelf.Response);
-          return _processCookieResult(
-              result, tsid, tsidCookieIsNew, sessionContainerFuture, psid);
-        }
-      };
-
-  Future<shelf.Response> _processCookieResult(
-      shelf.Response response,
-      String tsid,
-      bool tsidCookieIsNew,
-      Future<SessionClientRow> sessionContainerFuture,
-      String psid) async {
+  Future<shelf.Response> _processCookieResult(shelf.Response response,
+      String tsid, bool tsidCookieIsNew,
+      Future<SessionClientRow> sessionContainerFuture, String psid,
+      int timestamp, Completer psidSessionCompleter) async {
     bool psidCookieIsNew = false;
 
     if (psid == null) {
@@ -221,29 +236,51 @@ class HttpListenerIsolate extends SessionClient {
       psidCookieIsNew = true;
     }
 
-    var responseHeaders = {};
+    var responseHeaders = {'Access-Control-Allow-Credentials': 'true'};
 
     var policy;
     final psidUri = Uri.parse('/a_la_carte/${Uri.encodeComponent(psid)}');
+
     if (tsidCookieIsNew) {
       responseHeaders['Set-Cookie'] = ["TSID=${tsid}; Path=/"];
       if (!psidCookieIsNew) {
-        _policyModule
-            .createPolicyIdentityFromState(
-                sessionContainerFuture, _user, _couchConnection)
-            .then((policy) async {
-          await sessionContainerFuture;
-          this.pushClientAuthorizationToListener(
-              tsid, new DateTime.now().millisecondsSinceEpoch, psid, policy,
-              isPassivePush: true);
-        });
+        if (_sessionsWithNoSpecialKnowledgeByPsid[psid] == null) {
+          final cancellationRef = new Ref.withValue(true);
+          _cancellationListener[psid] = cancellationRef;
+          var sessionData = await sessionContainerFuture;
+          _sessionsWithNoSpecialKnowledgeByPsid[psid] = psidSessionCompleter;
+          _policyModule
+              .createPolicyIdentityFromState(
+                  sessionData, _user, _couchConnection, timestamp, this)
+              .then((PolicyIdentity policy) async {
+            await sessionContainerFuture;
+            pushClientAuthorizationToListener(
+                tsid, new DateTime.now().millisecondsSinceEpoch, psid, policy,
+                isPassivePush: true);
+            if (cancellationRef.value) {
+              _sessionsWithNoSpecialKnowledgeByPsid[psid].complete(policy);
+            } else {
+              throw new OperationCanceled();
+            }
+          }).catchError((error, stackTrace) {
+            if (error is OperationCanceled) return;
+            if (cancellationRef.value &&
+                !_sessionsWithNoSpecialKnowledgeByPsid[psid].isCompleted) {
+              _sessionsWithNoSpecialKnowledgeByPsid[psid].completeError(
+                  error, stackTrace);
+            }
+          });
+        }
       } else {
         final DateTime expires = new DateTime.now().add(new Duration(days: 15));
-        responseHeaders['Set-Cookie'].add("PSID=${psid}; Path=/; Expires=${HttpDate.format(expires)}; HttpOnly");
+        responseHeaders['Set-Cookie'].add(
+            "PSID=${psid}; Path=/; Expires=${HttpDate.format(expires)}; HttpOnly");
       }
     } else if (psidCookieIsNew) {
       final DateTime expires = new DateTime.now().add(new Duration(days: 15));
-      responseHeaders['Set-Cookie'] = ["PSID=${psid}; Path=/; Expires=${HttpDate.format(expires)}; HttpOnly"];
+      responseHeaders['Set-Cookie'] = [
+        "PSID=${psid}; Path=/; Expires=${HttpDate.format(expires)}; HttpOnly"
+      ];
     }
     return response.change(headers: responseHeaders);
   }
@@ -283,9 +320,10 @@ class HttpListenerIsolate extends SessionClient {
 
   shelf.Handler _addTimestamp(shelf.Handler innerHandle) =>
       (shelf.Request request) {
-        _httpRequestTimestamps[request.hashCode] = new DateTime.now();
-        return innerHandle(request);
-      };
+    request = request.change(
+        context: {'timestamp': new DateTime.now().millisecondsSinceEpoch});
+    return innerHandle(request);
+  };
 
   bool _isJsonRequest(shelf.Request request) {
     if (request.method == 'GET' || request.method == 'HEAD') {
@@ -308,21 +346,34 @@ class HttpListenerIsolate extends SessionClient {
 
   shelf.Handler _handleJsonRequest(CouchDbBackend datastore) =>
       (shelf.Request request) {
-        if (!_isJsonRequest(request)) {
-          return new shelf.Response(_responseShouldCascade);
-        }
-        request.hijack((input, output) => datastore.hijackRequest(input, output,
-            request.method, request.requestedUri, request.headers));
-      };
+    if (!_isJsonRequest(request)) {
+      return new shelf.Response(_responseShouldCascade);
+    }
+    request.hijack((input, output) => datastore.hijackRequest(input, output,
+        request.method, request.requestedUri, request.headers,
+        request.context['loginCompleter'] == null
+            ? null
+            : request.context['loginCompleter'].future,
+        sessionsThatHaveBeenSentTheirCredentials, request.context['tsid']));
+  };
 
-  dynamic _authLandingHandler(shelf.Request request) {
+  dynamic _authLandingHandler(shelf.Request request) async {
     if (request.url.path == '_auth/landing') {
       final state = request.url.queryParameters['state'];
+      final SessionClientRow session = await request.context['session'];
+      if (_sessionsWithNoSpecialKnowledgeByPsid[session.psid] != null) {
+        _cancellationListener[session.psid].value = false;
+      }
       return (_policyModule as OAuth2PolicyValidator)
-          .createPolicyIdentityFromState(
-              request.context['session'], _user, _couchConnection,
+          .createPolicyIdentityFromState(session, _user, _couchConnection,
+              request.context['timestamp'], this,
               code: request.url.queryParameters['code'], notifyOnAuth: state)
           .then((identity) {
+        sessionsThatHaveBeenSentTheirCredentials.add(request.context['tsid']);
+        if (!_sessionsWithNoSpecialKnowledgeByPsid[session.psid].isCompleted) {
+          _sessionsWithNoSpecialKnowledgeByPsid[session.psid]
+              .complete(identity);
+        }
         return new shelf.Response.ok(_selfClosingPage,
             headers: {'Content-Type': 'text/html; charset=utf-8'});
       });
@@ -335,16 +386,49 @@ class HttpListenerIsolate extends SessionClient {
     if (request.url.path == '_auth/login') {
       Future<SessionClientRow> sessionFuture = request.context['session'];
       try {
-        await _policyModule.createPolicyIdentityFromState(
-            sessionFuture, _user, _couchConnection);
+        var session = await sessionFuture;
+        if (_sessionsWithNoSpecialKnowledgeByPsid[session.psid] == null) {
+          final cancellationRef = new Ref.withValue(true);
+          _cancellationListener[session.psid] = cancellationRef;
+          _sessionsWithNoSpecialKnowledgeByPsid[session.psid] = new Completer();
+
+          _policyModule
+              .createPolicyIdentityFromState(session, _user, _couchConnection,
+                  request.context['timestamp'], this, isPassivePush: false)
+              .then((PolicyIdentity policy) async {
+            await sessionFuture;
+            pushClientAuthorizationToListener(session.tsid,
+                new DateTime.now().millisecondsSinceEpoch, session.psid, policy,
+                isPassivePush: true);
+            if (cancellationRef.value) {
+              _sessionsWithNoSpecialKnowledgeByPsid[session.psid]
+                  .complete(policy);
+            } else {
+              throw new OperationCanceled();
+            }
+          }).catchError((error, stackTrace) {
+            if (error is OperationCanceled) return;
+            if (cancellationRef.value &&
+                !_sessionsWithNoSpecialKnowledgeByPsid[
+                session.psid].isCompleted) {
+              _sessionsWithNoSpecialKnowledgeByPsid[session.psid].completeError(
+                  error, stackTrace);
+            }
+          });
+        }
+        await _sessionsWithNoSpecialKnowledgeByPsid[session.psid].future;
+        final response = new shelf.Response(200,
+            body: '{"ok": true}',
+            headers: {"Content-Type": "application/json"},
+            encoding: Encoding.getByName('identity'));
+        return response;
       } catch (error, stackTrace) {
         if (error is PolicyStateError) {
           shelf.Response response;
           if (error.redirectUri != null) {
             response = new shelf.Response(401,
-                body:
-                    '{"error": "must_authenticate", "message": "You must log in before '
-                    'performing this action.", "auth_uri": "${error.redirectUri}", "auth_watcher_id": "${error.awakenId}", "auth_watcher_rev": "${error.awakenRev}"}',
+                body: '{"error": "must_authenticate", "message": "You must log in before '
+                'performing this action.", "auth_uri": "${error.redirectUri}", "auth_watcher_id": "${error.awakenId}", "auth_watcher_rev": "${error.awakenRev}"}',
                 headers: {"Content-Type": "application/json"},
                 encoding: Encoding.getByName('identity'));
           } else {
@@ -358,12 +442,16 @@ class HttpListenerIsolate extends SessionClient {
         } else {
           String body;
           if (_debugOverWire) {
+            final JsonEncoder encoder = new JsonEncoder.withIndent('    ');
+            final Map error_info = {
+              'error': error.toString(),
+              'stack_trace': stackTrace.toString()
+            };
             body = '''{
-    "error":"internal_server_error",
-    "message": "I couldn\'t connect to the database. Contact your database administrator.",
-    "dart_error": "$error",
-    "dart_stacktrace": "$stackTrace"
-  }''';
+  "error":"internal_server_error",
+  "message": "I couldn\'t connect to the database. Contact your database administrator.",
+  "dart_error": ${encoder.convert(error_info)          }
+}''';
           } else {
             body = '''{
     "error":"internal_server_error",
@@ -436,100 +524,96 @@ class HttpListenerIsolate extends SessionClient {
   }
 }
 
-shelf.Handler _staticFileServer(String path,
-        {String defaultName: 'index.html',
-        Future<Map<String, Object>> otherHeaders: null,
-        bool isNotFound: false,
-        String overrideFile: null}) =>
-    (shelf.Request request) async {
-      if (request.method != 'GET' && request.method != 'HEAD') {
-        return new shelf.Response.forbidden(null);
-      }
-      var filePath = path + request.url.path;
-      if (overrideFile != null) {
-        filePath = overrideFile;
-      } else if (filePath.endsWith('/')) {
-        filePath += defaultName;
-      }
+shelf.Handler _staticFileServer(String path, {String defaultName: 'index.html',
+    Future<Map<String, Object>> otherHeaders: null, bool isNotFound: false,
+    String overrideFile: null}) => (shelf.Request request) async {
+  if (request.method != 'GET' && request.method != 'HEAD') {
+    return new shelf.Response.forbidden(null);
+  }
+  var filePath = path + request.url.path;
+  if (overrideFile != null) {
+    filePath = overrideFile;
+  } else if (filePath.endsWith('/')) {
+    filePath += defaultName;
+  }
 
-      DateTime lastModified;
-      int fileLength;
-      dynamic body;
+  DateTime lastModified;
+  int fileLength;
+  dynamic body;
 
-      final serveUri = new Uri(scheme: 'file', path: filePath);
-      final serveFile = new File.fromUri(serveUri);
+  final serveUri = new Uri(scheme: 'file', path: filePath);
+  final serveFile = new File.fromUri(serveUri);
 
-      final stat = await serveFile.stat();
-      if (stat.type == FileSystemEntityType.NOT_FOUND) {
-        if (isNotFound) {
-          return new shelf.Response.internalServerError(
-              body: 'File not found $filePath while serving 404 page.');
-        }
-        return _staticFileServer(path,
-            otherHeaders: otherHeaders,
-            isNotFound: true,
-            overrideFile: path + '_static/404.html')(request);
-      } else {
-        lastModified = stat.modified;
-        //Since lastModified might be more precise than 1 second.
-        lastModified = lastModified;
-        fileLength = stat.size;
-      }
-      body = serveFile;
+  final stat = await serveFile.stat();
+  if (stat.type == FileSystemEntityType.NOT_FOUND) {
+    if (isNotFound) {
+      return new shelf.Response.internalServerError(
+          body: 'File not found $filePath while serving 404 page.');
+    }
+    return _staticFileServer(path,
+        otherHeaders: otherHeaders,
+        isNotFound: true,
+        overrideFile: path + '_static/404.html')(request);
+  } else {
+    lastModified = stat.modified;
+    //Since lastModified might be more precise than 1 second.
+    lastModified = lastModified;
+    fileLength = stat.size;
+  }
+  body = serveFile;
 
-      final contentType = contentTypeByExtension(
-          filePath.replaceAll(new RegExp(r'^.*\.'), '.'));
-      var defaultHeaders = {
-        'Last-Modified': HttpDate.format(lastModified),
-        'Cache-Control': 'public, max_age=600',
-        'Expires':
-            HttpDate.format(new DateTime.now().add(new Duration(minutes: 10))),
-        'Date': HttpDate.format(lastModified),
-        'Vary': '*',
-        'Content-Type': contentType
-      };
+  final contentType =
+      contentTypeByExtension(filePath.replaceAll(new RegExp(r'^.*\.'), '.'));
+  var defaultHeaders = {
+    'Last-Modified': HttpDate.format(lastModified),
+    'Cache-Control': 'public, max_age=600',
+    'Expires':
+        HttpDate.format(new DateTime.now().add(new Duration(minutes: 10))),
+    'Date': HttpDate.format(lastModified),
+    'Vary': '*',
+    'Content-Type': contentType
+  };
 
-      var connection = request.headers['Connection'];
-      if (connection is String &&
-          connection.split(', ').contains('keep-alive')) {
-        defaultHeaders['Connection'] = 'keep-alive';
-        defaultHeaders['Keep-Alive'] = 'timeout=5, max=256';
-      }
+  var connection = request.headers['Connection'];
+  if (connection is String && connection.split(', ').contains('keep-alive')) {
+    defaultHeaders['Connection'] = 'keep-alive';
+    defaultHeaders['Keep-Alive'] = 'timeout=5, max=256';
+  }
 
-      Map<String, Object> headers;
+  Map<String, Object> headers;
 
-      final ifModifiedSince = request.headers['If-Modified-Since'];
-      if (!isNotFound && ifModifiedSince != null) {
-        final ifModifiedSinceDate = HttpDate.parse(ifModifiedSince);
-        if (lastModified
-            .subtract(new Duration(seconds: 1))
-            .isBefore(ifModifiedSinceDate)) {
-          if (otherHeaders != null) {
-            headers = await otherHeaders;
-          } else {
-            headers = {};
-          }
-          headers.addAll(defaultHeaders);
-          return new shelf.Response.notModified(headers: headers);
-        }
-      }
-
-      if (body is File) {
-        body = body.openRead();
-      }
-
+  final ifModifiedSince = request.headers['If-Modified-Since'];
+  if (!isNotFound && ifModifiedSince != null) {
+    final ifModifiedSinceDate = HttpDate.parse(ifModifiedSince);
+    if (lastModified
+        .subtract(new Duration(seconds: 1))
+        .isBefore(ifModifiedSinceDate)) {
       if (otherHeaders != null) {
         headers = await otherHeaders;
       } else {
         headers = {};
       }
-
       headers.addAll(defaultHeaders);
-      if (isNotFound) {
-        return new shelf.Response.notFound(body, headers: headers);
-      }
-      return new shelf.Response.ok(body, headers: headers);
-    };
+      return new shelf.Response.notModified(headers: headers);
+    }
+  }
+
+  if (body is File) {
+    body = body.openRead();
+  }
+
+  if (otherHeaders != null) {
+    headers = await otherHeaders;
+  } else {
+    headers = {};
+  }
+
+  headers.addAll(defaultHeaders);
+  if (isNotFound) {
+    return new shelf.Response.notFound(body, headers: headers);
+  }
+  return new shelf.Response.ok(body, headers: headers);
+};
 
 String contentTypeByExtension(String _extension) {
   switch (_extension) {
@@ -567,8 +651,7 @@ shelf.Response _logError(String message, [StackTrace stackTrace]) {
     chain = new stack_trace.Chain.forTrace(stackTrace);
   }
   chain = chain
-      .foldFrames((frame) => frame.isCore || frame.package == 'shelf')
-      .terse;
+      .foldFrames((frame) => frame.isCore || frame.package == 'shelf').terse;
 
   stderr.writeln('ERROR - ${new DateTime.now()}');
   stderr.writeln(message);
