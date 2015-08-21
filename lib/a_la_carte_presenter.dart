@@ -30,6 +30,10 @@ class ALaCartePresenter extends PolymerElement implements Presenter {
   @observable bool wide;
   @observable Project project;
   @observable bool projectsAreLoaded = false;
+
+  @observable String userEmail = null;
+  @observable String userFullName = null;
+  @observable String userPicture = null;
   @observable bool isLoggedIn = false;
 
   Map<String, List<Completer<Project>>> _pendingProjectRequest = new Map();
@@ -113,8 +117,10 @@ class ALaCartePresenter extends PolymerElement implements Presenter {
 
   Future _getSessionUserName() {
     final completer = new Completer();
-    connectTo('/_session', (event, subscription) =>
-        _routeSessionEvent(event, subscription, completer));
+    connectTo(
+        '/_session',
+        (event, subscription) =>
+            _routeSessionEvent(event, subscription, completer));
     return completer.future;
   }
 
@@ -220,7 +226,17 @@ class ALaCartePresenter extends PolymerElement implements Presenter {
 
   @override
   void receiveAuthenticationSessionData() {
-    window.console.log('we authenticated from somewhere');
+    connectTo('/_auth/session', _routeAuthSessionEvent);
+  }
+
+  void _routeAuthSessionEvent(
+      JsonStreamingEvent event, Ref<StreamSubscription> subscription) {
+    if (event.status == 200 && event.path.length == 0) {
+      userEmail = event.symbol['email'];
+      userFullName = event.symbol['fullName'];
+      userPicture = event.symbol['picture'];
+      isLoggedIn = true;
+    }
   }
 
   @override
@@ -235,6 +251,8 @@ class ALaCartePresenter extends PolymerElement implements Presenter {
       _request = new HttpRequest();
       _request.open('GET', uri);
       _request.setRequestHeader('Accept', 'application/json');
+      _request.setRequestHeader(
+          'X-Can-Read-Push-Session-Data', (!isLoggedIn).toString());
       //_request.setRequestHeader('Cookie', window.document.cookie);
       _request.withCredentials = true;
 
@@ -253,7 +271,10 @@ class ALaCartePresenter extends PolymerElement implements Presenter {
       _request.send();
     } else {
       fetch(uri,
-          headers: {'Accept': 'application/json'},
+          headers: {
+            'Accept': 'application/json',
+            'X-Can-Read-Push-Session-Data': (!isLoggedIn).toString()
+          },
           mode: RequestMode.sameOrigin,
           credentials: RequestCredentials.sameOrigin).then((object) {
         jsonHandler.setStreamStateFromResponse(object);
@@ -322,9 +343,11 @@ class ALaCartePresenter extends PolymerElement implements Presenter {
 
   Future _connectToChangeStream() async {
     var account = await getServiceAccountName();
-    connectTo('/a_la_carte/_changes?feed=continuous&include_docs=true&'
+    connectTo(
+        '/a_la_carte/_changes?feed=continuous&include_docs=true&'
         'since=${_currentChangeSeq}&'
-        'filter=projects/projects&account=$account', _routeChangeEvent,
+        'filter=projects/projects&account=$account',
+        _routeChangeEvent,
         isImplicitArray: true);
   }
 

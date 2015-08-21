@@ -40,6 +40,7 @@ class SessionClient {
         .send(['getSessionDelegateByTsidOrCreateNew', tsid, response.sendPort]);
     var data = await response.first;
     if (data[1]) {
+      final ReceivePort secondaryResponse = new ReceivePort();
       //_defaultLogger('$tsid: Session $tsid. Creating.', false);
       if (psid == null) {
         psid = new Uuid().v1();
@@ -49,16 +50,18 @@ class SessionClient {
         tsid,
         _expirationDelay + currentTimeInMillisecondsSinceEpoch,
         currentTimeInMillisecondsSinceEpoch,
-        response.sendPort,
+        secondaryResponse.sendPort,
         _sessionMessagePort.sendPort,
         psid
       ]);
-      return [
-        new LocalSessionData(tsid, new DateTime.fromMillisecondsSinceEpoch(
-                _expirationDelay + currentTimeInMillisecondsSinceEpoch),
-            currentTimeInMillisecondsSinceEpoch, psid),
-        data[0]
-      ];
+
+      final thisSessionRow = new LocalSessionData(tsid,
+          new DateTime.fromMillisecondsSinceEpoch(
+              _expirationDelay + currentTimeInMillisecondsSinceEpoch),
+          currentTimeInMillisecondsSinceEpoch, psid);
+      sessions[tsid] = thisSessionRow;
+      await secondaryResponse.first;
+      return [thisSessionRow, data[0]];
     }
     //_defaultLogger('$tsid: Found $tsid. Caching.', false);
     final ReceivePort innerResponse = new ReceivePort();
@@ -70,10 +73,12 @@ class SessionClient {
     ]);
     var sessionParameters = await innerResponse.first;
     //_defaultLogger('Checked out $tsid.', false);
+    final thisSessionRow = new LocalSessionData(sessionParameters[0] as String,
+        new DateTime.fromMillisecondsSinceEpoch(sessionParameters[2] as int),
+        sessionParameters[3] as int, sessionParameters[1] as String);
+    sessions[tsid] = thisSessionRow;
     return [
-      new LocalSessionData(sessionParameters[0] as String,
-          new DateTime.fromMillisecondsSinceEpoch(sessionParameters[2] as int),
-          sessionParameters[3] as int, sessionParameters[1] as String)
+      thisSessionRow
         ..email = sessionParameters[4]
         ..fullName = sessionParameters[5]
         ..picture = sessionParameters[6],
@@ -98,6 +103,7 @@ class SessionClient {
   Future pushClientAuthorizationToMaster(String tsid,
       int currentTimeInMillisecondsSinceEpoch, String psid,
       PolicyIdentity identity, {bool isPassivePush: false}) async {
+    _defaultLogger('$tsid: received authorization.', false);
     var data = await _getOrCreateSessionListener(
         tsid, currentTimeInMillisecondsSinceEpoch, psid);
     if (sessions[tsid].lastSeenTime >
@@ -122,10 +128,10 @@ class SessionClient {
     ]);
   }
 
-  void _sessionUpdated(String tsid,
-      int currentTimeInMillisecondsSinceEpoch,
-      int expirationTimeInMillisecondsSinceEpoch, String psid, String serviceAccount,
-      String email, String fullName, String picture, bool isPusher) {
+  void _sessionUpdated(String tsid, int currentTimeInMillisecondsSinceEpoch,
+      int expirationTimeInMillisecondsSinceEpoch, String psid,
+      String serviceAccount, String email, String fullName, String picture,
+      bool isPusher) {
     if (sessions[tsid].lastSeenTime >
         currentTimeInMillisecondsSinceEpoch) return;
     sessions[tsid]

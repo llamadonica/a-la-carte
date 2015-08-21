@@ -85,10 +85,16 @@ class CouchDbBackend extends DbBackend {
     return _ensuringHasValidated;
   }
 
-  Future hijackRequest(Stream<List<int>> input, StreamSink<List<int>> output,
-      String method, Uri uri, Map<String, Object> headers,
+  Future hijackRequest(
+      Stream<List<int>> input,
+      StreamSink<List<int>> output,
+      String method,
+      Uri uri,
+      Map<String, Object> headers,
       Future<PolicyIdentity> policyFuture,
-      Set<String> sessionsThatHaveBeenSentTheirCredentials, String tsid) async {
+      Set<String> sessionsThatHaveBeenSentTheirCredentials,
+      String tsid,
+      bool mustGetSessionData) async {
     final client = new HttpClient();
     final couchUri = new Uri(
         scheme: uri.scheme,
@@ -178,9 +184,10 @@ class CouchDbBackend extends DbBackend {
       bool chunkedResponse = false;
       chunkedResponse = response.headers.chunkedTransferEncoding;
       output.add(encoder.convert('Access-Control-Allow-Origin: *\r\n'));
+
       if (policyFuture != null) {
         try {
-          final PolicyIdentity identity =
+          PolicyIdentity identity =
               await policyFuture.timeout(new Duration(milliseconds: 1));
           output.add(encoder.convert(
               'Access-Control-Allow-Headers: X-Push-Session-Data\r\n'));
@@ -220,8 +227,9 @@ class CouchDbBackend extends DbBackend {
         shelf.Response response;
         if (error.redirectUri != null) {
           response = new shelf.Response(401,
-              body: '{"error": "must_authenticate", "message": "You must log in before '
-              'performing this action.", "auth_uri": "${error.redirectUri}", "auth_watcher_id": "${error.awakenId}", "auth_watcher_rev": "${error.awakenRev}"}',
+              body:
+                  '{"error": "must_authenticate", "message": "You must log in before '
+                  'performing this action.", "auth_uri": "${error.redirectUri}", "auth_watcher_id": "${error.awakenId}", "auth_watcher_rev": "${error.awakenRev}"}',
               headers: {"Content-Type": "application/json"},
               encoding: Encoding.getByName('identity'));
         } else {

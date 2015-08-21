@@ -157,9 +157,9 @@ class HttpListenerIsolate extends SessionClient {
       new Map<String, Ref<bool>>();
   final Map<String, Completer> _policyCompletersWithNoSpecialKnowledgeByPsid =
       new Map<String, Completer<PolicyIdentity>>();
-  final Map<String, PolicyIdentity> _policiesByPsid = new Map<String, PolicyIdentity>();
-  final Set<String> sessionsThatHaveBeenSentTheirCredentials =
-      new Set<String>();
+  final Map<String, PolicyIdentity> _policiesByPsid =
+      new Map<String, PolicyIdentity>();
+  final Set<String> _sessionsWeveSeen = new Set<String>();
 
   CouchDbBackend _couchConnection;
 
@@ -172,15 +172,13 @@ class HttpListenerIsolate extends SessionClient {
     String psid = null;
     String tsid = null;
     bool tsidCookieIsNew = false;
+    bool askForPushSession = false;
 
     if (request.headers.containsKey(r'Cookie')) {
       var rawCookie = request.headers['Cookie'];
       for (String cookie in rawCookie.split(r'; ')) {
         if (cookie.startsWith('TSID=')) {
           tsid = cookie.split('=')[1];
-          _defaultLogger(
-              '$tsid: Starting request for ${request.url} with an existing cookie.',
-              false);
           if (psid != null) break;
         } else if (cookie.startsWith('PSID=')) {
           psid = cookie.split('=')[1];
@@ -188,17 +186,24 @@ class HttpListenerIsolate extends SessionClient {
         }
       }
     }
+
     if (tsid == null) {
       tsid = new Uuid().v1();
       tsidCookieIsNew = true;
+    } else if (!_sessionsWeveSeen.contains(tsid)){
+      tsidCookieIsNew = true;
+    } else if (request.headers.containsKey(r'x-can-read-push-session-data') &&
+        request.headers[r'x-can-read-push-session-data'] == 'true') {
+      askForPushSession = true;
     }
-    Completer<PolicyIdentity> psidSessionCompleter;
+    Completer psidSessionCompleter;
     if (psid != null) {
       if (_policiesByPsid[psid] != null) {
-      } else if (_policyCompletersWithNoSpecialKnowledgeByPsid[psid] != null) {
+      }
+      if (_policyCompletersWithNoSpecialKnowledgeByPsid[psid] != null) {
         psidSessionCompleter = _policyCompletersWithNoSpecialKnowledgeByPsid[psid];
       } else {
-        psidSessionCompleter = new Completer<PolicyIdentity>();
+        psidSessionCompleter = new Completer();
       }
     }
 
@@ -259,7 +264,8 @@ class HttpListenerIsolate extends SessionClient {
     return response.change(headers: responseHeaders);
   }
 
-  Future _passivelyCreateSessionIdentityFromState(String psid, Future<LocalSessionData> sessionContainerFuture,
+  Future _passivelyCreateSessionIdentityFromState(String psid,
+      Future<LocalSessionData> sessionContainerFuture,
       Completer<PolicyIdentity> policyIdentityCompleter, int timestamp,
       String tsid) async {
     if (_policiesByPsid[psid] != null) {
@@ -269,9 +275,12 @@ class HttpListenerIsolate extends SessionClient {
       final cancellationRef = new Ref.withValue(true);
       _cancellationListener[psid] = cancellationRef;
       var sessionData = await sessionContainerFuture;
-      _policyCompletersWithNoSpecialKnowledgeByPsid[psid] = policyIdentityCompleter;
-      _policyModule.createPolicyIdentityFromState(sessionData, _user, _couchConnection, timestamp, this)
-      .then((PolicyIdentity policy) async {
+      _policyCompletersWithNoSpecialKnowledgeByPsid[psid] =
+          policyIdentityCompleter;
+      _policyModule
+          .createPolicyIdentityFromState(
+              sessionData, _user, _couchConnection, timestamp, this)
+          .then((PolicyIdentity policy) async {
         pushClientAuthorizationToMaster(
             tsid, new DateTime.now().millisecondsSinceEpoch, psid, policy,
             isPassivePush: true);
@@ -283,7 +292,8 @@ class HttpListenerIsolate extends SessionClient {
         }
       }).catchError((error, stackTrace) {
         if (error is OperationCanceled) {
-          assert(_policyCompletersWithNoSpecialKnowledgeByPsid[psid].isCompleted);
+          assert(
+              _policyCompletersWithNoSpecialKnowledgeByPsid[psid].isCompleted);
         }
         if (cancellationRef.value &&
             !_policyCompletersWithNoSpecialKnowledgeByPsid[psid].isCompleted) {
@@ -364,8 +374,9 @@ class HttpListenerIsolate extends SessionClient {
         request.method, request.requestedUri, request.headers,
         request.context['loginCompleter'] == null
             ? null
-            : request.context['loginCompleter'].future,
-        sessionsThatHaveBeenSentTheirCredentials, request.context['tsid']));
+            : (request.context['loginCompleter'] as Completer).future,
+        _sessionsWeveSeen, request.context['tsid'],
+        request.context['askForPushSession']));
   };
 
   dynamic _authLandingHandler(shelf.Request request) async {
@@ -380,10 +391,12 @@ class HttpListenerIsolate extends SessionClient {
               request.context['timestamp'], this,
               code: request.url.queryParameters['code'], notifyOnAuth: state)
           .then((identity) {
-        sessionsThatHaveBeenSentTheirCredentials.add(request.context['tsid']);
-        if (_policyCompletersWithNoSpecialKnowledgeByPsid[session.psid] == null) {
+        _sessionsWeveSeen.add(request.context['tsid']);
+        if (_policyCompletersWithNoSpecialKnowledgeByPsid[session.psid] ==
+            null) {
           _policiesByPsid[session.psid] = identity;
-        } else if (!_policyCompletersWithNoSpecialKnowledgeByPsid[session.psid].isCompleted) {
+        } else if (!_policyCompletersWithNoSpecialKnowledgeByPsid[
+            session.psid].isCompleted) {
           _policyCompletersWithNoSpecialKnowledgeByPsid[session.psid]
               .complete(identity);
         }
@@ -400,36 +413,17 @@ class HttpListenerIsolate extends SessionClient {
       Future<LocalSessionData> sessionFuture = request.context['session'];
       try {
         var session = await sessionFuture;
-        if (_policyCompletersWithNoSpecialKnowledgeByPsid[session.psid] == null) {
-          final cancellationRef = new Ref.withValue(true);
-          _cancellationListener[session.psid] = cancellationRef;
-          _policyCompletersWithNoSpecialKnowledgeByPsid[session.psid] = new Completer();
-
-          _policyModule
-              .createPolicyIdentityFromState(session, _user, _couchConnection,
-                  request.context['timestamp'], this, isPassivePush: false)
-              .then((PolicyIdentity policy) async {
-            await sessionFuture;
-            pushClientAuthorizationToMaster(session.tsid,
-                new DateTime.now().millisecondsSinceEpoch, session.psid, policy,
-                isPassivePush: true);
-            if (cancellationRef.value) {
-              _policyCompletersWithNoSpecialKnowledgeByPsid[session.psid]
-                  .complete(policy);
-            } else {
-              throw new OperationCanceled();
-            }
-          }).catchError((error, stackTrace) {
-            if (error is OperationCanceled) return;
-            if (cancellationRef.value &&
-                !_policyCompletersWithNoSpecialKnowledgeByPsid[
-                session.psid].isCompleted) {
-              _policyCompletersWithNoSpecialKnowledgeByPsid[session.psid].completeError(
-                  error, stackTrace);
-            }
-          });
+        var policy = _policiesByPsid[session.psid];
+        if (policy == null && _policyCompletersWithNoSpecialKnowledgeByPsid[session.psid] ==
+            null) {
+          final Completer psidSessionCompleter = new Completer();
+          _policyCompletersWithNoSpecialKnowledgeByPsid[session.psid] = psidSessionCompleter;
+          _passivelyCreateSessionIdentityFromState(session.psid, sessionFuture, psidSessionCompleter, request.context['timestamp'], session.tsid);
         }
-        await _policyCompletersWithNoSpecialKnowledgeByPsid[session.psid].future;
+        if (policy == null) {
+          policy = await _policyCompletersWithNoSpecialKnowledgeByPsid[session.psid];
+        }
+
         final response = new shelf.Response(200,
             body: '{"ok": true}',
             headers: {"Content-Type": "application/json"},
@@ -489,9 +483,9 @@ class HttpListenerIsolate extends SessionClient {
       String body = '''{
   "tsid": "${session.tsid}",
   "psid": "${session.psid}",
-  "email": "${session.email}",
-  "fullName": "${session.fullName}",
-  "picture": "${session.picture}"
+  "email": ${session.email == null ? 'null': '"' + session.email + '"'},
+  "fullName": ${session.fullName == null ? 'null': '"' + session.fullName + '"'},
+  "picture": ${session.picture == null ? 'null': '"' + session.picture + '"'}
 }
 ''';
       return new shelf.Response.ok(body,
