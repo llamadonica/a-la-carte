@@ -25,6 +25,7 @@ class ALaCarteMainView extends PolymerElement implements AppPager {
   @published String prevAppSelected;
   @published String responsiveWidth;
   @published bool isLoggedIn;
+  @published String userPicture;
 
   @observable String projectEditViewCaption = "Add a project";
   @observable ALaCartePageCommon currentPage;
@@ -183,7 +184,8 @@ class ALaCarteMainView extends PolymerElement implements AppPager {
           event.symbol.containsKey('auth_watcher_id')) {
         appPresenter.showAuthLogin(event.symbol['auth_uri']);
         final activeAuthorizationSubscription = event.symbol["auth_watcher_id"];
-        appPresenter.connectTo('/a_la_carte/_changes?feed=continuous&'
+        appPresenter.connectTo(
+            '/a_la_carte/_changes?feed=continuous&'
             'filter=_doc_ids&doc_ids=%5B%22${activeAuthorizationSubscription}%22%5D',
             (newEvent, subscription) => _routeProjectAuthorizationReply(
                 newEvent, subscription, activeAuthorizationSubscription),
@@ -201,7 +203,9 @@ class ALaCarteMainView extends PolymerElement implements AppPager {
       subscription.value.cancel();
     }
   }
-  void _routeProjectAuthorizationReply(JsonStreamingEvent event,
+
+  void _routeProjectAuthorizationReply(
+      JsonStreamingEvent event,
       Ref<StreamSubscription> subscription,
       String activeAuthorizationSubscription) {
     if (event.status >= 300) {

@@ -15,17 +15,49 @@ core-header-panel::shadow {
   overflow-y: auto;
 }
 
-paper-button.tool {
-  min-width: 0;
-  width: initial;
-  color: white;
-  margin-top: 14px;
-  font: {
-    family: 'Roboto', sans-serif;
-    size: 14px;
-    weight: normal;
-  }
-  &::shadow .button-content {
+#tap-sign-in-section {
+  height: 100%;
+  position: relative;
+  min-width: 100px;
+
+  paper-button {
+    min-width: 0;
+    width: initial;
     color: white;
+    margin-top: 14px;
+    transition: transform 0.3s;
+    position: absolute;
+    top: 0;
+    right: 0;
+    font: {
+      family: 'Roboto', sans-serif;
+      size: 14px;
+      weight: normal;
+    }
+    &::shadow .button-content {
+      color: white;
+    }
+    &[hiding] {
+      transform: scaleX(0);
+    }
+  }
+  paper-fab {
+    color: white;
+    position: absolute;
+    right: 0;
+    top: 0;
+    margin-top: 12px;
+    background: white;
+    &::shadow core-icon {
+      border: 2px solid white;
+      width: 36px;
+      height: 36px;
+      position: absolute;
+      left: 0;
+      top: 0;
+      z-index: -2;
+      border-radius: 50% 50%;
+      overflow: hidden;
+    }
   }
 }
