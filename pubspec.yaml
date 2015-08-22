@@ -19,6 +19,7 @@ dependencies:
 transformers:
 - sass:
     compass: true
+    style: compact
     executable: "c:\\Ruby22-x64\\bin\\sass.bat"
 - polymer:
     entry_points: web/index.html

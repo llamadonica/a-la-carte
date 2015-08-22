@@ -60,7 +60,7 @@ class OAuth2PolicyValidator extends PolicyValidator {
   static const String _oauth2TokenEndpoint =
       'https://accounts.google.com/o/oauth2/token';
   static const String _oauth2Redirect =
-      'http://www.a-la-carte.com:8080/_auth/landing';
+      'http://localhost:8080/_auth/landing';
 
   @override
   Future convoluteChunkedRequest(

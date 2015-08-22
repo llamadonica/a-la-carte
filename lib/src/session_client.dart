@@ -3,10 +3,10 @@ part of a_la_carte.server;
 class SessionClient {
   final SendPort _sessionMasterSendPort;
   final ReceivePort _sessionMessagePort = new ReceivePort();
-  static const int _expirationDelay = 900000;
+  static const int _expirationDelay = 15000;
   Map<String, LocalSessionData> sessions = new Map<String, LocalSessionData>();
+
   Map<String, Future> _pendingSessions = new Map<String, Future>();
-  Map<String, List<String>> tsidsByPsid = new Map();
 
   SessionClient(SendPort this._sessionMasterSendPort) {
     _sessionMessagePort.listen(_handleSessionClientRequest);
@@ -16,19 +16,21 @@ class SessionClient {
     var requestCode = data[0] as String;
     switch (requestCode) {
       case 'sessionExpired':
-        _sessionExpired(data[1]);
+        onSessionExpired(data[1]);
         break;
       case 'sessionUpdated':
         _sessionUpdated(data[1], data[2], data[3], data[4], data[5], data[6],
             data[7], data[8], data[9]);
         break;
+      case 'sessionUnlockedWithNoUpdates':
+
       default:
         throw new StateError(
             'Received an invalid reply to a session request: $requestCode.');
     }
   }
 
-  void _sessionExpired(String tsid) {
+  void onSessionExpired(String tsid) {
     sessions.remove(tsid);
   }
 
@@ -58,7 +60,7 @@ class SessionClient {
       final thisSessionRow = new LocalSessionData(tsid,
           new DateTime.fromMillisecondsSinceEpoch(
               _expirationDelay + currentTimeInMillisecondsSinceEpoch),
-          currentTimeInMillisecondsSinceEpoch, psid);
+          currentTimeInMillisecondsSinceEpoch, data[0], psid);
       sessions[tsid] = thisSessionRow;
       await secondaryResponse.first;
       return [thisSessionRow, data[0]];
@@ -75,7 +77,7 @@ class SessionClient {
     //_defaultLogger('Checked out $tsid.', false);
     final thisSessionRow = new LocalSessionData(sessionParameters[0] as String,
         new DateTime.fromMillisecondsSinceEpoch(sessionParameters[2] as int),
-        sessionParameters[3] as int, sessionParameters[1] as String);
+        sessionParameters[3] as int, data[0], sessionParameters[1] as String);
     sessions[tsid] = thisSessionRow;
     return [
       thisSessionRow
@@ -86,10 +88,12 @@ class SessionClient {
     ];
   }
 
-  Future<LocalSessionData> getSessionContainer(String tsid,
-      [String psid = null]) async {
-    if (sessions[tsid] != null) {
-      return sessions[tsid];
+  Future<LocalSessionData> getSessionContainer(
+      String tsid, int millisecondsSinceEpoch, [String psid = null]) async {
+    final session = sessions[tsid];
+    if (session != null) {
+      touchSession(session, millisecondsSinceEpoch);
+      return session;
     } else if (_pendingSessions[tsid] == null) {
       _pendingSessions[tsid] = _getOrCreateSessionListener(
           tsid, new DateTime.now().millisecondsSinceEpoch, psid);
@@ -100,7 +104,27 @@ class SessionClient {
     return (await _pendingSessions[tsid])[0];
   }
 
-  Future pushClientAuthorizationToMaster(String tsid,
+  Future touchSession(
+      LocalSessionData session, int millisecondsSinceEpoch) async {
+    final ReceivePort reply = new ReceivePort();
+    session.master.send(
+        ['touchCookie', session.tsid, millisecondsSinceEpoch, reply.sendPort]);
+    return reply.first;
+  }
+
+  Future<bool> lockSessionForPassiveAuthentication(
+      LocalSessionData session, int millisecondsSinceEpoch) async {
+    final ReceivePort reply = new ReceivePort();
+    session.master.send([
+      'lockSessionForPassiveAuthentication',
+      session.tsid,
+      reply.sendPort,
+      _sessionMessagePort.sendPort
+    ]);
+    return reply.first;
+  }
+
+  Future pushClientAuthorizationToMasterAfterPassiveAuthentication(String tsid,
       int currentTimeInMillisecondsSinceEpoch, String psid,
       PolicyIdentity identity, {bool isPassivePush: false}) async {
     _defaultLogger('$tsid: received authorization.', false);
@@ -116,7 +140,7 @@ class SessionClient {
       ..picture = identity.picture
       ..shouldPush = isPassivePush;
     data[1].send([
-      'authenticatedSession',
+      'authenticatedSessionPassively',
       tsid,
       psid,
       currentTimeInMillisecondsSinceEpoch,

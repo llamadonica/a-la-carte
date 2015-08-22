@@ -6,10 +6,19 @@ part of a_la_carte.server;
 class GlobalSessionData {
   final String tsid;
   final _SessionListener _parent;
+
+  bool isLockedForPassiveAuthentication = false;
+  bool isAuthenticated = null;
+
   String psid;
   String identifier;
 
   final Set<SendPort> sendPorts = new HashSet<SendPort>();
+
+  final Set<SendPort> sendPortsToBeNotifiedOnPassiveUnlock =
+      new HashSet<SendPort>();
+  final Set<SendPort> sendPortsThatAreDeactivatedUntilPassiveUnlock =
+      new HashSet<SendPort>();
 
   DateTime _expires;
   String serviceAccount;
@@ -56,9 +65,9 @@ class LocalSessionData {
   String picture;
   bool shouldPush = false;
   int lastSeenTime;
+  final SendPort master;
 
   DateTime expires;
-  LocalSessionData(
-      String this.tsid, DateTime this.expires, int this.lastSeenTime,
-      [String this.psid = null]);
+  LocalSessionData(String this.tsid, DateTime this.expires,
+      int this.lastSeenTime, SendPort this.master, [String this.psid = null]);
 }

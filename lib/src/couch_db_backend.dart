@@ -94,7 +94,7 @@ class CouchDbBackend extends DbBackend {
       Future<PolicyIdentity> policyFuture,
       Set<String> sessionsThatHaveBeenSentTheirCredentials,
       String tsid,
-      bool mustGetSessionData) async {
+      bool canGetSessionData) async {
     final client = new HttpClient();
     final couchUri = new Uri(
         scheme: uri.scheme,
@@ -185,7 +185,7 @@ class CouchDbBackend extends DbBackend {
       chunkedResponse = response.headers.chunkedTransferEncoding;
       output.add(encoder.convert('Access-Control-Allow-Origin: *\r\n'));
 
-      if (policyFuture != null) {
+      if (canGetSessionData && policyFuture != null) {
         try {
           PolicyIdentity identity =
               await policyFuture.timeout(new Duration(milliseconds: 1));

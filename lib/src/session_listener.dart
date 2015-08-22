@@ -3,7 +3,6 @@ part of a_la_carte.server;
 class _SessionListener {
   final Map<String, GlobalSessionData> sessions;
   final Set<String> recentlyExpiredSessions;
-
   final SendPort sessionMaster;
   final int sessionIdNumber;
 
@@ -12,6 +11,7 @@ class _SessionListener {
   _SessionListener(SendPort this.sessionMaster, int this.sessionIdNumber)
       : sessions = new Map<String, GlobalSessionData>(),
         recentlyExpiredSessions = new Set<String>();
+
   void handleRequests(List data) {
     var requestCode = data[0] as String;
     switch (requestCode) {
@@ -19,7 +19,7 @@ class _SessionListener {
         _addNewCookie(data[1], data[2], data[3], data[4], data[5], data[6]);
         break;
       case 'touchCookie':
-        _touchedSession(data[1], data[2]);
+        _touchedSession(data[1], data[2], data[3]);
         break;
       case 'checkOutCookie':
         _checkedOutSession(data[1], data[2], data[3]);
@@ -27,9 +27,16 @@ class _SessionListener {
       case 'confirmedSessionDropped':
         _sessionWasDropped(data[1]);
         break;
-      case 'authenticatedSession':
-        _sessionWasAuthenticated(data[1], data[2], data[3], data[4], data[5],
-            data[6], data[7], data[8]);
+      case 'authenticatedSessionPassively':
+        _unlockSessionAfterPassiveAuthenticationSucceeded(
+            data[1], data[2], data[3], data[4], data[5], data[6], data[7]);
+        break;
+      case 'lockSessionForPassiveAuthentication':
+        _lockSessionForPassiveAuthentication(
+            data[1] as String, data[2] as SendPort, data[3] as SendPort);
+        break;
+      case 'unlockSessionAfterPassiveAuthenticationFailed':
+        _unlockSessionAfterPassiveAuthenticationFailed(data[1] as String);
         break;
       default:
         throw new StateError(
@@ -37,18 +44,47 @@ class _SessionListener {
     }
   }
 
-  void _sessionWasAuthenticated(String tsid, String psid,
-      int currentTimeInMillisecondsSinceEpoch, String serviceAccount,
-      String email, String fullName, String picture, bool isPassivePush) {
+  void _lockSessionForPassiveAuthentication(
+      String tsid, SendPort sendPort, SendPort originalSendPort) {
     final localSession = sessions[tsid];
-    if (localSession.lastRefreshed.millisecondsSinceEpoch >
-        currentTimeInMillisecondsSinceEpoch) return;
+    assert(localSession.isAuthenticated == null);
+    if (localSession.isLockedForPassiveAuthentication) {
+      localSession.sendPortsToBeNotifiedOnPassiveUnlock.add(sendPort);
+      localSession.sendPortsThatAreDeactivatedUntilPassiveUnlock
+          .add(originalSendPort);
+      localSession.sendPorts.remove(originalSendPort);
+    } else {
+      localSession.isLockedForPassiveAuthentication = true;
+      sendPort.send([true]);
+    }
+  }
+
+  void _unlockSessionAfterPassiveAuthenticationFailed(String tsid) {
+    final localSession = sessions[tsid];
+    assert(localSession.isLockedForPassiveAuthentication);
+    for (var sendPort in localSession.sendPortsToBeNotifiedOnPassiveUnlock) {
+      sendPort.send([false, false]);
+    }
+    for (var originalSendPort
+        in localSession.sendPortsThatAreDeactivatedUntilPassiveUnlock) {
+      localSession.sendPorts.add(originalSendPort);
+    }
+    localSession.isLockedForPassiveAuthentication = false;
+    localSession.isAuthenticated = false;
+  }
+
+  void _unlockSessionAfterPassiveAuthenticationSucceeded(String tsid,
+      String psid, int currentTimeInMillisecondsSinceEpoch,
+      String serviceAccount, String email, String fullName, String picture) {
+    final localSession = sessions[tsid];
+    assert(localSession.isLockedForPassiveAuthentication);
     localSession
       ..psid = psid
       ..serviceAccount = serviceAccount
       ..email = email
       ..fullName = fullName
       ..picture = picture;
+
     for (var sessionClient in localSession.sendPorts) {
       sessionClient.send([
         'sessionUpdated',
@@ -60,9 +96,30 @@ class _SessionListener {
         localSession.email,
         localSession.fullName,
         localSession.picture,
-        isPassivePush
+        true
       ]);
     }
+    for (var sessionClient
+        in localSession.sendPortsToBeNotifiedOnPassiveUnlock) {
+      sessionClient.send([
+        false, //No you didn't get to authenticate.
+        true, //Yes it did authenticate.
+        tsid,
+        currentTimeInMillisecondsSinceEpoch,
+        localSession.expires.millisecondsSinceEpoch,
+        localSession.psid,
+        localSession.serviceAccount,
+        localSession.email,
+        localSession.fullName,
+        localSession.picture
+      ]);
+    }
+    for (var originalSendPort
+        in localSession.sendPortsThatAreDeactivatedUntilPassiveUnlock) {
+      localSession.sendPorts.add(originalSendPort);
+    }
+    localSession.isLockedForPassiveAuthentication = false;
+    localSession.isAuthenticated = false;
   }
 
   void _sessionWasDropped(String tsid) {
@@ -80,7 +137,9 @@ class _SessionListener {
   void _addNewCookie(String tsid, int expirationTimeInMillisecondsSinceEpoch,
       int currentTimeInMillisecondsSinceEpoch, SendPort initialResponsePort,
       SendPort responsePort, String psid) {
-    _defaultLogger('$tsid: Created a new session $tsid as part of persistent session $psid', false);
+    _defaultLogger(
+        '$tsid: Created a new session $tsid as part of persistent session $psid',
+        false);
     if (sessions.containsKey(tsid)) {
       initialResponsePort.send(null);
       return;
@@ -100,9 +159,11 @@ class _SessionListener {
     sessionMaster.send(['sessionAdded', tsid, myPort]);
   }
 
-  void _touchedSession(String tsid, int currentTimeInMillisecondsSinceEpoch) {
+  void _touchedSession(String tsid, int currentTimeInMillisecondsSinceEpoch,
+      SendPort replyPort) {
     final session = sessions[tsid];
     if (session == null) {
+      replyPort.send([]);
       return;
     }
     if (currentTimeInMillisecondsSinceEpoch -
@@ -131,7 +192,7 @@ class _SessionListener {
         ]);
       }
     }
-    return;
+    replyPort.send([]);
   }
 
   void _checkedOutSession(

@@ -190,7 +190,7 @@ class HttpListenerIsolate extends SessionClient {
     if (tsid == null) {
       tsid = new Uuid().v1();
       tsidCookieIsNew = true;
-    } else if (!_sessionsWeveSeen.contains(tsid)){
+    } else if (!_sessionsWeveSeen.contains(tsid)) {
       tsidCookieIsNew = true;
     } else if (request.headers.containsKey(r'x-can-read-push-session-data') &&
         request.headers[r'x-can-read-push-session-data'] == 'true') {
@@ -198,20 +198,22 @@ class HttpListenerIsolate extends SessionClient {
     }
     Completer psidSessionCompleter;
     if (psid != null) {
-      if (_policiesByPsid[psid] != null) {
-      }
+      if (_policiesByPsid[psid] != null) {}
       if (_policyCompletersWithNoSpecialKnowledgeByPsid[psid] != null) {
-        psidSessionCompleter = _policyCompletersWithNoSpecialKnowledgeByPsid[psid];
+        psidSessionCompleter =
+            _policyCompletersWithNoSpecialKnowledgeByPsid[psid];
       } else {
         psidSessionCompleter = new Completer();
       }
     }
 
-    var sessionContainerFuture = getSessionContainer(tsid, psid);
+    var sessionContainerFuture =
+        getSessionContainer(tsid, request.context['timestamp'], psid);
     request = request.change(
         context: {
       'session': sessionContainerFuture,
       'loginCompleter': psidSessionCompleter,
+      'askForPushSession': askForPushSession,
       'tsid': tsid
     });
     var result = innerHandler(request);
@@ -268,42 +270,7 @@ class HttpListenerIsolate extends SessionClient {
       Future<LocalSessionData> sessionContainerFuture,
       Completer<PolicyIdentity> policyIdentityCompleter, int timestamp,
       String tsid) async {
-    if (_policiesByPsid[psid] != null) {
-      return _policiesByPsid[psid];
-    }
-    if (_policyCompletersWithNoSpecialKnowledgeByPsid[psid] == null) {
-      final cancellationRef = new Ref.withValue(true);
-      _cancellationListener[psid] = cancellationRef;
-      var sessionData = await sessionContainerFuture;
-      _policyCompletersWithNoSpecialKnowledgeByPsid[psid] =
-          policyIdentityCompleter;
-      _policyModule
-          .createPolicyIdentityFromState(
-              sessionData, _user, _couchConnection, timestamp, this)
-          .then((PolicyIdentity policy) async {
-        pushClientAuthorizationToMaster(
-            tsid, new DateTime.now().millisecondsSinceEpoch, psid, policy,
-            isPassivePush: true);
-        if (cancellationRef.value) {
-          _policiesByPsid[psid] = policy;
-          _policyCompletersWithNoSpecialKnowledgeByPsid[psid].complete(policy);
-        } else {
-          throw new OperationCanceled();
-        }
-      }).catchError((error, stackTrace) {
-        if (error is OperationCanceled) {
-          assert(
-              _policyCompletersWithNoSpecialKnowledgeByPsid[psid].isCompleted);
-        }
-        if (cancellationRef.value &&
-            !_policyCompletersWithNoSpecialKnowledgeByPsid[psid].isCompleted) {
-          _policyCompletersWithNoSpecialKnowledgeByPsid[psid].completeError(
-              error, stackTrace);
-          return;
-        }
-      });
-    }
-    return await _policyCompletersWithNoSpecialKnowledgeByPsid[psid];
+
   }
 
   bool _shouldCascade(shelf.Response response) {
@@ -414,14 +381,18 @@ class HttpListenerIsolate extends SessionClient {
       try {
         var session = await sessionFuture;
         var policy = _policiesByPsid[session.psid];
-        if (policy == null && _policyCompletersWithNoSpecialKnowledgeByPsid[session.psid] ==
-            null) {
+        if (policy == null &&
+            _policyCompletersWithNoSpecialKnowledgeByPsid[session.psid] ==
+                null) {
           final Completer psidSessionCompleter = new Completer();
-          _policyCompletersWithNoSpecialKnowledgeByPsid[session.psid] = psidSessionCompleter;
-          _passivelyCreateSessionIdentityFromState(session.psid, sessionFuture, psidSessionCompleter, request.context['timestamp'], session.tsid);
+          _policyCompletersWithNoSpecialKnowledgeByPsid[session.psid] =
+              psidSessionCompleter;
+          _passivelyCreateSessionIdentityFromState(session.psid, sessionFuture,
+              psidSessionCompleter, request.context['timestamp'], session.tsid);
         }
         if (policy == null) {
-          policy = await _policyCompletersWithNoSpecialKnowledgeByPsid[session.psid];
+          policy = await _policyCompletersWithNoSpecialKnowledgeByPsid[
+              session.psid].future;
         }
 
         final response = new shelf.Response(200,
@@ -480,12 +451,26 @@ class HttpListenerIsolate extends SessionClient {
   dynamic _authSessionHandler(shelf.Request request) async {
     if (request.url.path == '_auth/session') {
       final LocalSessionData session = await request.context['session'];
+      await touchSession(session, request.context['timestamp']);
+      PolicyIdentity policyIdentity;
+      if (request.context['loginCompleter'] != null) {
+        try {
+          policyIdentity =
+              await (request.context['loginCompleter'] as Completer).future;
+        } catch (error) {
+          if (error is PolicyStateError) {
+          } else {
+            throw error;
+          }
+        }
+      }
+
       String body = '''{
   "tsid": "${session.tsid}",
   "psid": "${session.psid}",
-  "email": ${session.email == null ? 'null': '"' + session.email + '"'},
-  "fullName": ${session.fullName == null ? 'null': '"' + session.fullName + '"'},
-  "picture": ${session.picture == null ? 'null': '"' + session.picture + '"'}
+  "email": ${policyIdentity == null || policyIdentity.email == null ? 'null': '"' + policyIdentity.email + '"'},
+  "fullName": ${policyIdentity == null || policyIdentity.fullName == null ? 'null': '"' + policyIdentity.fullName + '"'},
+  "picture": ${policyIdentity == null || policyIdentity.picture == null ? 'null': '"' + policyIdentity.picture + '"'}
 }
 ''';
       return new shelf.Response.ok(body,
@@ -528,6 +513,25 @@ class HttpListenerIsolate extends SessionClient {
           'Asynchronous error on isolate ${Isolate.current.hashCode}.\n$error',
           stackTrace);
     });
+  }
+
+  @override
+  void onSessionExpired(String tsid) {
+    var session = sessions[tsid];
+    if (_policiesByPsid[session.psid] != null) {
+      _policiesByPsid.remove(session.psid);
+    }
+    if (_cancellationListener.containsKey(session.psid)) {
+      _cancellationListener[session.psid].value = false;
+    }
+    if (_policyCompletersWithNoSpecialKnowledgeByPsid
+            .containsKey(session.psid) &&
+        !_policyCompletersWithNoSpecialKnowledgeByPsid[
+        session.psid].isCompleted) {
+      _policyCompletersWithNoSpecialKnowledgeByPsid[session.psid]
+          .complete(null);
+    }
+    super.onSessionExpired(tsid);
   }
 }
 
