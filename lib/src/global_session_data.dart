@@ -1,23 +1,30 @@
 // Copyright (c) 2015, <your name>. All rights reserved. Use of this source code
 // is governed by a BSD-style license that can be found in the LICENSE file.
-
-part of a_la_carte.server;
+library a_la_carte.server.global_session_data;
+import 'dart:isolate';
+import 'dart:async';
+import 'dart:collection';
 
 class GlobalSessionData {
   final String tsid;
-  final _SessionListener _parent;
+  final Function _expireSession;
 
   bool isLockedForPassiveAuthentication = false;
-  bool isAuthenticated = null;
+  bool isLockedForActiveAuthentication = false;
+  bool isAuthenticatedPassively = null;
+  bool isAuthenticatedActively = null;
+  SendPort waitingToStepFromPassiveToActive;
 
   String psid;
   String identifier;
 
   final Set<SendPort> sendPorts = new HashSet<SendPort>();
 
-  final Set<SendPort> sendPortsToBeNotifiedOnPassiveUnlock =
+  Set<SendPort> sendPortsToBeNotifiedOnPassiveUnlock = new HashSet<SendPort>();
+  Set<SendPort> sendPortsThatAreDeactivatedUntilPassiveUnlock =
       new HashSet<SendPort>();
-  final Set<SendPort> sendPortsThatAreDeactivatedUntilPassiveUnlock =
+  Set<SendPort> sendPortsToBeNotifiedOnActiveUnlock = new HashSet<SendPort>();
+  Set<SendPort> sendPortsThatAreDeactivatedUntilActiveUnlock =
       new HashSet<SendPort>();
 
   DateTime _expires;
@@ -27,47 +34,27 @@ class GlobalSessionData {
   String picture;
 
   DateTime get expires => _expires;
+
   void set expires(DateTime value) {
     _expires = value;
-    updateExpirationTimer();
+    _updateExpirationTimer();
   }
 
   DateTime lastRefreshed;
   Timer removeTimer;
 
   GlobalSessionData(String this.tsid, DateTime this._expires,
-      DateTime this.lastRefreshed, _SessionListener this._parent,
+      DateTime this.lastRefreshed,
+                    Function this._expireSession,
       [String this.psid = null, String this.identifier = null]) {
-    updateExpirationTimer();
+    _updateExpirationTimer();
   }
 
-  void updateExpirationTimer() {
+  void _updateExpirationTimer() {
     if (removeTimer != null) {
       removeTimer.cancel();
     }
     removeTimer = new Timer(_expires.difference(lastRefreshed), _expireSession);
   }
-
-  void _expireSession() {
-    for (var sendPort in sendPorts) {
-      sendPort.send(['sessionExpired', tsid]);
-    }
-    _parent.dropCookie(tsid);
-  }
 }
 
-class LocalSessionData {
-  final String tsid;
-  String serviceAccount;
-  String psid;
-  String fullName;
-  String email;
-  String picture;
-  bool shouldPush = false;
-  int lastSeenTime;
-  final SendPort master;
-
-  DateTime expires;
-  LocalSessionData(String this.tsid, DateTime this.expires,
-      int this.lastSeenTime, SendPort this.master, [String this.psid = null]);
-}

@@ -1,113 +1,32 @@
-part of a_la_carte.server;
+library  a_la_carte.server.http_listener;
+import 'dart:async';
+import 'dart:convert';
+import 'dart:io';
+import 'dart:isolate';
 
-Future _writeShelfResponse(
-    StreamSink<List<int>> output, shelf.Response response) {
-  final completer = new Completer();
-  final encoder = new Utf8Encoder();
-  output.add(encoder.convert(
-      'HTTP/1.1 ${response.statusCode} ${statusReasons[response.statusCode]}\r\n'));
-  response.headers.forEach((headerName, headerValues) {
-    if (headerValues is String) {
-      output.add(encoder.convert('$headerName: $headerValues\r\n'));
-    } else {
-      assert(headerValues is List<String>);
-      for (var headerValue in headerValues) {
-        output.add(encoder.convert('$headerName: $headerValue\r\n'));
-      }
-    }
-  });
-  output.add(encoder.convert('Transfer-Encoding: chunked\r\n'));
-  output.add(encoder.convert('Access-Control-Allow-Origin: *\r\n'));
-  output.add([13, 10]);
-  response.read().listen((data) {
-    output.add(encoder.convert('${data.length.toRadixString(16)}\r\n'));
-    output.add(data);
-    output.add([13, 10]);
-  }, onDone: () {
-    output.add([48, 13, 10, 13, 10]);
-    output.close();
-    completer.complete();
-  }, onError: (error, stackTrace) {
-    output.addError(error, stackTrace);
-    completer.completeError(error, stackTrace);
-  });
-  return completer.future;
+import 'package:dice/dice.dart';
+import 'package:shelf/shelf.dart' as shelf;
+import 'package:shelf/shelf_io.dart' as io;
+import 'package:uuid/uuid.dart';
+import 'package:stack_trace/stack_trace.dart' as stack_trace;
+
+import 'policy_validator.dart';
+import 'session_client.dart';
+import 'shelf_utils.dart';
+import 'db_backend.dart';
+import 'local_session_data.dart';
+
+abstract class HttpListenerIsolate extends SessionClient {
+  void listen();
+  HttpListenerIsolate(SendPort sessionMasterSendPort) : super(sessionMasterSendPort);
 }
 
-const Map<int, String> statusReasons = const <int, String>{
-  100: 'Continue', //[ RFC7231, Section 6.2.1]
-  101: 'Switching Protocols', //[ RFC7231, Section 6.2.2]
-  102: 'Processing', //[ RFC2518]
-  //103-199	Unassigned
-  200: 'OK', //[ RFC7231, Section 6.3.1]
-  201: 'Created', //[ RFC7231, Section 6.3.2]
-  202: 'Accepted', //[ RFC7231, Section 6.3.3]
-  203: 'Non-Authoritative Information', //[ RFC7231, Section 6.3.4]
-  204: 'No Content', //[ RFC7231, Section 6.3.5]
-  205: 'Reset Content', //[ RFC7231, Section 6.3.6]
-  206: 'Partial Content', //[ RFC7233, Section 4.1]
-  207: 'Multi-Status', //[ RFC4918]
-  208: 'Already Reported', //[ RFC5842]
-  //209-225	Unassigned
-  226: 'IM Used', //[ RFC3229]
-  //227-299	Unassigned
-  300: 'Multiple Choices', //[ RFC7231, Section 6.4.1]
-  301: 'Moved Permanently', //[ RFC7231, Section 6.4.2]
-  302: 'Found', //[ RFC7231, Section 6.4.3]
-  303: 'See Other', //[ RFC7231, Section 6.4.4]
-  304: 'Not Modified', //[ RFC7232, Section 4.1]
-  305: 'Use Proxy', //[ RFC7231, Section 6.4.5]
-  //306: '(Unused)', //[ RFC7231, Section 6.4.6]
-  307: 'Temporary Redirect', //[ RFC7231, Section 6.4.7]
-  308: 'Permanent Redirect', //[ RFC7538]
-  //309-399	Unassigned
-  400: 'Bad Request', //[ RFC7231, Section 6.5.1]
-  401: 'Unauthorized', //[ RFC7235, Section 3.1]
-  402: 'Payment Required', //[ RFC7231, Section 6.5.2]
-  403: 'Forbidden', //[ RFC7231, Section 6.5.3]
-  404: 'Not Found', //[ RFC7231, Section 6.5.4]
-  405: 'Method Not Allowed', //[ RFC7231, Section 6.5.5]
-  406: 'Not Acceptable', //[ RFC7231, Section 6.5.6]
-  407: 'Proxy Authentication Required', //[ RFC7235, Section 3.2]
-  408: 'Request Timeout', //[ RFC7231, Section 6.5.7]
-  409: 'Conflict', //[ RFC7231, Section 6.5.8]
-  410: 'Gone', //[ RFC7231, Section 6.5.9]
-  411: 'Length Required', //[ RFC7231, Section 6.5.10]
-  412: 'Precondition Failed', //[ RFC7232, Section 4.2]
-  413: 'Payload Too Large', //[ RFC7231, Section 6.5.11]
-  414: 'URI Too Long', //[ RFC7231, Section 6.5.12]
-  415: 'Unsupported Media Type', //[ RFC7231, Section 6.5.13]
-  416: 'Range Not Satisfiable', //[ RFC7233, Section 4.4]
-  417: 'Expectation Failed', //[ RFC7231, Section 6.5.14]
-  //418-420	Unassigned
-  421: 'Misdirected Request', //[ RFC7540, Section 9.1.2]
-  422: 'Unprocessable Entity', //[ RFC4918]
-  423: 'Locked', //[ RFC4918]
-  424: 'Failed Dependency', //[ RFC4918]
-  //425: 'Unassigned
-  426: 'Upgrade Required', //[ RFC7231, Section 6.5.15]
-  //427: 'Unassigned',
-  428: 'Precondition Required', //[ RFC6585]
-  429: 'Too Many Requests', //[ RFC6585]
-  //430: 'Unassigned',
-  431: 'Request Header Fields Too Large', //[ RFC6585]
-  //432-499	Unassigned
-  500: 'Internal Server Error', //[ RFC7231, Section 6.6.1]
-  501: 'Not Implemented', //[ RFC7231, Section 6.6.2]
-  502: 'Bad Gateway', //[ RFC7231, Section 6.6.3]
-  503: 'Service Unavailable', //[ RFC7231, Section 6.6.4]
-  504: 'Gateway Timeout', //[ RFC7231, Section 6.6.5]
-  505: 'HTTP Version Not Supported', //[ RFC7231, Section 6.6.6]
-  506: 'Variant Also Negotiates', //[ RFC2295]
-  507: 'Insufficient Storage', //[ RFC4918]
-  508: 'Loop Detected', //[ RFC5842]
-  //509: 'Unassigned',
-  510: 'Not Extended', //[ RFC2774]
-  511: 'Network Authentication Required', //[ RFC6585]
-  //512-599	Unassigned
-};
+class HttpListenerIsolateImpl extends HttpListenerIsolate {
+  @inject
+  DbBackend _dbConnection;
+  @inject
+  PolicyValidator _policyModule;
 
-class HttpListenerIsolate extends SessionClient {
   final int _port;
   final int _isolateId;
 
@@ -124,13 +43,25 @@ class HttpListenerIsolate extends SessionClient {
 
 """;
 
+  String _errorPage(int errorNumber, String description) => """
+<!DOCTYPE html>
+<html>
+<head><title>$errorNumber ${statusReasons[errorNumber]}</title></head>
+<body bgcolor="white">
+<center><h1>$errorNumber ${statusReasons[errorNumber]}</h1></center>
+<p>
+$description
+</p>
+<hr>
+<center>A La Carte</center>
+</body>
+""";
   // TODO: Move these to a config file.
   static const String _user = 'a_la_carte';
   static const String _password = 'a_la_carte';
   static const int _responseShouldCascade = 550;
-  final int couchPort;
+  final int _couchPort;
   final bool _debugOverWire;
-  PolicyValidator _policyModule;
   static const List<String> _servedStatic = const [
     //'index.html',
     'a_la_carte.scss',
@@ -153,92 +84,76 @@ class HttpListenerIsolate extends SessionClient {
 
   final Map<String, DateTime> _refresh = new Map<String, DateTime>();
   final Map<String, Timer> _refreshTimeout = new Map<String, Timer>();
-  final Map<String, Ref<bool>> _cancellationListener =
-      new Map<String, Ref<bool>>();
-  final Map<String, Completer> _policyCompletersWithNoSpecialKnowledgeByPsid =
-      new Map<String, Completer<PolicyIdentity>>();
-  final Map<String, PolicyIdentity> _policiesByPsid =
-      new Map<String, PolicyIdentity>();
-  final Set<String> _sessionsWeveSeen = new Set<String>();
 
-  CouchDbBackend _couchConnection;
 
-  HttpListenerIsolate(int this._port, int this._isolateId, int this.couchPort,
-      SendPort sessionMasterSendPort, bool this._debugOverWire)
+  HttpListenerIsolateImpl(int this._port, int this._isolateId, SendPort sessionMasterSendPort, bool this._debugOverWire)
       : super(sessionMasterSendPort);
 
   shelf.Handler _addCookies(shelf.Handler innerHandler) =>
-      (shelf.Request request) {
-    String psid = null;
-    String tsid = null;
-    bool tsidCookieIsNew = false;
-    bool askForPushSession = false;
+      (shelf.Request request) async {
+        String psid = null;
+        String tsid = null;
+        bool tsidCookieIsNew = false;
+        bool askForPushSession = false;
 
-    if (request.headers.containsKey(r'Cookie')) {
-      var rawCookie = request.headers['Cookie'];
-      for (String cookie in rawCookie.split(r'; ')) {
-        if (cookie.startsWith('TSID=')) {
-          tsid = cookie.split('=')[1];
-          if (psid != null) break;
-        } else if (cookie.startsWith('PSID=')) {
-          psid = cookie.split('=')[1];
-          if (tsid != null) break;
+        if (request.headers.containsKey(r'Cookie')) {
+          var rawCookie = request.headers['Cookie'];
+          for (String cookie in rawCookie.split(r'; ')) {
+            if (cookie.startsWith('TSID=')) {
+              tsid = cookie.split('=')[1];
+              if (psid != null) break;
+            } else if (cookie.startsWith('PSID=')) {
+              psid = cookie.split('=')[1];
+              if (tsid != null) break;
+            }
+          }
         }
-      }
-    }
 
-    if (tsid == null) {
-      tsid = new Uuid().v1();
-      tsidCookieIsNew = true;
-    } else if (!_sessionsWeveSeen.contains(tsid)) {
-      tsidCookieIsNew = true;
-    } else if (request.headers.containsKey(r'x-can-read-push-session-data') &&
-        request.headers[r'x-can-read-push-session-data'] == 'true') {
-      askForPushSession = true;
-    }
-    Completer psidSessionCompleter;
-    if (psid != null) {
-      if (_policiesByPsid[psid] != null) {}
-      if (_policyCompletersWithNoSpecialKnowledgeByPsid[psid] != null) {
-        psidSessionCompleter =
-            _policyCompletersWithNoSpecialKnowledgeByPsid[psid];
-      } else {
-        psidSessionCompleter = new Completer();
-      }
-    }
+        if (tsid == null) {
+          tsid = new Uuid().v1();
+          tsidCookieIsNew = true;
+        } else if (request.headers
+                .containsKey(r'x-can-read-push-session-data') &&
+            request.headers[r'x-can-read-push-session-data'] == 'true') {
+          askForPushSession = true;
+        }
 
-    var sessionContainerFuture =
-        getSessionContainer(tsid, request.context['timestamp'], psid);
-    request = request.change(
-        context: {
-      'session': sessionContainerFuture,
-      'loginCompleter': psidSessionCompleter,
-      'askForPushSession': askForPushSession,
-      'tsid': tsid
-    });
-    var result = innerHandler(request);
+        var session =
+            await getSessionContainer(tsid, request.context['timestamp'], psid);
+        session.refCount++;
+        request = request.change(context: {
+          'session': session,
+          'askForPushSession': askForPushSession,
+          'tsid': tsid
+        });
+        var result = innerHandler(request);
 
-    if (result is Future) {
-      return result.then((innerResult) => _processCookieResult(innerResult,
-          tsid, tsidCookieIsNew, sessionContainerFuture, psid,
-          request.context['timestamp'], psidSessionCompleter));
-    } else {
-      assert(result is shelf.Response);
-      return _processCookieResult(result, tsid, tsidCookieIsNew,
-          sessionContainerFuture, psid, request.context['timestamp'],
-          psidSessionCompleter);
-    }
-  };
+        if (result is Future) {
+          return result.then((innerResult) => _processCookieResult(
+              innerResult,
+              tsid,
+              tsidCookieIsNew,
+              session,
+              psid,
+              request.context['timestamp']));
+        } else {
+          assert(result is shelf.Response);
+          return _processCookieResult(result, tsid, tsidCookieIsNew, session,
+              psid, request.context['timestamp']);
+        }
+      };
 
-  Future<shelf.Response> _processCookieResult(shelf.Response response,
-      String tsid, bool tsidCookieIsNew,
-      Future<LocalSessionData> sessionContainerFuture, String psid,
-      int timestamp, Completer psidSessionCompleter) async {
+  Future<shelf.Response> _processCookieResult(
+      shelf.Response response,
+      String tsid,
+      bool tsidCookieIsNew,
+      LocalSessionData session,
+      String psid,
+      int timestamp) async {
     bool psidCookieIsNew = false;
 
     if (psid == null) {
-      var sessionData = await sessionContainerFuture;
-      psid = sessionData.psid;
+      psid = session.psid;
       psidCookieIsNew = true;
     }
 
@@ -250,8 +165,8 @@ class HttpListenerIsolate extends SessionClient {
     if (tsidCookieIsNew) {
       responseHeaders['Set-Cookie'] = ["TSID=${tsid}; Path=/"];
       if (!psidCookieIsNew) {
-        _passivelyCreateSessionIdentityFromState(psid, sessionContainerFuture,
-            psidSessionCompleter, timestamp, tsid);
+        _passivelyCreateSessionIdentityFromState(
+            psid, session, timestamp, tsid);
       } else {
         final DateTime expires = new DateTime.now().add(new Duration(days: 15));
         responseHeaders['Set-Cookie'].add(
@@ -263,14 +178,85 @@ class HttpListenerIsolate extends SessionClient {
         "PSID=${psid}; Path=/; Expires=${HttpDate.format(expires)}; HttpOnly"
       ];
     }
+    session.refCount--;
+    if (session.mustRecertify) {
+      getOrCreateSessionListener(tsid, timestamp, psid);
+    }
     return response.change(headers: responseHeaders);
   }
 
-  Future _passivelyCreateSessionIdentityFromState(String psid,
-      Future<LocalSessionData> sessionContainerFuture,
-      Completer<PolicyIdentity> policyIdentityCompleter, int timestamp,
-      String tsid) async {
+  Future _passivelyCreateSessionIdentityFromState(
+      String psid, LocalSessionData session, int timestamp, String tsid) async {
+    if (session.isAuthenticated == true) return session;
+    if (session.isAuthenticated == false) return null;
+    var sessionLock =
+        await lockSessionForPassiveAuthentication(session, timestamp);
+    if (sessionLock[0]) {
+      var policy = await _policyModule.createPolicyIdentityFromState(
+          session, _user, _dbConnection, timestamp);
+      if (policy == null) {
+        unlockSessionAfterPassiveAuthenticationFailed(session);
+        return null;
+      } else {
+        await pushClientAuthorizationToMasterAfterAuthentication(
+            session.tsid, timestamp, psid, policy);
+        return session;
+      }
+    } else if (sessionLock[1]) {
+      sessionUpdated(
+          sessionLock[2],
+          sessionLock[3],
+          sessionLock[4],
+          sessionLock[5],
+          sessionLock[6],
+          sessionLock[7],
+          sessionLock[8],
+          sessionLock[9],
+          sessionLock[10]);
+      return session;
+    } else {
+      return null;
+    }
+  }
 
+  Future _activelyCreateSessionIdentityFromState(
+      String psid,
+      LocalSessionData session,
+      int timestamp,
+      String tsid,
+      String code,
+      String state) async {
+    var sessionLock =
+        await lockSessionForActiveAuthentication(session, timestamp);
+    if (sessionLock[0]) {
+      var policy = await _policyModule.createPolicyIdentityFromState(
+          session, _user, _dbConnection, timestamp,
+          code: code,
+          notifyOnAuth: state,
+          alsoCheckPassivePath: sessionLock[1]);
+      if (policy == null) {
+        unlockSessionAfterActiveAuthenticationFailed(session);
+        return null;
+      } else {
+        await pushClientAuthorizationToMasterAfterAuthentication(
+            session.tsid, timestamp, psid, policy);
+        return session;
+      }
+    } else if (sessionLock[1]) {
+      sessionUpdated(
+          sessionLock[2],
+          sessionLock[3],
+          sessionLock[4],
+          sessionLock[5],
+          sessionLock[6],
+          sessionLock[7],
+          sessionLock[8],
+          sessionLock[9],
+          sessionLock[10]);
+      return session;
+    } else {
+      return null;
+    }
   }
 
   bool _shouldCascade(shelf.Response response) {
@@ -283,15 +269,15 @@ class HttpListenerIsolate extends SessionClient {
         await ServerSocket.bind(InternetAddress.ANY_IP_V4, _port, shared: true);
     assert(_policyModule == null);
     _policyModule = new OAuth2PolicyValidator();
-    assert(_couchConnection == null);
-    _couchConnection = new CouchDbBackend(
-        couchPort, _user, _password, _policyModule, _debugOverWire);
+    assert(_dbConnection == null);
+    /* _dbConnection = new CouchDbBackend(
+        couchPort, _user, _password, _policyModule, _debugOverWire); */
 
     var cascadeHandlers = new shelf.Cascade(shouldCascade: _shouldCascade)
         .add(_authLandingHandler)
         .add(_authLoginHandler)
         .add(_authSessionHandler)
-        .add(_handleJsonRequest(_couchConnection))
+        .add(_handleJsonRequest(_dbConnection))
         .add(_handleStaticFileRequest);
 
     var handler = const shelf.Pipeline()
@@ -308,10 +294,10 @@ class HttpListenerIsolate extends SessionClient {
 
   shelf.Handler _addTimestamp(shelf.Handler innerHandle) =>
       (shelf.Request request) {
-    request = request.change(
-        context: {'timestamp': new DateTime.now().millisecondsSinceEpoch});
-    return innerHandle(request);
-  };
+        request = request.change(
+            context: {'timestamp': new DateTime.now().millisecondsSinceEpoch});
+        return innerHandle(request);
+      };
 
   bool _isJsonRequest(shelf.Request request) {
     if (request.method == 'GET' || request.method == 'HEAD') {
@@ -332,44 +318,41 @@ class HttpListenerIsolate extends SessionClient {
     return false;
   }
 
-  shelf.Handler _handleJsonRequest(CouchDbBackend datastore) =>
+  shelf.Handler _handleJsonRequest(DbBackend datastore) =>
       (shelf.Request request) {
-    if (!_isJsonRequest(request)) {
-      return new shelf.Response(_responseShouldCascade);
-    }
-    request.hijack((input, output) => datastore.hijackRequest(input, output,
-        request.method, request.requestedUri, request.headers,
-        request.context['loginCompleter'] == null
-            ? null
-            : (request.context['loginCompleter'] as Completer).future,
-        _sessionsWeveSeen, request.context['tsid'],
-        request.context['askForPushSession']));
-  };
+        if (!_isJsonRequest(request)) {
+          return new shelf.Response(_responseShouldCascade);
+        }
+        request.hijack((input, output) => datastore.hijackRequest(
+            input,
+            output,
+            request.method,
+            request.requestedUri,
+            request.headers,
+            request.context['tsid'],
+            request.context['askForPushSession'],
+            request.context['session']));
+      };
 
   dynamic _authLandingHandler(shelf.Request request) async {
     if (request.url.path == '_auth/landing') {
       final state = request.url.queryParameters['state'];
-      final LocalSessionData session = await request.context['session'];
-      if (_policyCompletersWithNoSpecialKnowledgeByPsid[session.psid] != null) {
-        _cancellationListener[session.psid].value = false;
-      }
-      return (_policyModule as OAuth2PolicyValidator)
-          .createPolicyIdentityFromState(session, _user, _couchConnection,
-              request.context['timestamp'], this,
-              code: request.url.queryParameters['code'], notifyOnAuth: state)
-          .then((identity) {
-        _sessionsWeveSeen.add(request.context['tsid']);
-        if (_policyCompletersWithNoSpecialKnowledgeByPsid[session.psid] ==
-            null) {
-          _policiesByPsid[session.psid] = identity;
-        } else if (!_policyCompletersWithNoSpecialKnowledgeByPsid[
-            session.psid].isCompleted) {
-          _policyCompletersWithNoSpecialKnowledgeByPsid[session.psid]
-              .complete(identity);
-        }
+      final LocalSessionData session = request.context['session'];
+      var identity = await _activelyCreateSessionIdentityFromState(
+          session.psid,
+          session,
+          request.context['timestamp'],
+          session.tsid,
+          request.requestedUri.queryParameters['code'],
+          request.requestedUri.queryParameters['state']);
+      if (identity != null) {
         return new shelf.Response.ok(_selfClosingPage,
             headers: {'Content-Type': 'text/html; charset=utf-8'});
-      });
+      } else {
+        return new shelf.Response(401,
+            body: _errorPage(
+                401, 'The code was not accepted by the token endpoint.'));
+      }
     } else {
       return new shelf.Response(_responseShouldCascade);
     }
@@ -377,70 +360,34 @@ class HttpListenerIsolate extends SessionClient {
 
   dynamic _authLoginHandler(shelf.Request request) async {
     if (request.url.path == '_auth/login') {
-      Future<LocalSessionData> sessionFuture = request.context['session'];
-      try {
-        var session = await sessionFuture;
-        var policy = _policiesByPsid[session.psid];
-        if (policy == null &&
-            _policyCompletersWithNoSpecialKnowledgeByPsid[session.psid] ==
-                null) {
-          final Completer psidSessionCompleter = new Completer();
-          _policyCompletersWithNoSpecialKnowledgeByPsid[session.psid] =
-              psidSessionCompleter;
-          _passivelyCreateSessionIdentityFromState(session.psid, sessionFuture,
-              psidSessionCompleter, request.context['timestamp'], session.tsid);
-        }
-        if (policy == null) {
-          policy = await _policyCompletersWithNoSpecialKnowledgeByPsid[
-              session.psid].future;
-        }
+      final int timestamp = request.context['timestamp'];
+      final LocalSessionData session = request.context['session'];
+      await touchSession(session, timestamp);
+      final policy = await _passivelyCreateSessionIdentityFromState(
+          session.psid, session, timestamp, session.tsid);
 
+      if (policy != null) {
         final response = new shelf.Response(200,
             body: '{"ok": true}',
             headers: {"Content-Type": "application/json"},
             encoding: Encoding.getByName('identity'));
         return response;
-      } catch (error, stackTrace) {
-        if (error is PolicyStateError) {
-          shelf.Response response;
-          if (error.redirectUri != null) {
-            response = new shelf.Response(401,
-                body: '{"error": "must_authenticate", "message": "You must log in before '
-                'performing this action.", "auth_uri": "${error.redirectUri}", "auth_watcher_id": "${error.awakenId}", "auth_watcher_rev": "${error.awakenRev}"}',
-                headers: {"Content-Type": "application/json"},
-                encoding: Encoding.getByName('identity'));
-          } else {
-            final encoder = new JsonEncoder();
-            response = new shelf.Response.internalServerError(
-                body: encoder.convert(error.replyFromDbBackend),
-                headers: {"Content-Type": "application/json"},
-                encoding: Encoding.getByName('identity'));
+      } else {
+        try {
+          await _policyModule.prepareUnauthorizedRequest(_dbConnection);
+        } catch (error, stackTrace) {
+          if (error is PolicyStateError) {
+            shelf.Response response;
+            if (error.redirectUri != null) {
+              return new shelf.Response(401,
+                  body:
+                      '{"error": "must_authenticate", "message": "You must log in before '
+                      'performing this action.", "auth_uri": "${error.redirectUri}", "auth_watcher_id": "${error.awakenId}", "auth_watcher_rev": "${error.awakenRev}"}',
+                  headers: {"Content-Type": "application/json"},
+                  encoding: Encoding.getByName('identity'));
+            }
           }
-          return response;
-        } else {
-          String body;
-          if (_debugOverWire) {
-            final JsonEncoder encoder = new JsonEncoder.withIndent('    ');
-            final Map error_info = {
-              'error': error.toString(),
-              'stack_trace': stackTrace.toString()
-            };
-            body = '''{
-  "error":"internal_server_error",
-  "message": "I couldn\'t connect to the database. Contact your database administrator.",
-  "dart_error": ${encoder.convert(error_info)          }
-}''';
-          } else {
-            body = '''{
-    "error":"internal_server_error",
-    "message": "I couldn\'t connect to the database. Contact your database administrator."
-  }''';
-          }
-          final response = new shelf.Response.internalServerError(
-              body: body,
-              headers: {"Content-Type": "application/json"},
-              encoding: Encoding.getByName('identity'));
-          return response;
+          throw error;
         }
       }
     } else {
@@ -450,27 +397,18 @@ class HttpListenerIsolate extends SessionClient {
 
   dynamic _authSessionHandler(shelf.Request request) async {
     if (request.url.path == '_auth/session') {
-      final LocalSessionData session = await request.context['session'];
-      await touchSession(session, request.context['timestamp']);
-      PolicyIdentity policyIdentity;
-      if (request.context['loginCompleter'] != null) {
-        try {
-          policyIdentity =
-              await (request.context['loginCompleter'] as Completer).future;
-        } catch (error) {
-          if (error is PolicyStateError) {
-          } else {
-            throw error;
-          }
-        }
-      }
+      final int timestamp = request.context['timestamp'];
+      final LocalSessionData session = request.context['session'];
+      await touchSession(session, timestamp);
+      await _passivelyCreateSessionIdentityFromState(
+          session.psid, session, timestamp, session.tsid);
 
       String body = '''{
   "tsid": "${session.tsid}",
   "psid": "${session.psid}",
-  "email": ${policyIdentity == null || policyIdentity.email == null ? 'null': '"' + policyIdentity.email + '"'},
-  "fullName": ${policyIdentity == null || policyIdentity.fullName == null ? 'null': '"' + policyIdentity.fullName + '"'},
-  "picture": ${policyIdentity == null || policyIdentity.picture == null ? 'null': '"' + policyIdentity.picture + '"'}
+  "email": ${session.email == null ? 'null': '"' + session.email + '"'},
+  "fullName": ${session.fullName == null ? 'null': '"' + session.fullName + '"'},
+  "picture": ${session.picture == null ? 'null': '"' + session.picture + '"'}
 }
 ''';
       return new shelf.Response.ok(body,
@@ -514,117 +452,102 @@ class HttpListenerIsolate extends SessionClient {
           stackTrace);
     });
   }
-
-  @override
-  void onSessionExpired(String tsid) {
-    var session = sessions[tsid];
-    if (_policiesByPsid[session.psid] != null) {
-      _policiesByPsid.remove(session.psid);
-    }
-    if (_cancellationListener.containsKey(session.psid)) {
-      _cancellationListener[session.psid].value = false;
-    }
-    if (_policyCompletersWithNoSpecialKnowledgeByPsid
-            .containsKey(session.psid) &&
-        !_policyCompletersWithNoSpecialKnowledgeByPsid[
-        session.psid].isCompleted) {
-      _policyCompletersWithNoSpecialKnowledgeByPsid[session.psid]
-          .complete(null);
-    }
-    super.onSessionExpired(tsid);
-  }
 }
 
-shelf.Handler _staticFileServer(String path, {String defaultName: 'index.html',
-    Future<Map<String, Object>> otherHeaders: null, bool isNotFound: false,
-    String overrideFile: null}) => (shelf.Request request) async {
-  if (request.method != 'GET' && request.method != 'HEAD') {
-    return new shelf.Response.forbidden(null);
-  }
-  var filePath = path + request.url.path;
-  if (overrideFile != null) {
-    filePath = overrideFile;
-  } else if (filePath.endsWith('/')) {
-    filePath += defaultName;
-  }
+shelf.Handler _staticFileServer(String path,
+        {String defaultName: 'index.html',
+        Future<Map<String, Object>> otherHeaders: null,
+        bool isNotFound: false,
+        String overrideFile: null}) =>
+    (shelf.Request request) async {
+      if (request.method != 'GET' && request.method != 'HEAD') {
+        return new shelf.Response.forbidden(null);
+      }
+      var filePath = path + request.url.path;
+      if (overrideFile != null) {
+        filePath = overrideFile;
+      } else if (filePath.endsWith('/')) {
+        filePath += defaultName;
+      }
 
-  DateTime lastModified;
-  int fileLength;
-  dynamic body;
+      DateTime lastModified;
+      int fileLength;
+      dynamic body;
 
-  final serveUri = new Uri(scheme: 'file', path: filePath);
-  final serveFile = new File.fromUri(serveUri);
+      final serveUri = new Uri(scheme: 'file', path: filePath);
+      final serveFile = new File.fromUri(serveUri);
 
-  final stat = await serveFile.stat();
-  if (stat.type == FileSystemEntityType.NOT_FOUND) {
-    if (isNotFound) {
-      return new shelf.Response.internalServerError(
-          body: 'File not found $filePath while serving 404 page.');
-    }
-    return _staticFileServer(path,
-        otherHeaders: otherHeaders,
-        isNotFound: true,
-        overrideFile: path + '_static/404.html')(request);
-  } else {
-    lastModified = stat.modified;
-    //Since lastModified might be more precise than 1 second.
-    lastModified = lastModified;
-    fileLength = stat.size;
-  }
-  body = serveFile;
+      final stat = await serveFile.stat();
+      if (stat.type == FileSystemEntityType.NOT_FOUND) {
+        if (isNotFound) {
+          return new shelf.Response.internalServerError(
+              body: 'File not found $filePath while serving 404 page.');
+        }
+        return _staticFileServer(path,
+            otherHeaders: otherHeaders,
+            isNotFound: true,
+            overrideFile: path + '_static/404.html')(request);
+      } else {
+        lastModified = stat.modified;
+        //Since lastModified might be more precise than 1 second.
+        lastModified = lastModified;
+        fileLength = stat.size;
+      }
+      body = serveFile;
 
-  final contentType =
-      contentTypeByExtension(filePath.replaceAll(new RegExp(r'^.*\.'), '.'));
-  var defaultHeaders = {
-    'Last-Modified': HttpDate.format(lastModified),
-    'Cache-Control': 'public, max_age=600',
-    'Expires':
-        HttpDate.format(new DateTime.now().add(new Duration(minutes: 10))),
-    'Date': HttpDate.format(lastModified),
-    'Vary': '*',
-    'Content-Type': contentType
-  };
+      final contentType = contentTypeByExtension(
+          filePath.replaceAll(new RegExp(r'^.*\.'), '.'));
+      var defaultHeaders = {
+        'Last-Modified': HttpDate.format(lastModified),
+        'Cache-Control': 'public, max_age=600',
+        'Expires':
+            HttpDate.format(new DateTime.now().add(new Duration(minutes: 10))),
+        'Date': HttpDate.format(lastModified),
+        'Vary': '*',
+        'Content-Type': contentType
+      };
 
-  var connection = request.headers['Connection'];
-  if (connection is String && connection.split(', ').contains('keep-alive')) {
-    defaultHeaders['Connection'] = 'keep-alive';
-    defaultHeaders['Keep-Alive'] = 'timeout=5, max=256';
-  }
+      var connection = request.headers['Connection'];
+      if (connection is String &&
+          connection.split(', ').contains('keep-alive')) {
+        defaultHeaders['Connection'] = 'keep-alive';
+        defaultHeaders['Keep-Alive'] = 'timeout=5, max=256';
+      }
 
-  Map<String, Object> headers;
+      Map<String, Object> headers;
 
-  final ifModifiedSince = request.headers['If-Modified-Since'];
-  if (!isNotFound && ifModifiedSince != null) {
-    final ifModifiedSinceDate = HttpDate.parse(ifModifiedSince);
-    if (lastModified
-        .subtract(new Duration(seconds: 1))
-        .isBefore(ifModifiedSinceDate)) {
+      final ifModifiedSince = request.headers['If-Modified-Since'];
+      if (!isNotFound && ifModifiedSince != null) {
+        final ifModifiedSinceDate = HttpDate.parse(ifModifiedSince);
+        if (lastModified
+            .subtract(new Duration(seconds: 1))
+            .isBefore(ifModifiedSinceDate)) {
+          if (otherHeaders != null) {
+            headers = await otherHeaders;
+          } else {
+            headers = {};
+          }
+          headers.addAll(defaultHeaders);
+          return new shelf.Response.notModified(headers: headers);
+        }
+      }
+
+      if (body is File) {
+        body = body.openRead();
+      }
+
       if (otherHeaders != null) {
         headers = await otherHeaders;
       } else {
         headers = {};
       }
+
       headers.addAll(defaultHeaders);
-      return new shelf.Response.notModified(headers: headers);
-    }
-  }
-
-  if (body is File) {
-    body = body.openRead();
-  }
-
-  if (otherHeaders != null) {
-    headers = await otherHeaders;
-  } else {
-    headers = {};
-  }
-
-  headers.addAll(defaultHeaders);
-  if (isNotFound) {
-    return new shelf.Response.notFound(body, headers: headers);
-  }
-  return new shelf.Response.ok(body, headers: headers);
-};
+      if (isNotFound) {
+        return new shelf.Response.notFound(body, headers: headers);
+      }
+      return new shelf.Response.ok(body, headers: headers);
+    };
 
 String contentTypeByExtension(String _extension) {
   switch (_extension) {
@@ -662,7 +585,8 @@ shelf.Response _logError(String message, [StackTrace stackTrace]) {
     chain = new stack_trace.Chain.forTrace(stackTrace);
   }
   chain = chain
-      .foldFrames((frame) => frame.isCore || frame.package == 'shelf').terse;
+      .foldFrames((frame) => frame.isCore || frame.package == 'shelf')
+      .terse;
 
   stderr.writeln('ERROR - ${new DateTime.now()}');
   stderr.writeln(message);

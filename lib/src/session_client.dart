@@ -1,11 +1,21 @@
-part of a_la_carte.server;
+library a_la_carte.server.session_client;
+import 'dart:isolate';
+import 'dart:async';
+
+import 'package:uuid/uuid.dart';
+import 'package:dice/dice.dart';
+
+import 'local_session_data.dart';
+import 'policy_validator.dart';
+import 'logger.dart';
 
 class SessionClient {
+  @inject Logger _defaultLogger;
   final SendPort _sessionMasterSendPort;
   final ReceivePort _sessionMessagePort = new ReceivePort();
-  static const int _expirationDelay = 15000;
-  Map<String, LocalSessionData> sessions = new Map<String, LocalSessionData>();
+  static const int _expirationDelay = 3000000;
 
+  Map<String, LocalSessionData> sessions = new Map<String, LocalSessionData>();
   Map<String, Future> _pendingSessions = new Map<String, Future>();
 
   SessionClient(SendPort this._sessionMasterSendPort) {
@@ -19,7 +29,7 @@ class SessionClient {
         onSessionExpired(data[1]);
         break;
       case 'sessionUpdated':
-        _sessionUpdated(data[1], data[2], data[3], data[4], data[5], data[6],
+        sessionUpdated(data[1], data[2], data[3], data[4], data[5], data[6],
             data[7], data[8], data[9]);
         break;
       case 'sessionUnlockedWithNoUpdates':
@@ -31,10 +41,15 @@ class SessionClient {
   }
 
   void onSessionExpired(String tsid) {
-    sessions.remove(tsid);
+    final session = sessions[tsid];
+    if (session != null && session.refCount == 0) {
+      sessions.remove(tsid);
+    } else {
+      session.mustRecertify = true;
+    }
   }
 
-  Future<List> _getOrCreateSessionListener(
+  Future<LocalSessionData> getOrCreateSessionListener(
       String tsid, int currentTimeInMillisecondsSinceEpoch, String psid) async {
     //_defaultLogger('$tsid: Looking up session $tsid.', false);
     final ReceivePort response = new ReceivePort();
@@ -57,13 +72,16 @@ class SessionClient {
         psid
       ]);
 
-      final thisSessionRow = new LocalSessionData(tsid,
+      final thisSessionRow = new LocalSessionData(
+          tsid,
           new DateTime.fromMillisecondsSinceEpoch(
               _expirationDelay + currentTimeInMillisecondsSinceEpoch),
-          currentTimeInMillisecondsSinceEpoch, data[0], psid);
+          currentTimeInMillisecondsSinceEpoch,
+          data[0],
+          psid);
       sessions[tsid] = thisSessionRow;
       await secondaryResponse.first;
-      return [thisSessionRow, data[0]];
+      return thisSessionRow;
     }
     //_defaultLogger('$tsid: Found $tsid. Caching.', false);
     final ReceivePort innerResponse = new ReceivePort();
@@ -75,33 +93,34 @@ class SessionClient {
     ]);
     var sessionParameters = await innerResponse.first;
     //_defaultLogger('Checked out $tsid.', false);
-    final thisSessionRow = new LocalSessionData(sessionParameters[0] as String,
+    final thisSessionRow = new LocalSessionData(
+        sessionParameters[0] as String,
         new DateTime.fromMillisecondsSinceEpoch(sessionParameters[2] as int),
-        sessionParameters[3] as int, data[0], sessionParameters[1] as String);
+        sessionParameters[3] as int,
+        data[0],
+        sessionParameters[1] as String);
     sessions[tsid] = thisSessionRow;
-    return [
-      thisSessionRow
-        ..email = sessionParameters[4]
-        ..fullName = sessionParameters[5]
-        ..picture = sessionParameters[6],
-      data[0]
-    ];
+    return thisSessionRow
+      ..email = sessionParameters[4]
+      ..fullName = sessionParameters[5]
+      ..picture = sessionParameters[6];
   }
 
   Future<LocalSessionData> getSessionContainer(
-      String tsid, int millisecondsSinceEpoch, [String psid = null]) async {
+      String tsid, int millisecondsSinceEpoch,
+      [String psid = null]) async {
     final session = sessions[tsid];
     if (session != null) {
       touchSession(session, millisecondsSinceEpoch);
       return session;
     } else if (_pendingSessions[tsid] == null) {
-      _pendingSessions[tsid] = _getOrCreateSessionListener(
+      _pendingSessions[tsid] = getOrCreateSessionListener(
           tsid, new DateTime.now().millisecondsSinceEpoch, psid);
       _pendingSessions[tsid].then((data) {
-        sessions[tsid] = data[0];
+        sessions[tsid] = data;
       });
     }
-    return (await _pendingSessions[tsid])[0];
+    return (await _pendingSessions[tsid]);
   }
 
   Future touchSession(
@@ -112,7 +131,7 @@ class SessionClient {
     return reply.first;
   }
 
-  Future<bool> lockSessionForPassiveAuthentication(
+  Future<List> lockSessionForPassiveAuthentication(
       LocalSessionData session, int millisecondsSinceEpoch) async {
     final ReceivePort reply = new ReceivePort();
     session.master.send([
@@ -124,38 +143,62 @@ class SessionClient {
     return reply.first;
   }
 
-  Future pushClientAuthorizationToMasterAfterPassiveAuthentication(String tsid,
-      int currentTimeInMillisecondsSinceEpoch, String psid,
-      PolicyIdentity identity, {bool isPassivePush: false}) async {
-    _defaultLogger('$tsid: received authorization.', false);
-    var data = await _getOrCreateSessionListener(
-        tsid, currentTimeInMillisecondsSinceEpoch, psid);
-    if (sessions[tsid].lastSeenTime >
-        currentTimeInMillisecondsSinceEpoch) return;
+  Future pushClientAuthorizationToMasterAfterAuthentication(
+      String tsid,
+      int currentTimeInMillisecondsSinceEpoch,
+      String psid,
+      PolicyIdentity identity) async {
+    _defaultLogger('$tsid: received authorization.');
     sessions[tsid]
       ..psid = psid
       ..serviceAccount = identity.serviceAccount
       ..email = identity.email
       ..fullName = identity.fullName
-      ..picture = identity.picture
-      ..shouldPush = isPassivePush;
-    data[1].send([
-      'authenticatedSessionPassively',
+      ..picture = identity.picture;
+    sessions[tsid].master.send([
+      'authenticatedSession',
       tsid,
       psid,
       currentTimeInMillisecondsSinceEpoch,
       identity.serviceAccount,
       identity.email,
       identity.fullName,
-      identity.picture,
-      isPassivePush
+      identity.picture
     ]);
   }
 
-  void _sessionUpdated(String tsid, int currentTimeInMillisecondsSinceEpoch,
-      int expirationTimeInMillisecondsSinceEpoch, String psid,
-      String serviceAccount, String email, String fullName, String picture,
-      bool isPusher) {
+  void unlockSessionAfterPassiveAuthenticationFailed(LocalSessionData session) {
+    session.master
+        .send(['unlockSessionAfterPassiveAuthenticationFailed', session.tsid]);
+  }
+
+  void unlockSessionAfterActiveAuthenticationFailed(LocalSessionData session) {
+    session.master
+        .send(['unlockSessionAfterActiveAuthenticationFailed', session.tsid]);
+  }
+
+  Future<List> lockSessionForActiveAuthentication(
+      LocalSessionData session, int millisecondsSinceEpoch) async {
+    final ReceivePort reply = new ReceivePort();
+    session.master.send([
+      'lockSessionForActiveAuthentication',
+      session.tsid,
+      reply.sendPort,
+      _sessionMessagePort.sendPort
+    ]);
+    return await reply.first;
+  }
+
+  void sessionUpdated(
+      String tsid,
+      int currentTimeInMillisecondsSinceEpoch,
+      int expirationTimeInMillisecondsSinceEpoch,
+      String psid,
+      String serviceAccount,
+      String email,
+      String fullName,
+      String picture,
+      bool isAuthenticated) {
     if (sessions[tsid].lastSeenTime >
         currentTimeInMillisecondsSinceEpoch) return;
     sessions[tsid]
@@ -166,14 +209,7 @@ class SessionClient {
       ..email = email
       ..fullName = fullName
       ..picture = picture
-      ..shouldPush = isPusher;
+      ..isAuthenticated = isAuthenticated;
   }
 }
 
-void _defaultLogger(String msg, bool isError) {
-  if (isError) {
-    print('[ERROR] $msg');
-  } else {
-    print(msg);
-  }
-}

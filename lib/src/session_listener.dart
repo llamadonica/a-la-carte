@@ -1,16 +1,27 @@
-part of a_la_carte.server;
+library a_la_carte.server.session_listener;
 
-class _SessionListener {
-  final Map<String, GlobalSessionData> sessions;
-  final Set<String> recentlyExpiredSessions;
+import 'dart:isolate';
+import 'dart:collection';
+
+import 'package:dice/dice.dart';
+
+import 'logger.dart';
+import 'global_session_data.dart';
+
+class SessionListener {
+  @inject Logger _defaultLogger;
+  final Map<String, GlobalSessionData> _sessions;
+  final Set<String> _recentlyExpiredSessions;
+  final Map<String, List<SendPort>> _waitingInitialReplyPorts = new Map();
+  final Map<String, List<SendPort>> _waitingReplyPorts = new Map();
   final SendPort sessionMaster;
   final int sessionIdNumber;
 
   SendPort myPort;
 
-  _SessionListener(SendPort this.sessionMaster, int this.sessionIdNumber)
-      : sessions = new Map<String, GlobalSessionData>(),
-        recentlyExpiredSessions = new Set<String>();
+  SessionListener(SendPort this.sessionMaster, int this.sessionIdNumber)
+      : _sessions = new Map<String, GlobalSessionData>(),
+        _recentlyExpiredSessions = new Set<String>();
 
   void handleRequests(List data) {
     var requestCode = data[0] as String;
@@ -27,16 +38,23 @@ class _SessionListener {
       case 'confirmedSessionDropped':
         _sessionWasDropped(data[1]);
         break;
-      case 'authenticatedSessionPassively':
-        _unlockSessionAfterPassiveAuthenticationSucceeded(
+      case 'authenticatedSession':
+        _unlockSessionAfterAuthenticationSucceeded(
             data[1], data[2], data[3], data[4], data[5], data[6], data[7]);
         break;
       case 'lockSessionForPassiveAuthentication':
         _lockSessionForPassiveAuthentication(
             data[1] as String, data[2] as SendPort, data[3] as SendPort);
         break;
+      case 'lockSessionForActiveAuthentication':
+        _lockSessionForActiveAuthentication(
+            data[1] as String, data[2] as SendPort, data[3] as SendPort);
+        break;
       case 'unlockSessionAfterPassiveAuthenticationFailed':
         _unlockSessionAfterPassiveAuthenticationFailed(data[1] as String);
+        break;
+      case 'unlockSessionAfterActiveAuthenticationFailed':
+        _unlockSessionAfterActiveAuthenticationFailed(data[1] as String);
         break;
       default:
         throw new StateError(
@@ -44,24 +62,53 @@ class _SessionListener {
     }
   }
 
-  void _lockSessionForPassiveAuthentication(
+  void _lockSessionForActiveAuthentication(
       String tsid, SendPort sendPort, SendPort originalSendPort) {
-    final localSession = sessions[tsid];
-    assert(localSession.isAuthenticated == null);
+    final localSession = _sessions[tsid];
     if (localSession.isLockedForPassiveAuthentication) {
-      localSession.sendPortsToBeNotifiedOnPassiveUnlock.add(sendPort);
+      localSession.waitingToStepFromPassiveToActive = originalSendPort;
       localSession.sendPortsThatAreDeactivatedUntilPassiveUnlock
           .add(originalSendPort);
       localSession.sendPorts.remove(originalSendPort);
+      localSession.isLockedForActiveAuthentication = true;
+    } else if (localSession.isAuthenticatedActively == true) {
+      sendPort.send([
+        false, //No you didn't get to authenticate.
+        true, //Yes it did authenticate.
+        tsid,
+        localSession.lastRefreshed.millisecondsSinceEpoch,
+        localSession.expires.millisecondsSinceEpoch,
+        localSession.psid,
+        localSession.serviceAccount,
+        localSession.email,
+        localSession.fullName,
+        localSession.picture,
+        localSession.isAuthenticatedPassively
+      ]);
+    } else if (localSession.isAuthenticatedActively == false) {
+      sendPort.send([false, false]);
+    } else if (localSession.isLockedForActiveAuthentication) {
+      localSession.sendPortsToBeNotifiedOnActiveUnlock.add(sendPort);
+      localSession.sendPortsThatAreDeactivatedUntilActiveUnlock
+          .add(originalSendPort);
+      localSession.sendPorts.remove(originalSendPort);
     } else {
+      localSession.isLockedForActiveAuthentication = true;
       localSession.isLockedForPassiveAuthentication = true;
-      sendPort.send([true]);
+      sendPort.send([
+        true, // Yes, you are the controlling agent
+        localSession.isAuthenticatedPassively ==
+            null // Whether to do a check on passive authentication first
+      ]);
     }
   }
 
-  void _unlockSessionAfterPassiveAuthenticationFailed(String tsid) {
-    final localSession = sessions[tsid];
-    assert(localSession.isLockedForPassiveAuthentication);
+  void _unlockSessionAfterActiveAuthenticationFailed(String tsid) {
+    final localSession = _sessions[tsid];
+    assert(localSession.isLockedForActiveAuthentication);
+    for (var sendPort in localSession.sendPortsToBeNotifiedOnActiveUnlock) {
+      sendPort.send([false, false]);
+    }
     for (var sendPort in localSession.sendPortsToBeNotifiedOnPassiveUnlock) {
       sendPort.send([false, false]);
     }
@@ -69,21 +116,98 @@ class _SessionListener {
         in localSession.sendPortsThatAreDeactivatedUntilPassiveUnlock) {
       localSession.sendPorts.add(originalSendPort);
     }
-    localSession.isLockedForPassiveAuthentication = false;
-    localSession.isAuthenticated = false;
+    for (var originalSendPort
+        in localSession.sendPortsThatAreDeactivatedUntilActiveUnlock) {
+      localSession.sendPorts.add(originalSendPort);
+    }
+    localSession
+      ..isLockedForPassiveAuthentication = false
+      ..isAuthenticatedPassively = false
+      ..isLockedForActiveAuthentication = false
+      ..isAuthenticatedActively = false
+      ..sendPortsToBeNotifiedOnPassiveUnlock = new HashSet()
+      ..sendPortsThatAreDeactivatedUntilPassiveUnlock = new HashSet()
+      ..sendPortsToBeNotifiedOnActiveUnlock = new HashSet()
+      ..sendPortsThatAreDeactivatedUntilActiveUnlock = new HashSet();
   }
 
-  void _unlockSessionAfterPassiveAuthenticationSucceeded(String tsid,
-      String psid, int currentTimeInMillisecondsSinceEpoch,
-      String serviceAccount, String email, String fullName, String picture) {
-    final localSession = sessions[tsid];
+  void _lockSessionForPassiveAuthentication(
+      String tsid, SendPort sendPort, SendPort originalSendPort) {
+    final localSession = _sessions[tsid];
+    if (localSession.isLockedForPassiveAuthentication ||
+        localSession.isLockedForActiveAuthentication) {
+      localSession.sendPortsToBeNotifiedOnPassiveUnlock.add(sendPort);
+      localSession.sendPortsThatAreDeactivatedUntilPassiveUnlock
+          .add(originalSendPort);
+      localSession.sendPorts.remove(originalSendPort);
+    } else if (localSession.isAuthenticatedPassively == true) {
+      sendPort.send([
+        false, //No you didn't get to authenticate.
+        true, //Yes it did authenticate.
+        tsid,
+        localSession.lastRefreshed.millisecondsSinceEpoch,
+        localSession.expires.millisecondsSinceEpoch,
+        localSession.psid,
+        localSession.serviceAccount,
+        localSession.email,
+        localSession.fullName,
+        localSession.picture,
+        localSession.isAuthenticatedPassively
+      ]);
+    } else if (localSession.isAuthenticatedPassively == false) {
+      sendPort.send([false, false]);
+    } else {
+      assert(localSession.isAuthenticatedPassively == null);
+      localSession.isLockedForPassiveAuthentication = true;
+      sendPort.send([true]);
+    }
+  }
+
+  void _unlockSessionAfterPassiveAuthenticationFailed(String tsid) {
+    final localSession = _sessions[tsid];
+    assert(localSession.isLockedForPassiveAuthentication);
+    if (localSession.waitingToStepFromPassiveToActive != null) {
+      localSession.waitingToStepFromPassiveToActive.send([true]);
+    }
+    if (localSession.waitingToStepFromPassiveToActive != null) {
+      localSession.waitingToStepFromPassiveToActive.send([
+        true, // Yes, you are the controlling agent
+        false // Whether to check passive authentication first.
+      ]);
+      localSession.waitingToStepFromPassiveToActive = null;
+    } else {
+      for (var sendPort in localSession.sendPortsToBeNotifiedOnPassiveUnlock) {
+        sendPort.send([false, false]);
+      }
+      for (var originalSendPort
+          in localSession.sendPortsThatAreDeactivatedUntilPassiveUnlock) {
+        localSession.sendPorts.add(originalSendPort);
+      }
+    }
+    localSession
+      ..sendPortsToBeNotifiedOnPassiveUnlock = new HashSet()
+      ..sendPortsThatAreDeactivatedUntilPassiveUnlock = new HashSet()
+      ..isLockedForPassiveAuthentication = false
+      ..isAuthenticatedPassively = false;
+  }
+
+  void _unlockSessionAfterAuthenticationSucceeded(
+      String tsid,
+      String psid,
+      int currentTimeInMillisecondsSinceEpoch,
+      String serviceAccount,
+      String email,
+      String fullName,
+      String picture) {
+    final localSession = _sessions[tsid];
     assert(localSession.isLockedForPassiveAuthentication);
     localSession
       ..psid = psid
       ..serviceAccount = serviceAccount
       ..email = email
       ..fullName = fullName
-      ..picture = picture;
+      ..picture = picture
+      ..isAuthenticatedPassively = true;
 
     for (var sessionClient in localSession.sendPorts) {
       sessionClient.send([
@@ -96,8 +220,24 @@ class _SessionListener {
         localSession.email,
         localSession.fullName,
         localSession.picture,
-        true
+        localSession.isAuthenticatedPassively
       ]);
+    }
+    if (localSession.waitingToStepFromPassiveToActive != null) {
+      localSession.waitingToStepFromPassiveToActive.send([
+        false, //No you didn't get to authenticate.
+        true, //Yes it did authenticate.
+        tsid,
+        currentTimeInMillisecondsSinceEpoch,
+        localSession.expires.millisecondsSinceEpoch,
+        localSession.psid,
+        localSession.serviceAccount,
+        localSession.email,
+        localSession.fullName,
+        localSession.picture,
+        localSession.isAuthenticatedPassively
+      ]);
+      localSession.waitingToStepFromPassiveToActive = null;
     }
     for (var sessionClient
         in localSession.sendPortsToBeNotifiedOnPassiveUnlock) {
@@ -111,19 +251,45 @@ class _SessionListener {
         localSession.serviceAccount,
         localSession.email,
         localSession.fullName,
-        localSession.picture
+        localSession.picture,
+        localSession.isAuthenticatedPassively
+      ]);
+    }
+    for (var sessionClient
+        in localSession.sendPortsToBeNotifiedOnActiveUnlock) {
+      sessionClient.send([
+        false, //No you didn't get to authenticate.
+        true, //Yes it did authenticate.
+        tsid,
+        currentTimeInMillisecondsSinceEpoch,
+        localSession.expires.millisecondsSinceEpoch,
+        localSession.psid,
+        localSession.serviceAccount,
+        localSession.email,
+        localSession.fullName,
+        localSession.picture,
+        localSession.isAuthenticatedPassively
       ]);
     }
     for (var originalSendPort
         in localSession.sendPortsThatAreDeactivatedUntilPassiveUnlock) {
       localSession.sendPorts.add(originalSendPort);
     }
+    for (var originalSendPort
+        in localSession.sendPortsThatAreDeactivatedUntilActiveUnlock) {
+      localSession.sendPorts.add(originalSendPort);
+    }
+    localSession.sendPortsToBeNotifiedOnPassiveUnlock = new HashSet();
+    localSession.sendPortsThatAreDeactivatedUntilPassiveUnlock = new HashSet();
+    localSession.sendPortsToBeNotifiedOnActiveUnlock = new HashSet();
+    localSession.sendPortsThatAreDeactivatedUntilActiveUnlock = new HashSet();
     localSession.isLockedForPassiveAuthentication = false;
-    localSession.isAuthenticated = false;
+    localSession.isAuthenticatedPassively = true;
+    localSession.isAuthenticatedActively = true;
   }
 
   void _sessionWasDropped(String tsid) {
-    recentlyExpiredSessions.remove(tsid);
+    _recentlyExpiredSessions.remove(tsid);
   }
 
   void listen() {
@@ -134,34 +300,56 @@ class _SessionListener {
     receivePort.listen(handleRequests);
   }
 
-  void _addNewCookie(String tsid, int expirationTimeInMillisecondsSinceEpoch,
-      int currentTimeInMillisecondsSinceEpoch, SendPort initialResponsePort,
-      SendPort responsePort, String psid) {
+  void _addNewCookie(
+      String tsid,
+      int expirationTimeInMillisecondsSinceEpoch,
+      int currentTimeInMillisecondsSinceEpoch,
+      SendPort initialResponsePort,
+      SendPort responsePort,
+      String psid) {
     _defaultLogger(
-        '$tsid: Created a new session $tsid as part of persistent session $psid',
-        false);
-    if (sessions.containsKey(tsid)) {
+        '$tsid: Created a new session $tsid as part of persistent session $psid');
+    if (_sessions.containsKey(tsid)) {
       initialResponsePort.send(null);
       return;
     }
-    var session = new GlobalSessionData(tsid,
+    var session = new GlobalSessionData(
+        tsid,
         new DateTime.fromMillisecondsSinceEpoch(
             expirationTimeInMillisecondsSinceEpoch),
         new DateTime.fromMillisecondsSinceEpoch(
-            currentTimeInMillisecondsSinceEpoch), this, psid)
-      ..sendPorts.add(responsePort);
+            currentTimeInMillisecondsSinceEpoch),
+        _expireSession,
+        psid)..sendPorts.add(responsePort);
+    if (_waitingReplyPorts.containsKey(tsid)) {
+      session.sendPorts.addAll(_waitingReplyPorts[tsid]);
+      _waitingInitialReplyPorts[tsid]
+          .forEach((resposePort) => responsePort.send([
+                tsid,
+                expirationTimeInMillisecondsSinceEpoch,
+                currentTimeInMillisecondsSinceEpoch
+              ]));
+    }
+
     initialResponsePort.send([
       tsid,
       expirationTimeInMillisecondsSinceEpoch,
       currentTimeInMillisecondsSinceEpoch
     ]);
-    sessions[tsid] = session;
+    _sessions[tsid] = session;
     sessionMaster.send(['sessionAdded', tsid, myPort]);
+  }
+
+  void _expireSession(GlobalSessionData data) {
+    for (var sendPort in data.sendPorts) {
+      sendPort.send(['sessionExpired', data.tsid]);
+    }
+    dropCookie(data.tsid);
   }
 
   void _touchedSession(String tsid, int currentTimeInMillisecondsSinceEpoch,
       SendPort replyPort) {
-    final session = sessions[tsid];
+    final session = _sessions[tsid];
     if (session == null) {
       replyPort.send([]);
       return;
@@ -197,9 +385,14 @@ class _SessionListener {
 
   void _checkedOutSession(
       String tsid, SendPort initialResponsePort, SendPort responsePort) {
-    var session = sessions[tsid];
+    var session = _sessions[tsid];
+    if (session == null && !_waitingInitialReplyPorts.containsKey(tsid)) {
+      _waitingInitialReplyPorts[tsid] = [];
+      _waitingReplyPorts[tsid] = [];
+    }
     if (session == null) {
-      initialResponsePort.send(null);
+      _waitingInitialReplyPorts[tsid].add(initialResponsePort);
+      _waitingReplyPorts[tsid].add(responsePort);
       return;
     }
     initialResponsePort.send([
@@ -216,8 +409,8 @@ class _SessionListener {
   }
 
   void dropCookie(String tsid) {
-    sessions.remove(tsid);
-    recentlyExpiredSessions.add(tsid);
+    _sessions.remove(tsid);
+    _recentlyExpiredSessions.add(tsid);
     sessionMaster.send(['sessionDropped', tsid, myPort]);
   }
 }

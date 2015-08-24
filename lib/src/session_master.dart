@@ -1,11 +1,18 @@
-part of a_la_carte.server;
+library a_la_carte.server.session_master;
+import 'dart:collection';
+import 'dart:isolate';
+
+import 'package:dice/dice.dart';
+
+import 'logger.dart';
+import 'session_listener.dart';
 
 class SessionMaster {
-  final int delegates;
+  @inject Logger _defaultLogger;
+  final int _delegates;
   int _initialLoadOrder = 0;
   final Map<String, SendPort> _sessionHandlers;
   final Map<String, List<SendPort>> _sessionHandlerFutures = new Map();
-  final Map<String, SendPort> _oauthIdentityHandlers;
   final SplayTreeMap<int, SendPort> _sessionHandlerByOrderOfLoad;
   final Map<SendPort, int> _sessionHandlerLoad;
   final ReceivePort _sessionReceivePort;
@@ -13,9 +20,8 @@ class SessionMaster {
 
   SendPort get httpSendPort => _httpReceivePort.sendPort;
 
-  SessionMaster(int this.delegates)
+  SessionMaster(int this._delegates)
       : _sessionHandlers = new Map<String, SendPort>(),
-        _oauthIdentityHandlers = new Map<String, SendPort>(),
         _sessionHandlerByOrderOfLoad = new SplayTreeMap<int, SendPort>(),
         _sessionHandlerLoad = new Map<SendPort, int>(),
         _sessionReceivePort = new ReceivePort(),
@@ -23,7 +29,7 @@ class SessionMaster {
     print('${new DateTime.now()}\tSession master spinning up.');
     _sessionReceivePort.listen(listenForSessionListenerRequest);
     _httpReceivePort.listen(listenForHttpListenerRequest);
-    for (var i = 0; i < delegates; i++) {
+    for (var i = 0; i < _delegates; i++) {
       Isolate.spawn(_createSessionDelegate, [_sessionReceivePort.sendPort, i]);
     }
   }
@@ -70,20 +76,20 @@ class SessionMaster {
 
   void _getSessionDelegateByTsidOrCreateNew(
       String tsid, SendPort responsePort) {
-    _defaultLogger('$tsid: Got a request for $tsid.', false);
+    _defaultLogger('$tsid: Got a request for $tsid.');
     var sessionDelegate = _sessionHandlers[tsid];
     if (sessionDelegate != null) {
-      _defaultLogger('$tsid: $tsid already exists.', false);
+      _defaultLogger('$tsid: $tsid already exists.');
       responsePort.send([sessionDelegate, false]);
       return;
     }
     if (!_sessionHandlerFutures.containsKey(tsid)) {
-      _defaultLogger('$tsid: $tsid must be created.', false);
+      _defaultLogger('$tsid: $tsid must be created.');
       _sessionHandlerFutures[tsid] = [];
       sessionDelegate =
           _sessionHandlerByOrderOfLoad[_sessionHandlerByOrderOfLoad.firstKey()];
       final oldLoad = _sessionHandlerLoad[sessionDelegate];
-      _sessionHandlerLoad[sessionDelegate] += delegates;
+      _sessionHandlerLoad[sessionDelegate] += _delegates;
       _sessionHandlerByOrderOfLoad.remove(oldLoad);
       _sessionHandlerByOrderOfLoad[_sessionHandlerLoad[sessionDelegate]] =
           sessionDelegate;
@@ -96,7 +102,7 @@ class SessionMaster {
   void _sessionDropped(String tsid, SendPort myPort) {
     var sessionDelegate = _sessionHandlers[tsid];
     final oldLoad = _sessionHandlerLoad[myPort];
-    _sessionHandlerLoad[myPort] -= delegates;
+    _sessionHandlerLoad[myPort] -= _delegates;
     _sessionHandlerByOrderOfLoad.remove(oldLoad);
     _sessionHandlerByOrderOfLoad[_sessionHandlerLoad[myPort]] = myPort;
     _sessionHandlers.remove(tsid);
@@ -111,7 +117,7 @@ class SessionMaster {
   }
 
   static void _createSessionDelegate(List args) {
-    var sessionDelegate = new _SessionListener(args[0], args[1]);
+    var sessionDelegate = new SessionListener(args[0], args[1]);
     sessionDelegate.listen();
   }
 }

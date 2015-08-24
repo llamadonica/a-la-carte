@@ -263,7 +263,7 @@ class ALaCartePresenter extends PolymerElement implements Presenter {
   void connectTo(String uri, JsonEventRouter router,
       {bool isImplicitArray: false}) {
     final jsonHandler = new JsonStreamingParser(isImplicitArray);
-    final subscription = new Ref<StreamSubscription>();
+    final subscription = new _Ref<StreamSubscription>();
     subscription.value = jsonHandler.onSymbolComplete
         .listen((event) => router(event, subscription));
 
@@ -410,7 +410,7 @@ class ALaCartePresenter extends PolymerElement implements Presenter {
         _currentChangeSeq = event.symbol['last_seq'];
         subscription.value.cancel();
         if (document.visibilityState == 'hidden') {
-          final subscription = new Ref<StreamSubscription>();
+          final subscription = new _Ref<StreamSubscription>();
           subscription.value = document.onVisibilityChange
               .listen((event) => _windowBecomesVisible(event, subscription));
         } else {

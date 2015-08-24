@@ -1,12 +1,24 @@
 // Copyright (c) 2015, <your name>. All rights reserved. Use of this source code
 // is governed by a BSD-style license that can be found in the LICENSE file.
 
-part of a_la_carte.server;
+library a_la_carte.server.couch_db_backend;
 
-class Ref<T> {
+import 'dart:async';
+import 'dart:convert';
+import 'dart:io';
+
+import 'package:shelf/shelf.dart' as shelf;
+import 'package:dice/dice.dart';
+
+import 'db_backend.dart';
+import 'policy_validator.dart';
+import 'local_session_data.dart';
+import 'shelf_utils.dart';
+
+class _Ref<T> {
   T value;
-  Ref();
-  Ref.withValue(T this.value);
+  _Ref();
+  _Ref.withValue(T this.value);
 }
 
 class CouchError extends ServiceError {
@@ -14,27 +26,28 @@ class CouchError extends ServiceError {
 }
 
 class CouchDbBackend extends DbBackend {
-  final int port;
+  final int _port;
   final String _user;
   final String _password;
   final PolicyValidator policyHandler;
   final bool _debugOverWire;
 
   List<String> _authCookie = null;
-  bool hasValidated = false;
+  bool _hasValidated = false;
   Future _ensuringHasValidated;
 
-  CouchDbBackend(int this.port, String this._user, String this._password,
+  @inject HttpClient _httpClient;
+
+  CouchDbBackend(int this._port, String this._user, String this._password,
       PolicyValidator this.policyHandler, bool this._debugOverWire);
 
   _validateSession() {
-    final client = new HttpClient();
     final couchUri = new Uri(
         scheme: 'http',
         host: '127.0.0.1',
-        port: port,
+        port: _port,
         pathSegments: ['_session']);
-    return client.openUrl('POST', couchUri).then((request) {
+    return _httpClient.openUrl('POST', couchUri).then((request) {
       String requestBody = JSON.encode({'name': _user, 'password': _password});
       request.headers.add(HttpHeaders.HOST, 'localhost:5984');
       request.headers.add(HttpHeaders.ACCEPT, 'application/json');
@@ -53,11 +66,11 @@ class CouchDbBackend extends DbBackend {
           for (var setCookiePart in setCookie) {
             _authCookie.add(setCookiePart.split(';')[0]);
           }
-          hasValidated = true;
+          _hasValidated = true;
           return null;
         }
       } else {
-        var contentLength = new Ref<int>.withValue(
+        var contentLength = new _Ref<int>.withValue(
             int.parse(response.headers[HttpHeaders.CONTENT_LENGTH][0]));
         List<int> content = new List<int>();
         return response.asyncMap((inputList) {
@@ -75,7 +88,7 @@ class CouchDbBackend extends DbBackend {
   }
 
   Future _ensureHasValidated() {
-    if (hasValidated) return new Future.value();
+    if (_hasValidated) return new Future.value();
     else if (_ensuringHasValidated == null) {
       _ensuringHasValidated = _validateSession().then((_) {
         final interval = new Duration(minutes: 9);
@@ -91,25 +104,23 @@ class CouchDbBackend extends DbBackend {
       String method,
       Uri uri,
       Map<String, Object> headers,
-      Future<PolicyIdentity> policyFuture,
-      Set<String> sessionsThatHaveBeenSentTheirCredentials,
       String tsid,
-      bool canGetSessionData) async {
-    final client = new HttpClient();
+      bool canGetSessionData,
+      LocalSessionData session) async {
     final couchUri = new Uri(
         scheme: uri.scheme,
         userInfo: uri.userInfo,
         host: '127.0.0.1',
-        port: port,
+        port: _port,
         pathSegments: uri.pathSegments,
         queryParameters: uri.queryParameters,
         fragment: uri.fragment);
     await _ensureHasValidated();
     try {
       policyHandler.validateMethodIsPermittedOnResource(
-          method, uri, this, policyFuture);
+          method, uri, this, session);
     } catch (error) {
-      var contentLength = new Ref<int>();
+      var contentLength = new _Ref<int>();
       var postRequestIsChunked = false;
       if (headers.containsKey('Transfer-Encoding') &&
           headers['Transfer-Encoding'] == 'chunked') {
@@ -132,7 +143,7 @@ class CouchDbBackend extends DbBackend {
       await completer.future;
       throw error;
     }
-    HttpClientRequest request = await client.openUrl(method, couchUri);
+    HttpClientRequest request = await _httpClient.openUrl(method, couchUri);
     for (var header in headers.keys) {
       request.headers.add(header, headers[header]);
     }
@@ -140,7 +151,7 @@ class CouchDbBackend extends DbBackend {
       request.headers.add(HttpHeaders.COOKIE, cookie);
     }
     bool postRequestIsChunked = false;
-    var contentLength = new Ref<int>.withValue(0);
+    var contentLength = new _Ref<int>.withValue(0);
 
     if (method == 'GET' || method == 'HEAD' || method == 'DELETE') {
       request.close();
@@ -185,24 +196,12 @@ class CouchDbBackend extends DbBackend {
       chunkedResponse = response.headers.chunkedTransferEncoding;
       output.add(encoder.convert('Access-Control-Allow-Origin: *\r\n'));
 
-      if (canGetSessionData && policyFuture != null) {
-        try {
-          PolicyIdentity identity =
-              await policyFuture.timeout(new Duration(milliseconds: 1));
+      if (canGetSessionData) {
+        if (session.isAuthenticated) {
           output.add(encoder.convert(
               'Access-Control-Allow-Headers: X-Push-Session-Data\r\n'));
           output
               .add(encoder.convert('X-Push-Session-Data: /_auth/session\r\n'));
-          sessionsThatHaveBeenSentTheirCredentials.add(tsid);
-        } catch (error) {
-          if (error is TimeoutException) {
-          } else if (error is PolicyStateError) {
-            //We haven't really been sent our credentials, but we no that we're
-            //not going to get any more notifications if we log in.
-            sessionsThatHaveBeenSentTheirCredentials.add(tsid);
-          } else {
-            throw error;
-          }
         }
       }
       output.add([13, 10]);
@@ -239,7 +238,7 @@ class CouchDbBackend extends DbBackend {
               headers: {"Content-Type": "application/json"},
               encoding: Encoding.getByName('identity'));
         }
-        await _writeShelfResponse(output, response);
+        await writeShelfResponse(output, response);
         return;
       } else {
         String body;
@@ -264,23 +263,23 @@ class CouchDbBackend extends DbBackend {
             body: body,
             headers: {"Content-Type": "application/json"},
             encoding: Encoding.getByName('identity'));
-        await _writeShelfResponse(output, response);
+        await writeShelfResponse(output, response);
         return;
       }
     }
   }
 
   @override Future<Map> makeServiceGet(Uri uri) async {
-    final client = new HttpClient();
     final couchUri = new Uri(
         scheme: 'http',
         host: '127.0.0.1',
-        port: port,
+        port: _port,
         pathSegments: uri.pathSegments,
         queryParameters: uri.queryParameters,
         fragment: uri.fragment);
     await _ensureHasValidated();
-    final HttpClientRequest request = await client.openUrl('GET', couchUri);
+    final HttpClientRequest request =
+        await _httpClient.openUrl('GET', couchUri);
     for (var cookie in _authCookie) {
       request.headers.add(HttpHeaders.COOKIE, cookie);
     }
@@ -301,16 +300,16 @@ class CouchDbBackend extends DbBackend {
   @override
   Future<Map> makeServicePut(Uri uri, Map message,
       [String revId = null]) async {
-    final client = new HttpClient();
     final couchUri = new Uri(
         scheme: 'http',
         host: '127.0.0.1',
-        port: port,
+        port: _port,
         pathSegments: uri.pathSegments,
         queryParameters: uri.queryParameters,
         fragment: uri.fragment);
     await _ensureHasValidated();
-    final HttpClientRequest request = await client.openUrl('PUT', couchUri);
+    final HttpClientRequest request =
+        await _httpClient.openUrl('PUT', couchUri);
     for (var cookie in _authCookie) {
       request.headers.add(HttpHeaders.COOKIE, cookie);
     }
@@ -335,18 +334,17 @@ class CouchDbBackend extends DbBackend {
   }
 
   @override Future<Map> makeServiceDelete(Uri uri, String revId) async {
-    final client = new HttpClient();
     final queryParameters = new Map.from(uri.queryParameters);
     queryParameters['rev'] = revId;
     final couchUri = new Uri(
         scheme: 'http',
         host: '127.0.0.1',
-        port: port,
+        port: _port,
         pathSegments: uri.pathSegments,
         queryParameters: queryParameters,
         fragment: uri.fragment);
     await _ensureHasValidated();
-    HttpClientRequest request = await client.openUrl('DELETE', couchUri);
+    HttpClientRequest request = await _httpClient.openUrl('DELETE', couchUri);
     for (var cookie in _authCookie) {
       request.headers.add(HttpHeaders.COOKIE, cookie);
     }
