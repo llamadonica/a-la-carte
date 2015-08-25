@@ -15,24 +15,19 @@ import 'local_session_data.dart';
 
 class OAuth2Authenticator extends Authenticator {
   // TODO: Move this to a config file.
-  @inject
-  @Named('a_la_carte.server.oauth2_policy_validator.oauth2ClientId')
+  @Inject(name: 'a_la_carte.server.oauth2_policy_validator.oauth2ClientId')
   String _oauth2ClientId;
 
-  @inject
-  @Named('a_la_carte.server.oauth2_policy_validator.oauth2ClientSecret')
+  @Inject(name: 'a_la_carte.server.oauth2_policy_validator.oauth2ClientSecret')
   String _oauth2ClientSecret;
 
-  @inject
-  @Named('a_la_carte.server.oauth2_policy_validator.oauth2AuthorizationEndpoint')
+  @Inject(name: 'a_la_carte.server.oauth2_policy_validator.oauth2AuthorizationEndpoint')
   String _oauth2AuthorizationEndpoint;
 
-  @inject
-  @Named('a_la_carte.server.oauth2_policy_validator.oauth2TokenEndpoint')
+  @Inject(name: 'a_la_carte.server.oauth2_policy_validator.oauth2TokenEndpoint')
   String _oauth2TokenEndpoint;
 
-  @inject
-  @Named('a_la_carte.server.oauth2_policy_validator.oauth2Redirect')
+  @Inject(name: 'a_la_carte.server.oauth2_policy_validator.oauth2Redirect')
   String _oauth2Redirect;
 
 

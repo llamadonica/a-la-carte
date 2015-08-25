@@ -83,12 +83,10 @@ $description
   @inject
   Logger defaultLogger;
 
-  @inject
-  @Named('a_la_carte.server.http_server_listener.httpServerPort')
+  @Inject(name: 'a_la_carte.server.http_server_listener.httpServerPort')
   int _port;
 
-  @inject
-  @Named('a_la_carte.server.http_server_listener.sessionMasterSendPort')
+  @Inject(name: 'a_la_carte.server.http_server_listener.sessionMasterSendPort')
   SendPort sessionMasterSendPort;
 
   final Map<String, DateTime> _refresh = new Map<String, DateTime>();

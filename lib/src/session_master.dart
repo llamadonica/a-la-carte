@@ -13,8 +13,7 @@ abstract class SessionMaster {
 }
 
 class SessionMasterImpl extends SessionMaster {
-  @inject
-  @Named('a_la_carte.server.session_master.quantityOfSessionDelegates')
+  @Inject(name: 'a_la_carte.server.session_master.quantityOfSessionDelegates')
   int _delegates;
 
   int _initialLoadOrder = 0;
