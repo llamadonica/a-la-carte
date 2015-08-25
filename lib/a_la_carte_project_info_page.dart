@@ -147,7 +147,7 @@ class ALaCarteProjectInfoPage extends ALaCartePageCommon {
 
   void _deleteProjectDataFromServer(String id, String rev) {
     var jsonHandler = new JsonStreamingParser();
-    final subscription = new _Ref<StreamSubscription>();
+    final subscription = new Ref<StreamSubscription>();
     subscription.value = jsonHandler.onSymbolComplete.listen((event) =>
         _routeProjectDeletingJsonReply(event, project, subscription));
 
@@ -211,7 +211,7 @@ class ALaCarteProjectInfoPage extends ALaCartePageCommon {
   void _putProjectDataToServer(String id, Map data) {
     final String body = JSON.encode(project.jsonGetter());
     var jsonHandler = new JsonStreamingParser();
-    final subscription = new _Ref<StreamSubscription>();
+    final subscription = new Ref<StreamSubscription>();
     subscription.value = jsonHandler.onSymbolComplete.listen((event) =>
         _routeProjectSavingJsonReply(event, project, subscription, id, data));
 

@@ -24,7 +24,7 @@ class PolicyStateError extends Error {
         awakenRev = null;
 }
 
-abstract class PolicyIdentity {
+abstract class AuthenticatorIdentity {
   String get id;
   String get serviceAccount;
   String get email;
@@ -32,24 +32,18 @@ abstract class PolicyIdentity {
   String get picture;
 }
 
-abstract class PolicyValidator extends Object {
+abstract class Authenticator extends Object {
   Future validateMethodIsPermittedOnResource(String method, Uri uri,
       DbBackend dataStore, LocalSessionData session);
   Future prepareUnauthorizedRequest(DbBackend dataStore);
   Future convoluteUnchunkedRequest(
-      HttpClientRequest request, PolicyIdentity identity, String addCookie);
+      HttpClientRequest request, AuthenticatorIdentity identity, String addCookie);
   Future convoluteChunkedRequest(
-      HttpClientRequest request, PolicyIdentity identity, String addCookie);
+      HttpClientRequest request, AuthenticatorIdentity identity, String addCookie);
 
-  Future hijackUnauthorizedMethod(
-      Stream<List<int>> input,
-      StreamSink<List<int>> output,
-      String method,
-      Uri uri,
-      Map<String, Object> headers);
-  Future<PolicyIdentity> createEmptyPolicyIdentity(
+  Future<AuthenticatorIdentity> createEmptyPolicyIdentity(
       String psid, String serviceAccount);
-  Future<PolicyIdentity> createPolicyIdentityFromState(
+  Future<AuthenticatorIdentity> createPolicyIdentityFromState(
       LocalSessionData session,
       String serviceAccount,
       DbBackend dbBackend,

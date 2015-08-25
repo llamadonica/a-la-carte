@@ -5,6 +5,8 @@ import 'dart:isolate';
 
 class LocalSessionData {
   final String tsid;
+  final SendPort master;
+
   String serviceAccount;
   String psid;
   String fullName;
@@ -14,7 +16,6 @@ class LocalSessionData {
   bool mustRecertify = false;
   bool isAuthenticated = false;
   int lastSeenTime;
-  final SendPort master;
 
   DateTime expires;
   LocalSessionData(String this.tsid, DateTime this.expires,

@@ -7,9 +7,16 @@ import 'package:dice/dice.dart';
 import 'logger.dart';
 import 'session_listener.dart';
 
-class SessionMaster {
-  @inject Logger _defaultLogger;
-  final int _delegates;
+abstract class SessionMaster {
+  SendPort get httpSendPort;
+  void spinUpConnectors();
+}
+
+class SessionMasterImpl extends SessionMaster {
+  @inject
+  @Named('a_la_carte.server.session_master.quantityOfSessionDelegates')
+  int _delegates;
+
   int _initialLoadOrder = 0;
   final Map<String, SendPort> _sessionHandlers;
   final Map<String, List<SendPort>> _sessionHandlerFutures = new Map();
@@ -18,23 +25,27 @@ class SessionMaster {
   final ReceivePort _sessionReceivePort;
   final ReceivePort _httpReceivePort;
 
+  @inject Logger _defaultLogger;
+
   SendPort get httpSendPort => _httpReceivePort.sendPort;
 
-  SessionMaster(int this._delegates)
+  SessionMasterImpl()
       : _sessionHandlers = new Map<String, SendPort>(),
         _sessionHandlerByOrderOfLoad = new SplayTreeMap<int, SendPort>(),
         _sessionHandlerLoad = new Map<SendPort, int>(),
         _sessionReceivePort = new ReceivePort(),
-        _httpReceivePort = new ReceivePort() {
-    print('${new DateTime.now()}\tSession master spinning up.');
-    _sessionReceivePort.listen(listenForSessionListenerRequest);
-    _httpReceivePort.listen(listenForHttpListenerRequest);
+        _httpReceivePort = new ReceivePort();
+
+  void spinUpConnectors() {
+    _defaultLogger('${new DateTime.now()}\tSession master spinning up.');
+    _sessionReceivePort.listen(_listenForSessionListenerRequest);
+    _httpReceivePort.listen(_listenForHttpListenerRequest);
     for (var i = 0; i < _delegates; i++) {
       Isolate.spawn(_createSessionDelegate, [_sessionReceivePort.sendPort, i]);
     }
   }
 
-  void listenForHttpListenerRequest(List args) {
+  void _listenForHttpListenerRequest(List args) {
     var basicFunction = args[0] as String;
     switch (basicFunction) {
       case 'getSessionDelegateByTsidOrCreateNew':
@@ -46,7 +57,7 @@ class SessionMaster {
     }
   }
 
-  void listenForSessionListenerRequest(List args) {
+  void _listenForSessionListenerRequest(List args) {
     var basicFunction = args[0] as String;
     switch (basicFunction) {
       case 'sessionAdded':
@@ -57,6 +68,9 @@ class SessionMaster {
         return;
       case 'createdSessionDelegate':
         _createdSessionDelegate(args[1]);
+        return;
+      case 'interprocessLog':
+        _defaultLogger(args[1], priority: LoggerPriority.values[args[2]]);
         return;
       default:
         throw new StateError(
@@ -117,7 +131,10 @@ class SessionMaster {
   }
 
   static void _createSessionDelegate(List args) {
-    var sessionDelegate = new SessionListener(args[0], args[1]);
+    void _interprocessLog(String message, {LoggerPriority priority: LoggerPriority.info}) {
+      args[0].send(['interprocessLog', message, priority.index]);
+    }
+    var sessionDelegate = new SessionListener(args[0], args[1], _interprocessLog);
     sessionDelegate.listen();
   }
 }

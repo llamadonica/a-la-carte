@@ -213,6 +213,7 @@ class ALaCarteMainView extends PolymerElement implements AppPager {
       return;
     }
     if (event.path.length == 1 && event.symbol.containsKey('seq')) {
+      window.console.log(event.symbol);
       if (event.symbol.containsKey('deleted')) {
         appPresenter.receiveAuthenticationSessionData();
         subscription.value.cancel();

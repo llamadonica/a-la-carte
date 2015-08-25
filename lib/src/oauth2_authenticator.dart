@@ -5,46 +5,36 @@ import 'dart:io';
 import 'dart:convert';
 
 import 'package:uuid/uuid.dart';
+import 'package:dice/dice.dart';
 import 'package:oauth2/oauth2.dart' as oauth2;
 
 import 'db_backend.dart';
-import 'policy_validator.dart';
+import 'authenticator.dart';
 import 'local_session_data.dart';
 
 
-class OAuth2PolicyValidator extends PolicyValidator {
+class OAuth2Authenticator extends Authenticator {
   // TODO: Move this to a config file.
-  static const String _oauth2ClientId =
-  '121943999603-3spq3v4u3ad49v67go56pe5t6t5o0ivu.apps.googleusercontent.com';
-  static const String _oauth2ClientSecret = 'XH7Vsmfeb_Jl9Ywf3Ng6TSTP';
-  static const String _oauth2AuthorizationEndpoint =
-  'https://accounts.google.com/o/oauth2/auth';
-  static const String _oauth2TokenEndpoint =
-  'https://accounts.google.com/o/oauth2/token';
-  static const String _oauth2Redirect =
-  'http://www.a-la-carte.com:8080/_auth/landing';
+  @inject
+  @Named('a_la_carte.server.oauth2_policy_validator.oauth2ClientId')
+  String _oauth2ClientId;
 
-  @override
-  Future convoluteChunkedRequest(
-      HttpClientRequest request, PolicyIdentity identity, String addCookie) {
-    // TODO: implement convoluteChunkedRequest
-  }
+  @inject
+  @Named('a_la_carte.server.oauth2_policy_validator.oauth2ClientSecret')
+  String _oauth2ClientSecret;
 
-  @override
-  Future convoluteUnchunkedRequest(
-      HttpClientRequest request, PolicyIdentity identity, String addCookie) {
-    // TODO: implement convoluteUnchunkedRequest
-  }
+  @inject
+  @Named('a_la_carte.server.oauth2_policy_validator.oauth2AuthorizationEndpoint')
+  String _oauth2AuthorizationEndpoint;
 
-  @override
-  Future hijackUnauthorizedMethod(
-      Stream<List<int>> input,
-      StreamSink<List<int>> output,
-      String method,
-      Uri uri,
-      Map<String, Object> headers) {
-    // TODO: implement hijackUnauthorizedMethod
-  }
+  @inject
+  @Named('a_la_carte.server.oauth2_policy_validator.oauth2TokenEndpoint')
+  String _oauth2TokenEndpoint;
+
+  @inject
+  @Named('a_la_carte.server.oauth2_policy_validator.oauth2Redirect')
+  String _oauth2Redirect;
+
 
   @override
   Future prepareUnauthorizedRequest(DbBackend dataStore) async {
@@ -89,12 +79,12 @@ class OAuth2PolicyValidator extends PolicyValidator {
   }
 
   @override
-  Future<PolicyIdentity> createEmptyPolicyIdentity(
+  Future<AuthenticatorIdentity> createEmptyPolicyIdentity(
       String psid, String serviceAccount) async {
-    return new OAuth2PolicyIdentity(null, serviceAccount);
+    return new OAuth2AuthenticatorIdentity(null, serviceAccount);
   }
 
-  Future<PolicyIdentity> createPolicyIdentityFromState(
+  Future<AuthenticatorIdentity> createPolicyIdentityFromState(
       LocalSessionData session,
       String serviceAccount,
       DbBackend dbBackend,
@@ -169,13 +159,6 @@ class OAuth2PolicyValidator extends PolicyValidator {
         }
         dbBackend.makeServicePut(psidUri, credentials);
       }
-      if (notifyOnAuth != null) {
-        final originalDocumentIdAndRev = notifyOnAuth.split(',');
-        final originalDocumentId = originalDocumentIdAndRev[0];
-        final originalDocumentRev = originalDocumentIdAndRev[1];
-        dbBackend.makeServiceDelete(
-            Uri.parse('/a_la_carte/$originalDocumentId'), originalDocumentRev);
-      }
       final identity = await _createPolicyIdentityFromCredentialedClient(
           psid,
           serviceAccount,
@@ -187,7 +170,7 @@ class OAuth2PolicyValidator extends PolicyValidator {
     return null;
   }
 
-  Future<PolicyIdentity> _createPolicyIdentityFromCredentialedClient(
+  Future<AuthenticatorIdentity> _createPolicyIdentityFromCredentialedClient(
       String psid,
       String serviceAccount,
       oauth2.Client client,
@@ -197,7 +180,7 @@ class OAuth2PolicyValidator extends PolicyValidator {
     await client.get('https://www.googleapis.com/oauth2/v2/userinfo');
     final JsonDecoder jsonDecoder = new JsonDecoder();
     final responseMap = jsonDecoder.convert(response.body);
-    final identity = new OAuth2PolicyIdentity(psid, serviceAccount)
+    final identity = new OAuth2AuthenticatorIdentity(psid, serviceAccount)
       ..email = responseMap['email']
       ..fullName = responseMap['name']
       ..picture = responseMap['picture'];
@@ -205,12 +188,12 @@ class OAuth2PolicyValidator extends PolicyValidator {
   }
 }
 
-class OAuth2PolicyIdentity extends PolicyIdentity {
+class OAuth2AuthenticatorIdentity extends AuthenticatorIdentity {
   final String id;
   final String serviceAccount;
 
   String email;
   String fullName;
   String picture;
-  OAuth2PolicyIdentity(String this.id, String this.serviceAccount);
+  OAuth2AuthenticatorIdentity(String this.id, String this.serviceAccount);
 }

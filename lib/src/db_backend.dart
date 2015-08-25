@@ -8,7 +8,7 @@ class ServiceError {
   ServiceError(Map this.result);
 }
 
-abstract class DbBackend extends RequestHijacker {
+abstract class DbBackend {
   Future<Map> makeServiceGet(Uri uri);
   Future<Map> makeServicePut(Uri uri, Map message, [String revId = null]);
   Future makeServiceDelete(Uri uri, String revId);

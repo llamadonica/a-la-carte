@@ -6,19 +6,21 @@ import 'package:uuid/uuid.dart';
 import 'package:dice/dice.dart';
 
 import 'local_session_data.dart';
-import 'policy_validator.dart';
+import 'authenticator.dart';
 import 'logger.dart';
 
-class SessionClient {
-  @inject Logger _defaultLogger;
-  final SendPort _sessionMasterSendPort;
+abstract class SessionClient {
+  Logger get defaultLogger;
+
+  SendPort get sessionMasterSendPort;
+
   final ReceivePort _sessionMessagePort = new ReceivePort();
   static const int _expirationDelay = 3000000;
 
   Map<String, LocalSessionData> sessions = new Map<String, LocalSessionData>();
   Map<String, Future> _pendingSessions = new Map<String, Future>();
 
-  SessionClient(SendPort this._sessionMasterSendPort) {
+  SessionClient() {
     _sessionMessagePort.listen(_handleSessionClientRequest);
   }
 
@@ -53,7 +55,7 @@ class SessionClient {
       String tsid, int currentTimeInMillisecondsSinceEpoch, String psid) async {
     //_defaultLogger('$tsid: Looking up session $tsid.', false);
     final ReceivePort response = new ReceivePort();
-    _sessionMasterSendPort
+    sessionMasterSendPort
         .send(['getSessionDelegateByTsidOrCreateNew', tsid, response.sendPort]);
     var data = await response.first;
     if (data[1]) {
@@ -147,8 +149,8 @@ class SessionClient {
       String tsid,
       int currentTimeInMillisecondsSinceEpoch,
       String psid,
-      PolicyIdentity identity) async {
-    _defaultLogger('$tsid: received authorization.');
+      AuthenticatorIdentity identity) async {
+    defaultLogger('$tsid: received authorization.');
     sessions[tsid]
       ..psid = psid
       ..serviceAccount = identity.serviceAccount

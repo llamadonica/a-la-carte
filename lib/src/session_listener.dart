@@ -9,7 +9,7 @@ import 'logger.dart';
 import 'global_session_data.dart';
 
 class SessionListener {
-  @inject Logger _defaultLogger;
+  final Logger _defaultLogger;
   final Map<String, GlobalSessionData> _sessions;
   final Set<String> _recentlyExpiredSessions;
   final Map<String, List<SendPort>> _waitingInitialReplyPorts = new Map();
@@ -19,7 +19,7 @@ class SessionListener {
 
   SendPort myPort;
 
-  SessionListener(SendPort this.sessionMaster, int this.sessionIdNumber)
+  SessionListener(SendPort this.sessionMaster, int this.sessionIdNumber, Logger this._defaultLogger)
       : _sessions = new Map<String, GlobalSessionData>(),
         _recentlyExpiredSessions = new Set<String>();
 
@@ -319,8 +319,14 @@ class SessionListener {
             expirationTimeInMillisecondsSinceEpoch),
         new DateTime.fromMillisecondsSinceEpoch(
             currentTimeInMillisecondsSinceEpoch),
-        _expireSession,
-        psid)..sendPorts.add(responsePort);
+        psid);
+
+    session
+      ..sendPorts.add(responsePort)
+      ..expireSession = () {
+      _expireSession(session);
+    };
+
     if (_waitingReplyPorts.containsKey(tsid)) {
       session.sendPorts.addAll(_waitingReplyPorts[tsid]);
       _waitingInitialReplyPorts[tsid]

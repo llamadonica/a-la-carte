@@ -10,25 +10,19 @@ import 'package:shelf/shelf_io.dart' as io;
 import 'package:uuid/uuid.dart';
 import 'package:stack_trace/stack_trace.dart' as stack_trace;
 
-import 'policy_validator.dart';
+import 'authenticator.dart';
 import 'session_client.dart';
 import 'shelf_utils.dart';
 import 'db_backend.dart';
 import 'local_session_data.dart';
+import 'logger.dart';
 
 abstract class HttpListenerIsolate extends SessionClient {
   void listen();
-  HttpListenerIsolate(SendPort sessionMasterSendPort) : super(sessionMasterSendPort);
+  HttpListenerIsolate() : super();
 }
 
 class HttpListenerIsolateImpl extends HttpListenerIsolate {
-  @inject
-  DbBackend _dbConnection;
-  @inject
-  PolicyValidator _policyModule;
-
-  final int _port;
-  final int _isolateId;
 
   static const String _selfClosingPage = """
 <!DOCTYPE html>
@@ -43,7 +37,7 @@ class HttpListenerIsolateImpl extends HttpListenerIsolate {
 
 """;
 
-  String _errorPage(int errorNumber, String description) => """
+  static String _errorPage(int errorNumber, String description) => """
 <!DOCTYPE html>
 <html>
 <head><title>$errorNumber ${statusReasons[errorNumber]}</title></head>
@@ -60,8 +54,6 @@ $description
   static const String _user = 'a_la_carte';
   static const String _password = 'a_la_carte';
   static const int _responseShouldCascade = 550;
-  final int _couchPort;
-  final bool _debugOverWire;
   static const List<String> _servedStatic = const [
     //'index.html',
     'a_la_carte.scss',
@@ -82,12 +74,28 @@ $description
     '_static'
   ];
 
+
+
+  @inject
+  DbBackend _dbConnection;
+  @inject
+  Authenticator _authenticationModule;
+  @inject
+  Logger defaultLogger;
+
+  @inject
+  @Named('a_la_carte.server.http_server_listener.httpServerPort')
+  int _port;
+
+  @inject
+  @Named('a_la_carte.server.http_server_listener.sessionMasterSendPort')
+  SendPort sessionMasterSendPort;
+
   final Map<String, DateTime> _refresh = new Map<String, DateTime>();
   final Map<String, Timer> _refreshTimeout = new Map<String, Timer>();
 
-
-  HttpListenerIsolateImpl(int this._port, int this._isolateId, SendPort sessionMasterSendPort, bool this._debugOverWire)
-      : super(sessionMasterSendPort);
+  @inject
+  HttpListenerIsolateImpl();
 
   shelf.Handler _addCookies(shelf.Handler innerHandler) =>
       (shelf.Request request) async {
@@ -192,7 +200,7 @@ $description
     var sessionLock =
         await lockSessionForPassiveAuthentication(session, timestamp);
     if (sessionLock[0]) {
-      var policy = await _policyModule.createPolicyIdentityFromState(
+      var policy = await _authenticationModule.createPolicyIdentityFromState(
           session, _user, _dbConnection, timestamp);
       if (policy == null) {
         unlockSessionAfterPassiveAuthenticationFailed(session);
@@ -229,7 +237,7 @@ $description
     var sessionLock =
         await lockSessionForActiveAuthentication(session, timestamp);
     if (sessionLock[0]) {
-      var policy = await _policyModule.createPolicyIdentityFromState(
+      var policy = await _authenticationModule.createPolicyIdentityFromState(
           session, _user, _dbConnection, timestamp,
           code: code,
           notifyOnAuth: state,
@@ -240,6 +248,11 @@ $description
       } else {
         await pushClientAuthorizationToMasterAfterAuthentication(
             session.tsid, timestamp, psid, policy);
+        final originalDocumentIdAndRev = state.split(',');
+        final originalDocumentId = originalDocumentIdAndRev[0];
+        final originalDocumentRev = originalDocumentIdAndRev[1];
+        new Future(() => _dbConnection.makeServiceDelete(
+            Uri.parse('/a_la_carte/$originalDocumentId'), originalDocumentRev));
         return session;
       }
     } else if (sessionLock[1]) {
@@ -267,9 +280,8 @@ $description
   Future listen() async {
     final socket =
         await ServerSocket.bind(InternetAddress.ANY_IP_V4, _port, shared: true);
-    assert(_policyModule == null);
-    _policyModule = new OAuth2PolicyValidator();
-    assert(_dbConnection == null);
+    assert(_authenticationModule != null);
+    assert(_dbConnection != null);
     /* _dbConnection = new CouchDbBackend(
         couchPort, _user, _password, _policyModule, _debugOverWire); */
 
@@ -289,7 +301,7 @@ $description
     var server = new HttpServer.listenOn(socket);
     _logTopLevelErrors(server, handler);
     print('${new DateTime.now()}\tServing at http://'
-        '${server.address.host}:${server.port} (Listener $_isolateId)');
+        '${server.address.host}:${server.port}');
   }
 
   shelf.Handler _addTimestamp(shelf.Handler innerHandle) =>
@@ -374,7 +386,7 @@ $description
         return response;
       } else {
         try {
-          await _policyModule.prepareUnauthorizedRequest(_dbConnection);
+          await _authenticationModule.prepareUnauthorizedRequest(_dbConnection);
         } catch (error, stackTrace) {
           if (error is PolicyStateError) {
             shelf.Response response;

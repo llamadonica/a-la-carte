@@ -263,7 +263,7 @@ class ALaCartePresenter extends PolymerElement implements Presenter {
   void connectTo(String uri, JsonEventRouter router,
       {bool isImplicitArray: false}) {
     final jsonHandler = new JsonStreamingParser(isImplicitArray);
-    final subscription = new _Ref<StreamSubscription>();
+    final subscription = new Ref<StreamSubscription>();
     subscription.value = jsonHandler.onSymbolComplete
         .listen((event) => router(event, subscription));
 
@@ -377,7 +377,6 @@ class ALaCartePresenter extends PolymerElement implements Presenter {
 
   void _routeChangeEvent(
       JsonStreamingEvent event, Ref<StreamSubscription> subscription) {
-    window.console.log('Got an event ${event.path}');
     if (event.path.length == 1) {
       if (event.symbol.containsKey('seq') &&
           event.symbol.containsKey('id') &&
@@ -386,7 +385,7 @@ class ALaCartePresenter extends PolymerElement implements Presenter {
           ALaCarteCardView cardView = $['main-view'].$['card-view'];
           cardView.visuallyRippleProject(event.symbol['id']);
           final thisProject = projectsByUuid[event.symbol['id']];
-          if (!thisProject.isChanged) {
+          if (thisProject != null && !thisProject.isChanged) {
             thisProject.initFromJSON(event.symbol['doc']);
             if (thisProject.jobNumber != thisProject.jobNumberInPresortedList) {
               Project.repositionInPresortedList(projects, thisProject);
@@ -399,7 +398,7 @@ class ALaCartePresenter extends PolymerElement implements Presenter {
           event.symbol.containsKey('id') &&
           event.symbol.containsKey('deleted')) {
         final thisProject = projectsByUuid[event.symbol['id']];
-        if (!thisProject.isChanged) {
+        if (thisProject != null && !thisProject.isChanged) {
           projectsByUuid.remove(thisProject.id);
           Project.removeFromPresortedList(projects, thisProject);
         }
@@ -410,7 +409,7 @@ class ALaCartePresenter extends PolymerElement implements Presenter {
         _currentChangeSeq = event.symbol['last_seq'];
         subscription.value.cancel();
         if (document.visibilityState == 'hidden') {
-          final subscription = new _Ref<StreamSubscription>();
+          final subscription = new Ref<StreamSubscription>();
           subscription.value = document.onVisibilityChange
               .listen((event) => _windowBecomesVisible(event, subscription));
         } else {

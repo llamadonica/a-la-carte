@@ -7,7 +7,7 @@ import 'dart:collection';
 
 class GlobalSessionData {
   final String tsid;
-  final Function _expireSession;
+
 
   bool isLockedForPassiveAuthentication = false;
   bool isLockedForActiveAuthentication = false;
@@ -28,15 +28,21 @@ class GlobalSessionData {
       new HashSet<SendPort>();
 
   DateTime _expires;
+  Function _expireSession;
   String serviceAccount;
   String email;
   String fullName;
   String picture;
 
   DateTime get expires => _expires;
-
   void set expires(DateTime value) {
     _expires = value;
+    _updateExpirationTimer();
+  }
+
+  Function get expireSession => _expireSession;
+  void set expireSession(Function value) {
+    _expireSession = value;
     _updateExpirationTimer();
   }
 
@@ -45,16 +51,15 @@ class GlobalSessionData {
 
   GlobalSessionData(String this.tsid, DateTime this._expires,
       DateTime this.lastRefreshed,
-                    Function this._expireSession,
-      [String this.psid = null, String this.identifier = null]) {
-    _updateExpirationTimer();
-  }
+      [String this.psid = null, String this.identifier = null]);
 
   void _updateExpirationTimer() {
     if (removeTimer != null) {
       removeTimer.cancel();
     }
-    removeTimer = new Timer(_expires.difference(lastRefreshed), _expireSession);
+    if (_expires != null && _expireSession != null) {
+      removeTimer = new Timer(_expires.difference(lastRefreshed), expireSession);
+    }
   }
 }
 
