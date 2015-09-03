@@ -3,7 +3,6 @@ import 'dart:isolate';
 import 'dart:async';
 
 import 'package:uuid/uuid.dart';
-import 'package:dice/dice.dart';
 
 import 'local_session_data.dart';
 import 'authenticator.dart';

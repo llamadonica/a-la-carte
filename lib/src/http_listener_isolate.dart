@@ -4,7 +4,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:isolate';
 
-import 'package:dice/dice.dart';
+import 'package:d17/d17.dart';
 import 'package:shelf/shelf.dart' as shelf;
 import 'package:shelf/shelf_io.dart' as io;
 import 'package:uuid/uuid.dart';
@@ -15,6 +15,7 @@ import 'session_client.dart';
 import 'shelf_utils.dart';
 import 'db_backend.dart';
 import 'local_session_data.dart';
+import 'http_db_backend_adapter.dart';
 import 'logger.dart';
 
 abstract class HttpListenerIsolate extends SessionClient {
@@ -78,8 +79,13 @@ $description
 
   @inject
   DbBackend _dbConnection;
+
+  @InjectAdapter(from: #_dbConnection)
+  HttpDbBackendAdapter _dbHttpAdapter;
+
   @inject
   Authenticator _authenticationModule;
+
   @inject
   Logger defaultLogger;
 
@@ -92,8 +98,7 @@ $description
   final Map<String, DateTime> _refresh = new Map<String, DateTime>();
   final Map<String, Timer> _refreshTimeout = new Map<String, Timer>();
 
-  @inject
-  HttpListenerIsolateImpl();
+  @inject  HttpListenerIsolateImpl();
 
   shelf.Handler _addCookies(shelf.Handler innerHandler) =>
       (shelf.Request request) async {
@@ -287,7 +292,7 @@ $description
         .add(_authLandingHandler)
         .add(_authLoginHandler)
         .add(_authSessionHandler)
-        .add(_handleJsonRequest(_dbConnection))
+        .add(_handleJsonRequest)
         .add(_handleStaticFileRequest);
 
     var handler = const shelf.Pipeline()
@@ -328,12 +333,11 @@ $description
     return false;
   }
 
-  shelf.Handler _handleJsonRequest(DbBackend datastore) =>
-      (shelf.Request request) {
+  dynamic _handleJsonRequest(shelf.Request request) {
         if (!_isJsonRequest(request)) {
           return new shelf.Response(_responseShouldCascade);
         }
-        request.hijack((input, output) => datastore.hijackRequest(
+        return request.hijack((input, output) => _dbHttpAdapter.hijackRequest(
             input,
             output,
             request.method,
@@ -342,7 +346,7 @@ $description
             request.context['tsid'],
             request.context['askForPushSession'],
             request.context['session']));
-      };
+      }
 
   dynamic _authLandingHandler(shelf.Request request) async {
     if (request.url.path == '_auth/landing') {

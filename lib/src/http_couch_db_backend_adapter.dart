@@ -1,9 +1,32 @@
-library a_la_carte.server.http_db_backend_adapter;
+library a_la_carte.server.http_couch_db_backend_adapter;
 
-import 'db_backend.dart';
+import 'dart:async';
+import 'dart:convert';
+import 'dart:io';
+
+import 'package:d17/d17.dart';
+import 'package:shelf/shelf.dart' as shelf;
+
+import 'local_session_data.dart';
 import 'http_db_backend_adapter.dart';
+import 'couch_db_backend.dart';
+import 'ref.dart';
+import 'authenticator.dart';
+import 'logger.dart';
+import 'shelf_utils.dart';
 
-class HttpCouchDbBackendAdapter implements HttpDbBackendAdapter<CouchDbBackend> {
+class HttpCouchDbBackendAdapter implements HttpDbBackendAdapter {
+  @from CouchDbBackend _dbConnection;
+
+  @inject Authenticator _policyHandler;
+
+  @inject HttpClient _httpClient;
+
+  @inject Logger defaultLogger;
+
+  @Inject(name: 'a_la_carte.server.debugOverWire')
+  bool _debugOverWire;
+
   Future hijackRequest(
       Stream<List<int>> input,
       StreamSink<List<int>> output,
@@ -17,14 +40,13 @@ class HttpCouchDbBackendAdapter implements HttpDbBackendAdapter<CouchDbBackend> 
         scheme: uri.scheme,
         userInfo: uri.userInfo,
         host: '127.0.0.1',
-        port: _port,
+        port: _dbConnection.port,
         pathSegments: uri.pathSegments,
         queryParameters: uri.queryParameters,
         fragment: uri.fragment);
-    await _ensureHasValidated();
+    await _dbConnection.ensureHasValidated();
     try {
-      _policyHandler.validateMethodIsPermittedOnResource(
-          method, uri, this, session);
+      _policyHandler.validateMethodIsPermittedOnResource(method, uri, _dbConnection, session);
     } catch (error) {
       var contentLength = new Ref<int>();
       var postRequestIsChunked = false;
@@ -54,7 +76,7 @@ class HttpCouchDbBackendAdapter implements HttpDbBackendAdapter<CouchDbBackend> 
     for (var header in headers.keys) {
       request.headers.add(header, headers[header]);
     }
-    for (var cookie in _authCookie) {
+    for (var cookie in _dbConnection.authCookie) {
       request.headers.add(HttpHeaders.COOKIE, cookie);
     }
     bool postRequestIsChunked = false;

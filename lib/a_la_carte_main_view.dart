@@ -114,6 +114,10 @@ class ALaCarteMainView extends PolymerElement implements AppPager {
     appPresenter.connectTo('/_auth/login', _routeProjectLoginReply);
   }
 
+  void tapAccountInfo(MouseEvent event) {
+    $['personal-info-dropdown'].toggle();
+  }
+
   void _onAppNavigationEvent(List<String> event) {
     if (event.length < 1) {
       appPresenter.setUrl('/+all', '');

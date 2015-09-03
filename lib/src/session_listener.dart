@@ -3,8 +3,6 @@ library a_la_carte.server.session_listener;
 import 'dart:isolate';
 import 'dart:collection';
 
-import 'package:dice/dice.dart';
-
 import 'logger.dart';
 import 'global_session_data.dart';
 

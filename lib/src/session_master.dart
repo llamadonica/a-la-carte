@@ -2,7 +2,7 @@ library a_la_carte.server.session_master;
 import 'dart:collection';
 import 'dart:isolate';
 
-import 'package:dice/dice.dart';
+import 'package:d17/d17.dart';
 
 import 'logger.dart';
 import 'session_listener.dart';

@@ -1,8 +1,9 @@
 library a_la_carte.server.http_db_backend_adapter;
 
-import 'db_backend.dart';
+import 'dart:async';
+import 'local_session_data.dart';
 
-class HttpDbBackendAdapter<T extends DbBackend> {
+abstract class HttpDbBackendAdapter {
   Future hijackRequest(
       Stream<List<int>> input,
       StreamSink<List<int>> output,

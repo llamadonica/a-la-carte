@@ -10,7 +10,10 @@ dependencies:
   polymer: any
   sass: any
   oauth2: any
-  dice: any
+  d17:
+    git:
+      ref: testing
+      url: https://github.com/llamadonica/d17.git
   shelf:
     git:
       ref: master

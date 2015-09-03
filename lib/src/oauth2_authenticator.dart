@@ -5,7 +5,7 @@ import 'dart:io';
 import 'dart:convert';
 
 import 'package:uuid/uuid.dart';
-import 'package:dice/dice.dart';
+import 'package:d17/d17.dart';
 import 'package:oauth2/oauth2.dart' as oauth2;
 
 import 'db_backend.dart';

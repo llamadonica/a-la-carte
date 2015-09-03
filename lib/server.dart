@@ -11,7 +11,7 @@ import 'package:shelf/shelf_io.dart' as io;
 import 'package:stack_trace/stack_trace.dart' as stack_trace;
 import 'package:uuid/uuid.dart';
 import 'package:oauth2/oauth2.dart' as oauth2;
-import 'package:dice/dice.dart';
+import 'package:d17/d17.dart';
 
 import 'src/couch_db_backend.dart';
 import 'src/db_backend.dart';
