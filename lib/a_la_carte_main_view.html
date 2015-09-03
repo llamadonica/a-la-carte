@@ -34,7 +34,7 @@
 <link rel="import" href="../../packages/a_la_carte/a_la_carte_card_view.html">
 
 <polymer-element name="a-la-carte-main-view"
-                 attributes="project projects wide appSelected prevAppSelected responsiveWidth projectsAreLoaded noProjectsFound selected appPresenter projectsByUuid isLoggedIn userPicture"
+                 attributes="project projects wide appSelected prevAppSelected responsiveWidth projectsAreLoaded noProjectsFound selected appPresenter projectsByUuid isLoggedIn userPicture userName userEmail"
                  vertical
                  layout>
     <template bind>
@@ -78,8 +78,16 @@
             <paper-button affirmative on-tap="{{confirmDiscardEdits}}">Discard</paper-button>
             <paper-button affirmative on-tap="{{cancelDiscardEdits}}">Cancel</paper-button>
         </paper-action-dialog>
-        <paper-dropdown id="personal-info-dropdown">
-          Hi
+          <div id="arrow-holder"><div class="arrow-up"></div></div>
+          <paper-dropdown id="personal-info-dropdown" on-core-overlay-open-completed="{{openArrow}}" on-core-overlay-close-completed="{{removeArrow}}">
+          <h1>User Info</h1>
+          <div class="user-and-email">
+            <div id="personal-info-name">{{userName}}</div>
+            <div id="personal-info-email">{{userEmail}}</div>
+          </div>
+          <div class="button-bar">
+            <paper-button>logout</paper-button>
+          </div>
         </paper-dropdown>
     </template>
     <script type="application/dart" src="a_la_carte_main_view.dart"></script>

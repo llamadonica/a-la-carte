@@ -26,6 +26,8 @@ class ALaCarteMainView extends PolymerElement implements AppPager {
   @published String responsiveWidth;
   @published bool isLoggedIn;
   @published String userPicture;
+  @published String userName;
+  @published String userEmail;
 
   @observable String projectEditViewCaption = "Add a project";
   @observable ALaCartePageCommon currentPage;
@@ -68,10 +70,7 @@ class ALaCarteMainView extends PolymerElement implements AppPager {
   }
 
   selectedChanged(int oldValue) {
-    if (selected == 1 &&
-        project != null &&
-        project.isChanged &&
-        project.committed) {
+    if (selected == 1 && project != null && project.isChanged && project.committed) {
       appPresenter.setUrl('/+edit/${project.id}', '');
     } else if (selected == 1 && project == null) {
       appPresenter.setUrl('/+view/${_projectLookupId}', '');
@@ -85,10 +84,7 @@ class ALaCarteMainView extends PolymerElement implements AppPager {
     } else {
       currentPage = pages[selected];
     }
-    if (project != null &&
-        project.isChanged &&
-        selected == 0 &&
-        selectedPage == 1) {
+    if (project != null && project.isChanged && selected == 0 && selectedPage == 1) {
       PaperActionDialog discardDialog = $['discardDialog'];
       discardDialog.open();
       return;
@@ -116,6 +112,16 @@ class ALaCarteMainView extends PolymerElement implements AppPager {
 
   void tapAccountInfo(MouseEvent event) {
     $['personal-info-dropdown'].toggle();
+  }
+
+  void openArrow(CustomEvent event) {
+    $['arrow-holder'].classes.add('showing');
+    $['arrow-holder'].style.opacity = '1';
+  }
+
+  void removeArrow(CustomEvent event) {
+    $['arrow-holder'].classes.remove('showing');
+    $['arrow-holder'].style.opacity = '0';
   }
 
   void _onAppNavigationEvent(List<String> event) {
@@ -178,14 +184,11 @@ class ALaCarteMainView extends PolymerElement implements AppPager {
   @override void reportError(ErrorReportModule module, String errorMessage) =>
       appPresenter.reportError(module, errorMessage);
 
-  @override Future<int> nextJobNumber(int year) =>
-      appPresenter.nextJobNumber(year);
+  @override Future<int> nextJobNumber(int year) => appPresenter.nextJobNumber(year);
 
-  void _routeProjectLoginReply(
-      JsonStreamingEvent event, Ref<StreamSubscription> subscription) {
+  void _routeProjectLoginReply(JsonStreamingEvent event, Ref<StreamSubscription> subscription) {
     if (event.status == 401 && event.path.length == 0) {
-      if (event.symbol.containsKey('auth_uri') &&
-          event.symbol.containsKey('auth_watcher_id')) {
+      if (event.symbol.containsKey('auth_uri') && event.symbol.containsKey('auth_watcher_id')) {
         appPresenter.showAuthLogin(event.symbol['auth_uri']);
         final activeAuthorizationSubscription = event.symbol["auth_watcher_id"];
         appPresenter.connectTo(
@@ -208,10 +211,8 @@ class ALaCarteMainView extends PolymerElement implements AppPager {
     }
   }
 
-  void _routeProjectAuthorizationReply(
-      JsonStreamingEvent event,
-      Ref<StreamSubscription> subscription,
-      String activeAuthorizationSubscription) {
+  void _routeProjectAuthorizationReply(JsonStreamingEvent event,
+      Ref<StreamSubscription> subscription, String activeAuthorizationSubscription) {
     if (event.status >= 300) {
       subscription.value.cancel();
       return;
