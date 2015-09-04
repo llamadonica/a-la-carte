@@ -70,6 +70,12 @@ class ALaCartePresenter extends PolymerElement implements Presenter {
       var url = window.location.hash.replaceFirst(regExp, '/');
       _goToUrl(url, setPathFromFragment: true);
     }
+    final Completer receivingAuthenticationSessionDataCompleter =
+        new Completer();
+    connectTo(
+        '/_auth/session',
+        (event, subscription) => _routeAuthSessionEvent(
+            event, subscription, receivingAuthenticationSessionDataCompleter));
     window.onPopState.listen(_popState);
   }
 
@@ -119,8 +125,10 @@ class ALaCartePresenter extends PolymerElement implements Presenter {
 
   Future _getSessionUserName() {
     final completer = new Completer();
-    connectTo('/_session', (event, subscription) =>
-        _routeSessionEvent(event, subscription, completer));
+    connectTo(
+        '/_session',
+        (event, subscription) =>
+            _routeSessionEvent(event, subscription, completer));
     return completer.future;
   }
 
@@ -229,7 +237,8 @@ class ALaCartePresenter extends PolymerElement implements Presenter {
     if (_receivingAuthenticationSessionData == null) {
       final Completer receivingAuthenticationSessionDataCompleter =
           new Completer();
-      connectTo('/_auth/session',
+      connectTo(
+          '/_auth/session',
           (event, subscription) => _routeAuthSessionEvent(event, subscription,
               receivingAuthenticationSessionDataCompleter));
       _receivingAuthenticationSessionData =
@@ -238,7 +247,8 @@ class ALaCartePresenter extends PolymerElement implements Presenter {
     return _receivingAuthenticationSessionData;
   }
 
-  void _routeAuthSessionEvent(JsonStreamingEvent event,
+  void _routeAuthSessionEvent(
+      JsonStreamingEvent event,
       Ref<StreamSubscription> subscription,
       Completer receivingAuthenticationSessionDataCompleter) {
     if (event.status == 200 && event.path.length == 0 && !isLoggedIn) {
@@ -281,7 +291,8 @@ class ALaCartePresenter extends PolymerElement implements Presenter {
       var previouslyGotHeaders = new Ref.withValue(false);
       _request.onProgress.listen((ProgressEvent event) {
         if (previouslyGotHeaders.value && _request.readyState >= 2) {
-          if (_request.responseHeaders.containsKey('X-Push-Session-Data') && !isLoggedIn) {
+          if (_request.responseHeaders.containsKey('X-Push-Session-Data') &&
+              !isLoggedIn) {
             receiveAuthenticationSessionData();
           }
           previouslyGotHeaders.value = true;
@@ -300,7 +311,8 @@ class ALaCartePresenter extends PolymerElement implements Presenter {
           headers: headers,
           mode: RequestMode.sameOrigin,
           credentials: RequestCredentials.sameOrigin).then((Response object) {
-        if (object.headers.callMethod('has', ['X-Push-Session-Data']) && !isLoggedIn) {
+        if (object.headers.callMethod('has', ['X-Push-Session-Data']) &&
+            !isLoggedIn) {
           receiveAuthenticationSessionData();
         }
         jsonHandler.setStreamStateFromResponse(object);
@@ -369,9 +381,11 @@ class ALaCartePresenter extends PolymerElement implements Presenter {
 
   Future _connectToChangeStream() async {
     var account = await getServiceAccountName();
-    connectTo('/a_la_carte/_changes?feed=continuous&include_docs=true&'
+    connectTo(
+        '/a_la_carte/_changes?feed=continuous&include_docs=true&'
         'since=${_currentChangeSeq}&'
-        'filter=projects/projects&account=$account', _routeChangeEvent,
+        'filter=projects/projects&account=$account',
+        _routeChangeEvent,
         isImplicitArray: true);
   }
 

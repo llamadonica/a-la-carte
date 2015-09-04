@@ -11,7 +11,8 @@ import 'package:oauth2/oauth2.dart' as oauth2;
 import 'db_backend.dart';
 import 'authenticator.dart';
 import 'local_session_data.dart';
-
+import 'permission_getter.dart';
+import 'logger.dart';
 
 class OAuth2Authenticator extends Authenticator {
   // TODO: Move this to a config file.
@@ -21,7 +22,9 @@ class OAuth2Authenticator extends Authenticator {
   @Inject(name: 'a_la_carte.server.oauth2_policy_validator.oauth2ClientSecret')
   String _oauth2ClientSecret;
 
-  @Inject(name: 'a_la_carte.server.oauth2_policy_validator.oauth2AuthorizationEndpoint')
+  @Inject(
+      name:
+          'a_la_carte.server.oauth2_policy_validator.oauth2AuthorizationEndpoint')
   String _oauth2AuthorizationEndpoint;
 
   @Inject(name: 'a_la_carte.server.oauth2_policy_validator.oauth2TokenEndpoint')
@@ -30,6 +33,13 @@ class OAuth2Authenticator extends Authenticator {
   @Inject(name: 'a_la_carte.server.oauth2_policy_validator.oauth2Redirect')
   String _oauth2Redirect;
 
+  @Inject(name: 'a_la_carte.server.auth_policy_validator.auth_doc_name')
+  String _authorizationDocName;
+
+  @InjectProxy(from: DbBackend) RetrievePermissions _retrievePermissions;
+
+  @inject
+  Logger defaultLogger;
 
   @override
   Future prepareUnauthorizedRequest(DbBackend dataStore) async {
@@ -46,29 +56,36 @@ class OAuth2Authenticator extends Authenticator {
           Uri.parse(_oauth2TokenEndpoint));
       throw new PolicyStateError.redirect(
           grant
-          .getAuthorizationUrl(Uri.parse(_oauth2Redirect),
-          scopes: ['profile', 'email'], state: '$watchMessage,$revId')
-          .toString(),
+              .getAuthorizationUrl(Uri.parse(_oauth2Redirect),
+                  scopes: ['profile', 'email'], state: '$watchMessage,$revId')
+              .toString(),
           watchMessage,
           revId);
     } catch (error) {
       if (error is ServiceError) {
         error.result['message'] =
-        'I couldn\'t log in a user because I couldn\'t get the list of'
-        ' authorized users from the database.';
+            'I couldn\'t log in a user because I couldn\'t get the list of'
+            ' authorized users from the database.';
         throw new PolicyStateError(error.result);
       } else {
-        throw error;
+        rethrow;
       }
     }
   }
 
   @override
   Future validateMethodIsPermittedOnResource(String method, Uri uri,
-                                             DbBackend dataStore, LocalSessionData session) async {
+      DbBackend dataStore, LocalSessionData session) async {
     if (method == 'GET' || method == 'HEAD') {
       return null;
     } else {
+      if (session.email == null) {
+        return prepareUnauthorizedRequest(dataStore);
+      }
+      List roles = await _retrievePermissions(dataStore, session.email, _authorizationDocName);
+      if (roles.contains('write') || roles.contains('admin')) {
+        return null;
+      }
       return prepareUnauthorizedRequest(dataStore);
     }
   }
@@ -125,9 +142,9 @@ class OAuth2Authenticator extends Authenticator {
 
     if (code != null) {
       grant.getAuthorizationUrl(Uri.parse(_oauth2Redirect),
-      scopes: ['profile', 'email'], state: notifyOnAuth);
+          scopes: ['profile', 'email'], state: notifyOnAuth);
       client = await grant
-      .handleAuthorizationResponse({'code': code, 'state': notifyOnAuth});
+          .handleAuthorizationResponse({'code': code, 'state': notifyOnAuth});
       clientIsNew = true;
     } else if (alsoCheckPassivePath && (await getPsidState()) != null) {
       client = new oauth2.Client(
@@ -147,7 +164,7 @@ class OAuth2Authenticator extends Authenticator {
       if (clientIsNew) {
         final Map psidState = await getPsidState();
         Map credentials =
-        new JsonDecoder().convert(client.credentials.toJson());
+            new JsonDecoder().convert(client.credentials.toJson());
         credentials['type'] = 'persistent_session';
         if (rev != null) {
           credentials['_rev'] = rev;
@@ -172,7 +189,7 @@ class OAuth2Authenticator extends Authenticator {
       String tsid,
       int currentTimeInMillisecondsSinceEpoch) async {
     var response =
-    await client.get('https://www.googleapis.com/oauth2/v2/userinfo');
+        await client.get('https://www.googleapis.com/oauth2/v2/userinfo');
     final JsonDecoder jsonDecoder = new JsonDecoder();
     final responseMap = jsonDecoder.convert(response.body);
     final identity = new OAuth2AuthenticatorIdentity(psid, serviceAccount)

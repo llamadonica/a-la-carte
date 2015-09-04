@@ -46,69 +46,69 @@ class HttpCouchDbBackendAdapter implements HttpDbBackendAdapter {
         fragment: uri.fragment);
     await _dbConnection.ensureHasValidated();
     try {
-      _policyHandler.validateMethodIsPermittedOnResource(method, uri, _dbConnection, session);
-    } catch (error) {
-      var contentLength = new Ref<int>();
-      var postRequestIsChunked = false;
-      if (headers.containsKey('Transfer-Encoding') &&
-      headers['Transfer-Encoding'] == 'chunked') {
+      try {
+        await _policyHandler.validateMethodIsPermittedOnResource(
+            method, uri, _dbConnection, session);
+      } catch (error) {
+        var contentLength = new Ref<int>();
+        var postRequestIsChunked = false;
+        if (headers.containsKey('Transfer-Encoding') &&
+            headers['Transfer-Encoding'] == 'chunked') {
+          postRequestIsChunked = true;
+        } else {
+          try {
+            contentLength.value = int.parse(headers['Content-Length']);
+          } catch (err) {}
+        }
+        final completer = new Completer();
+        input.listen((data) {
+          if (postRequestIsChunked && data.length == 0) {
+          } else if (!postRequestIsChunked) {
+            contentLength.value -= data.length;
+            if (contentLength.value <= 0) {
+              completer.complete();
+            }
+          }
+        });
+        await completer.future;
+        rethrow;
+      }
+      HttpClientRequest request = await _httpClient.openUrl(method, couchUri);
+      for (var header in headers.keys) {
+        request.headers.add(header, headers[header]);
+      }
+      for (var cookie in _dbConnection.authCookie) {
+        request.headers.add(HttpHeaders.COOKIE, cookie);
+      }
+      bool postRequestIsChunked = false;
+      var contentLength = new Ref<int>.withValue(0);
+
+      if (method == 'GET' || method == 'HEAD' || method == 'DELETE') {
+        request.close();
+      } else if (headers.containsKey('Transfer-Encoding') &&
+          headers['Transfer-Encoding'] == 'chunked') {
         postRequestIsChunked = true;
       } else {
         try {
           contentLength.value = int.parse(headers['Content-Length']);
         } catch (err) {
-        }
-      }
-      final completer = new Completer();
-      input.listen((data) {
-        if (postRequestIsChunked && data.length == 0) {
-        } else if (!postRequestIsChunked) {
-          contentLength.value -= data.length;
-          if (contentLength.value <= 0) {
-            completer.complete();
-          }
-        }
-      });
-      await completer.future;
-      throw error;
-    }
-    HttpClientRequest request = await _httpClient.openUrl(method, couchUri);
-    for (var header in headers.keys) {
-      request.headers.add(header, headers[header]);
-    }
-    for (var cookie in _dbConnection.authCookie) {
-      request.headers.add(HttpHeaders.COOKIE, cookie);
-    }
-    bool postRequestIsChunked = false;
-    var contentLength = new Ref<int>.withValue(0);
-
-    if (method == 'GET' || method == 'HEAD' || method == 'DELETE') {
-      request.close();
-    } else if (headers.containsKey('Transfer-Encoding') &&
-    headers['Transfer-Encoding'] == 'chunked') {
-      postRequestIsChunked = true;
-    } else {
-      try {
-        contentLength.value = int.parse(headers['Content-Length']);
-      } catch (err) {
-        request.close();
-      }
-    }
-    input.listen((data) {
-      request.add(data);
-      if (postRequestIsChunked && data.length == 0) {
-        request.close();
-      } else if (!postRequestIsChunked) {
-        contentLength.value -= data.length;
-        if (contentLength.value <= 0) {
           request.close();
         }
       }
-    }, onDone: () {
-      request.close();
-    });
-    HttpClientResponse response = await request.done;
-    try {
+      input.listen((data) {
+        request.add(data);
+        if (postRequestIsChunked && data.length == 0) {
+          request.close();
+        } else if (!postRequestIsChunked) {
+          contentLength.value -= data.length;
+          if (contentLength.value <= 0) {
+            request.close();
+          }
+        }
+      }, onDone: () {
+        request.close();
+      });
+      HttpClientResponse response = await request.done;
       final encoder = new AsciiEncoder();
       output.add(encoder.convert(
           'HTTP/1.1 ${response.statusCode} ${response.reasonPhrase}\r\n'));
@@ -130,7 +130,7 @@ class HttpCouchDbBackendAdapter implements HttpDbBackendAdapter {
           output.add(encoder.convert(
               'Access-Control-Allow-Headers: X-Push-Session-Data\r\n'));
           output
-          .add(encoder.convert('X-Push-Session-Data: /_auth/session\r\n'));
+              .add(encoder.convert('X-Push-Session-Data: /_auth/session\r\n'));
         }
       }
       output.add([13, 10]);
@@ -145,8 +145,7 @@ class HttpCouchDbBackendAdapter implements HttpDbBackendAdapter {
       }, onDone: () {
         if (chunkedResponse) {
           output.add([48, 13, 10, 13, 10]);
-        } else {
-        }
+        } else {}
         output.close();
       }, onError: (error, stackTrace) {
         output.addError(error, stackTrace);
@@ -156,11 +155,11 @@ class HttpCouchDbBackendAdapter implements HttpDbBackendAdapter {
         shelf.Response response;
         if (error.redirectUri != null) {
           response = new shelf.Response(401,
-          body:
-          '{"error": "must_authenticate", "message": "You must log in before '
-          'performing this action.", "auth_uri": "${error.redirectUri}", "auth_watcher_id": "${error.awakenId}", "auth_watcher_rev": "${error.awakenRev}"}',
-          headers: {"Content-Type": "application/json"},
-          encoding: Encoding.getByName('identity'));
+              body:
+                  '{"error": "must_authenticate", "message": "You must log in before '
+                  'performing this action.", "auth_uri": "${error.redirectUri}", "auth_watcher_id": "${error.awakenId}", "auth_watcher_rev": "${error.awakenRev}"}',
+              headers: {"Content-Type": "application/json"},
+              encoding: Encoding.getByName('identity'));
         } else {
           final encoder = new JsonEncoder();
           response = new shelf.Response.internalServerError(

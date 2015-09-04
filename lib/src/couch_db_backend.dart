@@ -16,7 +16,6 @@ import 'local_session_data.dart';
 import 'ref.dart';
 import 'shelf_utils.dart';
 
-
 class CouchError extends ServiceError {
   CouchError(Map result) : super(result);
 }
@@ -36,7 +35,6 @@ class CouchDbBackend extends DbBackend {
 
   @Inject(name: 'a_la_carte.server.couch_db_backend.couchDbPassword')
   String _password;
-
 
   @Inject(name: 'a_la_carte.server.debugOverWire')
   bool _debugOverWire;
@@ -194,4 +192,20 @@ class CouchDbBackend extends DbBackend {
       throw new CouchError(map);
     }
   }
+}
+
+Future<List> couchDbRetrievePermissions(DbBackend backend_, String email, String permissionPath, [state]) async {
+  assert(backend_ is CouchDbBackend);
+  CouchDbBackend backend = backend_;
+  final couchUri = new Uri(
+      scheme: 'http',
+      host: '127.0.0.1',
+      port: backend.port,
+      path: permissionPath);
+  Map allAuthenticationData = await backend.makeServiceGet(couchUri);
+  Map allNames = allAuthenticationData['names'];
+  if (!allNames.containsKey(email)) {
+    return [];
+  }
+  return allNames[email]['a_la_carte_roles'];
 }

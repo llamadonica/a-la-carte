@@ -174,7 +174,7 @@ $description
     final psidUri = Uri.parse('/a_la_carte/${Uri.encodeComponent(psid)}');
 
     if (tsidCookieIsNew) {
-      responseHeaders['Set-Cookie'] = ["TSID=${tsid}; Path=/"];
+      responseHeaders['Set-Cookie'] = ["TSID=${tsid}; Path=/; HttpOnly"];
       if (!psidCookieIsNew) {
         _passivelyCreateSessionIdentityFromState(
             psid, session, timestamp, tsid);
@@ -418,8 +418,6 @@ $description
           session.psid, session, timestamp, session.tsid);
 
       String body = '''{
-  "tsid": "${session.tsid}",
-  "psid": "${session.psid}",
   "email": ${session.email == null ? 'null': '"' + session.email + '"'},
   "fullName": ${session.fullName == null ? 'null': '"' + session.fullName + '"'},
   "picture": ${session.picture == null ? 'null': '"' + session.picture + '"'}
@@ -525,7 +523,7 @@ shelf.Handler _staticFileServer(String path,
       if (connection is String &&
           connection.split(', ').contains('keep-alive')) {
         defaultHeaders['Connection'] = 'keep-alive';
-        defaultHeaders['Keep-Alive'] = 'timeout=5, max=256';
+        defaultHeaders['Keep-Alive'] = 'timeout=1200, max=32';
       }
 
       Map<String, Object> headers;

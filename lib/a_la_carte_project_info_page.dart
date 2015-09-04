@@ -149,7 +149,7 @@ class ALaCarteProjectInfoPage extends ALaCartePageCommon {
     var jsonHandler = new JsonStreamingParser();
     final subscription = new Ref<StreamSubscription>();
     subscription.value = jsonHandler.onSymbolComplete.listen((event) =>
-        _routeProjectDeletingJsonReply(event, project, subscription));
+        _routeProjectDeletingJsonReply(event, project, subscription, rev));
 
     if (fetch == null) {
       final _request = new HttpRequest();
@@ -164,8 +164,10 @@ class ALaCarteProjectInfoPage extends ALaCartePageCommon {
       _request.send();
     } else {
       fetch('/a_la_carte/${id}?rev=${rev}',
-              method: 'DELETE', headers: {'Content-Type': 'application/json'})
-          .then((Response object) {
+          method: 'DELETE',
+          headers: {'Content-Type': 'application/json'},
+          mode: RequestMode.sameOrigin,
+          credentials: RequestCredentials.sameOrigin).then((Response object) {
         jsonHandler.setStreamStateFromResponse(object);
         jsonHandler.streamFromByteStreamReader(object.body.getReader());
       }).catchError((FetchError err) {
@@ -175,9 +177,40 @@ class ALaCarteProjectInfoPage extends ALaCartePageCommon {
   }
 
   void _routeProjectDeletingJsonReply(JsonStreamingEvent event, Project project,
-      Ref<StreamSubscription> subscription) {
+      Ref<StreamSubscription> subscription, String rev) {
     final Duration enableDelay = new Duration(milliseconds: 1020);
-    if (event.status >= 400 && event.status < 599 && event.path.length == 0) {
+    if (event.status == 401 && event.path.length == 0) {
+      if (event.symbol.containsKey('auth_uri') &&
+          event.symbol.containsKey('auth_watcher_id')) {
+        appPresenter.showAuthLogin(event.symbol['auth_uri']);
+        final activeAuthorizationSubscription = event.symbol["auth_watcher_id"];
+        _activeAuthorizationSubscriptionDiscardListener =
+            appPager.onDiscardEdits.listen((_) {
+          _cancelledAuthorizationSubscriptions
+              .add(activeAuthorizationSubscription);
+          _cancelSaving();
+          _activeAuthorizationSubscriptionDiscardListener.cancel();
+        });
+        appPresenter.connectTo(
+            '/a_la_carte/_changes?feed=continuous&'
+            'filter=_doc_ids&doc_ids=%5B%22${activeAuthorizationSubscription}%22%5D',
+            (newEvent, subscription) => _routeProjectAuthorizationReply(
+                newEvent,
+                event,
+                subscription,
+                activeAuthorizationSubscription,
+                () => _deleteProjectDataFromServer(id, rev)),
+            isImplicitArray: true);
+      } else {
+        if (event.symbol.containsKey('auth_uri')) {
+          appPresenter.showAuthLogin(event.symbol['auth_uri']);
+        }
+        _cancelSavingWithErrorFromEvent(event);
+        subscription.value.cancel();
+      }
+    } else if (event.status >= 400 &&
+        event.status < 599 &&
+        event.path.length == 0) {
       _fabWillBeDisabled = false;
       //$['showProgress'].classes.remove('showing');
       showProgress = false;
@@ -205,6 +238,7 @@ class ALaCarteProjectInfoPage extends ALaCartePageCommon {
       Project.removeFromPresortedList(projects, project);
       appPager.selected = 0;
       subscription.value.cancel();
+      appPresenter.receiveAuthenticationSessionData();
     }
   }
 
@@ -230,6 +264,8 @@ class ALaCarteProjectInfoPage extends ALaCartePageCommon {
       fetch('/a_la_carte/${id}',
           method: 'PUT',
           headers: {'Content-Type': 'application/json'},
+          mode: RequestMode.sameOrigin,
+          credentials: RequestCredentials.sameOrigin,
           body: body).then((Response object) {
         jsonHandler.setStreamStateFromResponse(object);
         jsonHandler.streamFromByteStreamReader(object.body.getReader());
@@ -293,21 +329,21 @@ class ALaCarteProjectInfoPage extends ALaCartePageCommon {
       JsonStreamingEvent event,
       JsonStreamingEvent originalEvent,
       Ref<StreamSubscription> subscription,
-      String id,
-      Map data,
-      String authorizationSubscriptionDocId) {
+      String authorizationSubscriptionDocId,
+      void _functionToDoAgain()) {
+    window.console.log(event.symbol);
     if (event.status >= 300) {
       subscription.value.cancel();
       _cancelSavingWithErrorFromEvent(originalEvent);
       return;
     }
     if (event.path.length == 1 && event.symbol.containsKey('seq')) {
-      if (event.symbol.containsKey('deleted') && !_cancelledAuthorizationSubscriptions.contains(authorizationSubscriptionDocId)) {
-        _putProjectDataToServer(id, data);
-        appPresenter.receiveAuthenticationSessionData();
+      if (event.symbol.containsKey('deleted') &&
+          !_cancelledAuthorizationSubscriptions
+              .contains(authorizationSubscriptionDocId)) {
+        _functionToDoAgain();
         _activeAuthorizationSubscriptionDiscardListener.cancel();
       }
-      subscription.value.cancel();
     } else if (event.path.length == 1 && event.symbol.containsKey('last_seq')) {
       subscription.value.cancel();
       _cancelSavingWithErrorFromEvent(originalEvent);
@@ -322,8 +358,10 @@ class ALaCarteProjectInfoPage extends ALaCartePageCommon {
           event.symbol.containsKey('auth_watcher_id')) {
         appPresenter.showAuthLogin(event.symbol['auth_uri']);
         final activeAuthorizationSubscription = event.symbol["auth_watcher_id"];
-        _activeAuthorizationSubscriptionDiscardListener = appPager.onDiscardEdits.listen((_) {
-          _cancelledAuthorizationSubscriptions.add(activeAuthorizationSubscription);
+        _activeAuthorizationSubscriptionDiscardListener =
+            appPager.onDiscardEdits.listen((_) {
+          _cancelledAuthorizationSubscriptions
+              .add(activeAuthorizationSubscription);
           _cancelSaving();
           _activeAuthorizationSubscriptionDiscardListener.cancel();
         });
@@ -331,7 +369,11 @@ class ALaCarteProjectInfoPage extends ALaCartePageCommon {
             '/a_la_carte/_changes?feed=continuous&'
             'filter=_doc_ids&doc_ids=%5B%22${activeAuthorizationSubscription}%22%5D',
             (newEvent, subscription) => _routeProjectAuthorizationReply(
-                newEvent, event, subscription, id, data, activeAuthorizationSubscription),
+                newEvent,
+                event,
+                subscription,
+                activeAuthorizationSubscription,
+                () => _putProjectDataToServer(id, data)),
             isImplicitArray: true);
       } else {
         if (event.symbol.containsKey('auth_uri')) {
@@ -366,6 +408,7 @@ class ALaCarteProjectInfoPage extends ALaCartePageCommon {
       appPager.setProjectHasChanged(false);
       fabIcon = null;
       subscription.value.cancel();
+      appPresenter.receiveAuthenticationSessionData();
     }
   }
 }

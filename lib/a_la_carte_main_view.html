@@ -79,8 +79,8 @@
             <paper-button affirmative on-tap="{{cancelDiscardEdits}}">Cancel</paper-button>
         </paper-action-dialog>
           <div id="arrow-holder"><div class="arrow-up"></div></div>
-          <paper-dropdown id="personal-info-dropdown" on-core-overlay-open-completed="{{openArrow}}" on-core-overlay-close-completed="{{removeArrow}}">
-          <h1>User Info</h1>
+          <paper-dropdown halign="right" id="personal-info-dropdown" on-core-overlay-open="{{openArrow}}" on-core-overlay-close-completed="{{removeArrow}}">
+          <div class="header-info"><h1>User Info</h1></div>
           <div class="user-and-email">
             <div id="personal-info-name">{{userName}}</div>
             <div id="personal-info-email">{{userEmail}}</div>
