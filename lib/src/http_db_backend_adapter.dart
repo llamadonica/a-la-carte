@@ -12,7 +12,6 @@ abstract class HttpDbBackendAdapter {
       Map<String, Object> headers,
       String tsid,
       bool canGetSessionData,
-      LocalSessionData session);
+      LocalSessionData session,
+      int timestamp);
 }
-
-

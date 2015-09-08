@@ -26,7 +26,7 @@ paper-button#tap-sign-in {
   width: initial;
   color: white;
   margin-top: 14px;
-  transition: transform 0.3s;
+  @include transition(transform 0.3s);
   position: absolute;
   top: 0;
   right: 0;
@@ -41,6 +41,9 @@ paper-button#tap-sign-in {
   &[hiding] {
     transform: scaleX(0);
   }
+  &.showing {
+    @include transition(transform 0.3s ease 500ms);
+  }
 }
 
 paper-fab#tap-account-page {
@@ -50,6 +53,7 @@ paper-fab#tap-account-page {
   top: 0;
   margin-top: 12px;
   background: white;
+  opacity: 0.6;
 
   &::shadow core-icon {
     border: 2px solid white;
@@ -62,6 +66,27 @@ paper-fab#tap-account-page {
     border-radius: 50% 50%;
     overflow: hidden;
   }
+
+  @include transform(scale(0));
+  @include transform-origin (50% 50%);
+  @include transition(
+    transform 500ms cubic-bezier(.4, 0, .2, 1) 500ms,
+    background-color 500ms cubic-bezier(.4, 0, .2, 1),
+    opacity 500ms linear);
+  height: 40px;
+  width: 40px;
+
+  &[showing] {
+    @include transform(none);
+    opacity: 1.0;
+  }
+  &.hiding {
+    @include transition(
+      transform 500ms cubic-bezier(.4, 0, .2, 1) 0s,
+      background-color 500ms cubic-bezier(.4, 0, .2, 1),
+      opacity 500ms linear);
+  }
+
 }
 
 #personal-info-dropdown {

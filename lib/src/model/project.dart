@@ -11,6 +11,9 @@ class Project extends JsonCanSync {
   @observable String initials;
   @observable String streetAddress;
   @observable String serviceAccountName;
+  @observable String userDataName;
+  @observable String userDataEmail;
+  @observable DateTime userDataTimestamp;
 
   String rev;
   bool committed = false;
@@ -19,6 +22,7 @@ class Project extends JsonCanSync {
     _isChanged = value;
     if (!value) _locallyChangedSymbols.clear();
   }
+
   int get jobNumberInPresortedList => _jobNumberInPresortedList;
   Map get json => _json;
 
@@ -29,7 +33,7 @@ class Project extends JsonCanSync {
 
   Project(String this.id);
 
-  static insertIntoPresortedList(Project project, List<Project> projects,
+  static void insertIntoPresortedList(Project project, List<Project> projects,
       [Comparator comparison = null]) {
     if (comparison == null) {
       comparison = _compareProjectsForInsert;
@@ -101,7 +105,8 @@ class Project extends JsonCanSync {
   }
 
   static _compareProjectsForRemove(Project a, Project b) {
-    var jobNumberSort = b._jobNumberInPresortedList - a._jobNumberInPresortedList;
+    var jobNumberSort =
+        b._jobNumberInPresortedList - a._jobNumberInPresortedList;
     return (jobNumberSort == 0) ? b.id.compareTo(a.id) : jobNumberSort;
   }
 
@@ -112,7 +117,19 @@ class Project extends JsonCanSync {
     initials = values['initials'];
     streetAddress = values['streetAddress'];
     serviceAccountName = values['account'];
+    if (values['isActive'] != null) {
+      isActive = values['isActive'];
+    }
     rev = values['_rev'];
+    userDataName = values['user_data'] == null
+        ? null
+        : values['user_data']['user_full_name'];
+    userDataEmail =
+        values['user_data'] == null ? null : values['user_data']['user_email'];
+    userDataTimestamp = values['user_data'] == null
+        ? null
+        : new DateTime.fromMillisecondsSinceEpoch(
+            values['user_data']['timestamp']);
     _isChanged = false;
     assert(values['_id'] == null || values['_id'] == id);
   }
@@ -127,6 +144,7 @@ class Project extends JsonCanSync {
       'jobNumber': (jobNumber is double && jobNumber.isNaN) ? null : jobNumber,
       'initials': initials,
       'streetAddress': streetAddress,
+      'isActive': isActive,
       'account': serviceAccountName,
       'type': 'project'
     };
@@ -140,12 +158,14 @@ class Project extends JsonCanSync {
   @override notifyChange(ChangeRecord record) {
     if (committed && record is PropertyChangeRecord) {
       _locallyChangedSymbols.add(record.name);
-      if ((record.name != #jobNumber && record.name != #serviceAccountName) ||
-          record.oldValue != null) {
+      if ((record.name != #jobNumber || record.oldValue != null) &&
+          (record.name != #serviceAccountName || record.oldValue != null) &&
+          record.name != #userDataName &&
+          record.name != #userDataTimestamp &&
+          record.name != #userDataEmail) {
         isChanged = true;
       }
     }
     super.notifyChange(record);
   }
-
 }

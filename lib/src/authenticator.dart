@@ -1,10 +1,7 @@
 library a_la_carte.server.policy_validator;
-import 'dart:async';
-import 'dart:convert';
-import 'dart:io';
 
-import 'package:oauth2/oauth2.dart' as oauth2;
-import 'package:uuid/uuid.dart';
+import 'dart:async';
+import 'dart:io';
 
 import 'db_backend.dart';
 import 'local_session_data.dart';
@@ -34,12 +31,10 @@ abstract class AuthenticatorIdentity {
 
 abstract class Authenticator extends Object {
   Future validateMethodIsPermittedOnResource(String method, Uri uri,
-      DbBackend dataStore, LocalSessionData session);
-  Future prepareUnauthorizedRequest(DbBackend dataStore);
-  Future convoluteUnchunkedRequest(
-      HttpClientRequest request, AuthenticatorIdentity identity, String addCookie);
-  Future convoluteChunkedRequest(
-      HttpClientRequest request, AuthenticatorIdentity identity, String addCookie);
+      DbBackend dataStore, LocalSessionData session, int timestamp);
+  Future prepareUnauthorizedRequest(DbBackend dataStore, int timestamp);
+  Future<Stream<List<int>>> convoluteRequest(Map<String, Object> headers,
+      Stream<List<int>> requestData, LocalSessionData session, Map extraData);
 
   Future<AuthenticatorIdentity> createEmptyPolicyIdentity(
       String psid, String serviceAccount);
@@ -52,4 +47,3 @@ abstract class Authenticator extends Object {
       String notifyOnAuth: null,
       bool alsoCheckPassivePath: true});
 }
-

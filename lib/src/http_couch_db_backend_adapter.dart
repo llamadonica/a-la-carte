@@ -35,7 +35,8 @@ class HttpCouchDbBackendAdapter implements HttpDbBackendAdapter {
       Map<String, Object> headers,
       String tsid,
       bool canGetSessionData,
-      LocalSessionData session) async {
+      LocalSessionData session,
+      int timestamp) async {
     final couchUri = new Uri(
         scheme: uri.scheme,
         userInfo: uri.userInfo,
@@ -48,7 +49,7 @@ class HttpCouchDbBackendAdapter implements HttpDbBackendAdapter {
     try {
       try {
         await _policyHandler.validateMethodIsPermittedOnResource(
-            method, uri, _dbConnection, session);
+            method, uri, _dbConnection, session, timestamp);
       } catch (error) {
         var contentLength = new Ref<int>();
         var postRequestIsChunked = false;
@@ -61,21 +62,29 @@ class HttpCouchDbBackendAdapter implements HttpDbBackendAdapter {
           } catch (err) {}
         }
         final completer = new Completer();
-        input.listen((data) {
-          if (postRequestIsChunked && data.length == 0) {
-          } else if (!postRequestIsChunked) {
-            contentLength.value -= data.length;
-            if (contentLength.value <= 0) {
-              completer.complete();
+        if (method == 'GET' || method == 'HEAD' || method == 'DELETE') {
+          completer.complete();
+        } else {
+          input.listen((data) {
+            if (postRequestIsChunked && data.length == 0) {
+            } else if (!postRequestIsChunked) {
+              contentLength.value -= data.length;
+              if (contentLength.value <= 0) {
+                completer.complete();
+              }
             }
-          }
-        });
+          });
+        }
         await completer.future;
         rethrow;
       }
       HttpClientRequest request = await _httpClient.openUrl(method, couchUri);
-      for (var header in headers.keys) {
-        request.headers.add(header, headers[header]);
+      var modifiableHeaders = new Map.from(headers);
+      var extraData = {'timestamp': new DateTime.now().millisecondsSinceEpoch};
+      final innerRequest = await _policyHandler.convoluteRequest(
+          modifiableHeaders, input, session, extraData);
+      for (var header in modifiableHeaders.keys) {
+        request.headers.add(header, modifiableHeaders[header]);
       }
       for (var cookie in _dbConnection.authCookie) {
         request.headers.add(HttpHeaders.COOKIE, cookie);
@@ -95,7 +104,7 @@ class HttpCouchDbBackendAdapter implements HttpDbBackendAdapter {
           request.close();
         }
       }
-      input.listen((data) {
+      innerRequest.listen((data) {
         request.add(data);
         if (postRequestIsChunked && data.length == 0) {
           request.close();

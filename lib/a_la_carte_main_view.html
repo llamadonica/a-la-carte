@@ -50,7 +50,7 @@
                 on-dgs-fab-action="{{routeFabAction}}">
             <section id="tap-sign-in-section" class="tool">
               <paper-button id="tap-sign-in" on-tap="{{tapSignIn}}" hiding?="{{isLoggedIn}}">sign in</paper-button>
-              <paper-fab id="tap-account-page" on-tap="{{tapAccountInfo}}" src="{{userPicture}}" showing?="{{isLoggedIn}}" mini raised></paper-fab>
+              <paper-fab id="tap-account-page" on-tap="{{tapAccountInfo}}" src="{{internalUserPicture}}" showing?="{{isLoggedIn}}" mini raised></paper-fab>
             </section>
             <core-header-panel navigation flex mode="seamed">
                 <div id="nav-menu-box">
@@ -70,6 +70,8 @@
                                               projectsByUuid="{{projectsByUuid}}"
                                               projects="{{projects}}"
                                               appPresenter="{{appPresenter}}"
+                                              userName="{{userName}}"
+                                              userEmail="{{userEmail}}"
                         ></a-la-carte-project-info-page>
             </core-pages>
         </a-la-carte-scaffold>
@@ -86,7 +88,7 @@
             <div id="personal-info-email">{{userEmail}}</div>
           </div>
           <div class="button-bar">
-            <paper-button>logout</paper-button>
+            <paper-button on-tap="{{tapSignOut}}">logout</paper-button>
           </div>
         </paper-dropdown>
     </template>

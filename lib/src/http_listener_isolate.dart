@@ -1,4 +1,5 @@
-library  a_la_carte.server.http_listener;
+library a_la_carte.server.http_listener;
+
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
@@ -24,7 +25,6 @@ abstract class HttpListenerIsolate extends SessionClient {
 }
 
 class HttpListenerIsolateImpl extends HttpListenerIsolate {
-
   static const String _selfClosingPage = """
 <!DOCTYPE html>
 <html>
@@ -75,8 +75,6 @@ $description
     '_static'
   ];
 
-
-
   @inject
   DbBackend _dbConnection;
 
@@ -98,7 +96,7 @@ $description
   final Map<String, DateTime> _refresh = new Map<String, DateTime>();
   final Map<String, Timer> _refreshTimeout = new Map<String, Timer>();
 
-  @inject  HttpListenerIsolateImpl();
+  @inject HttpListenerIsolateImpl();
 
   shelf.Handler _addCookies(shelf.Handler innerHandler) =>
       (shelf.Request request) async {
@@ -172,22 +170,31 @@ $description
 
     var policy;
     final psidUri = Uri.parse('/a_la_carte/${Uri.encodeComponent(psid)}');
-
-    if (tsidCookieIsNew) {
-      responseHeaders['Set-Cookie'] = ["TSID=${tsid}; Path=/; HttpOnly"];
-      if (!psidCookieIsNew) {
-        _passivelyCreateSessionIdentityFromState(
-            psid, session, timestamp, tsid);
-      } else {
-        final DateTime expires = new DateTime.now().add(new Duration(days: 15));
-        responseHeaders['Set-Cookie'].add(
-            "PSID=${psid}; Path=/; Expires=${HttpDate.format(expires)}; HttpOnly");
-      }
-    } else if (psidCookieIsNew) {
-      final DateTime expires = new DateTime.now().add(new Duration(days: 15));
+    if (response.context.containsKey('logout')) {
+      final DateTime expires = new DateTime.fromMillisecondsSinceEpoch(0);
+      responseHeaders['Set-Cookie'] = [];
       responseHeaders['Set-Cookie'] = [
-        "PSID=${psid}; Path=/; Expires=${HttpDate.format(expires)}; HttpOnly"
+        "TSID=; Expires=${HttpDate.format(expires)}; Path=/; HttpOnly",
+        "PSID=; Path=/; Expires=${HttpDate.format(expires)}; HttpOnly"
       ];
+    } else {
+      if (tsidCookieIsNew) {
+        responseHeaders['Set-Cookie'] = ["TSID=${tsid}; Path=/; HttpOnly"];
+        if (!psidCookieIsNew) {
+          _passivelyCreateSessionIdentityFromState(
+              psid, session, timestamp, tsid);
+        } else {
+          final DateTime expires =
+              new DateTime.now().add(new Duration(days: 15));
+          responseHeaders['Set-Cookie'].add(
+              "PSID=${psid}; Path=/; Expires=${HttpDate.format(expires)}; HttpOnly");
+        }
+      } else if (psidCookieIsNew) {
+        final DateTime expires = new DateTime.now().add(new Duration(days: 15));
+        responseHeaders['Set-Cookie'] = [
+          "PSID=${psid}; Path=/; Expires=${HttpDate.format(expires)}; HttpOnly"
+        ];
+      }
     }
     session.refCount--;
     if (session.mustRecertify) {
@@ -334,23 +341,23 @@ $description
   }
 
   dynamic _handleJsonRequest(shelf.Request request) {
-        if (!_isJsonRequest(request)) {
-          return new shelf.Response(_responseShouldCascade);
-        }
-        return request.hijack((input, output) => _dbHttpAdapter.hijackRequest(
-            input,
-            output,
-            request.method,
-            request.requestedUri,
-            request.headers,
-            request.context['tsid'],
-            request.context['askForPushSession'],
-            request.context['session']));
-      }
+    if (!_isJsonRequest(request)) {
+      return new shelf.Response(_responseShouldCascade);
+    }
+    return request.hijack((input, output) => _dbHttpAdapter.hijackRequest(
+        input,
+        output,
+        request.method,
+        request.requestedUri,
+        request.headers,
+        request.context['tsid'],
+        request.context['askForPushSession'],
+        request.context['session'],
+        request.context['timestamp']));
+  }
 
   dynamic _authLandingHandler(shelf.Request request) async {
     if (request.url.path == '_auth/landing') {
-      final state = request.url.queryParameters['state'];
       final LocalSessionData session = request.context['session'];
       var identity = await _activelyCreateSessionIdentityFromState(
           session.psid,
@@ -388,10 +395,10 @@ $description
         return response;
       } else {
         try {
-          await _authenticationModule.prepareUnauthorizedRequest(_dbConnection);
-        } catch (error, stackTrace) {
+          await _authenticationModule.prepareUnauthorizedRequest(
+              _dbConnection, timestamp);
+        } catch (error) {
           if (error is PolicyStateError) {
-            shelf.Response response;
             if (error.redirectUri != null) {
               return new shelf.Response(401,
                   body:
@@ -401,7 +408,7 @@ $description
                   encoding: Encoding.getByName('identity'));
             }
           }
-          throw error;
+          rethrow;
         }
       }
     } else {
@@ -410,7 +417,7 @@ $description
   }
 
   dynamic _authSessionHandler(shelf.Request request) async {
-    if (request.url.path == '_auth/session') {
+    if (request.url.path == '_auth/session' && request.method == 'GET') {
       final int timestamp = request.context['timestamp'];
       final LocalSessionData session = request.context['session'];
       await touchSession(session, timestamp);
@@ -425,6 +432,11 @@ $description
 ''';
       return new shelf.Response.ok(body,
           headers: {'Content-Type': 'application/json'});
+    } else if (request.url.path == '_auth/session' &&
+        request.method == 'DELETE') {
+      return new shelf.Response(201,
+          headers: {'Content-Type': 'application/json'},
+          context: {'logout': true});
     } else {
       return new shelf.Response(_responseShouldCascade);
     }

@@ -1,7 +1,5 @@
 import 'dart:html';
 import 'dart:math';
-import 'dart:async';
-import 'dart:js';
 
 import 'package:core_elements/core_animated_pages.dart';
 import 'package:paper_elements/paper_button.dart';
@@ -36,7 +34,6 @@ class ALaCarteCardView extends ALaCartePageCommon {
   Map<Element, List<_Wave>> _waves = new Map<Element, List<_Wave>>();
   int _requestedAnimationFrame = null;
   bool _backgroundFill = true;
-  StreamSubscription _projectsChangedListener;
 
   ALaCarteCardView.created() : super.created() {
     fabIcon = 'add';
@@ -141,14 +138,12 @@ class ALaCarteCardView extends ALaCartePageCommon {
   }
 
   static bool _waveDidFinish(_Wave wave, double radius) {
-    var mouseUpMs = wave.mouseUpMs;
     var didFinish = _waveOpacityForTimes(wave.mouseUpMs) < 0.01 &&
         radius >= min(wave.maxRadius, _waveMaxRadius);
     return didFinish;
   }
 
   static bool _waveAtMaximum(_Wave wave, double radius) {
-    var mouseUpMs = wave.mouseUpMs;
     var atMaximum =
         wave.mouseUpMs <= 0 && radius >= min(wave.maxRadius, _waveMaxRadius);
     return atMaximum;
@@ -183,7 +178,6 @@ class ALaCarteCardView extends ALaCartePageCommon {
       element.style.backgroundColor = fgColor.toString();
     }
     for (DivElement element in row.querySelectorAll('.table-body-cell')) {
-      var elementStyle = element.getComputedStyle();
       var inner = document.createElement('div');
       inner.classes.add('paper-ripple-wave');
       var outer = document.createElement('div');
@@ -233,10 +227,11 @@ class ALaCarteCardView extends ALaCartePageCommon {
       ..clientSize = max(width, height)
       ..clientHeight = height
       ..clientWidth = width
-      ..maxRadius = max(max(startPosition.distanceTo(new Point(0, 0)),
-          startPosition.distanceTo(new Point(width, 0))), max(
-          startPosition.distanceTo(new Point(width, height)),
-          startPosition.distanceTo(new Point(0, height))));
+      ..maxRadius = max(
+          max(startPosition.distanceTo(new Point(0, 0)),
+              startPosition.distanceTo(new Point(width, 0))),
+          max(startPosition.distanceTo(new Point(width, height)),
+              startPosition.distanceTo(new Point(0, height))));
 
     int leftOffset = 0;
     for (Element wc in wave.wc) {
@@ -282,10 +277,11 @@ class ALaCarteCardView extends ALaCartePageCommon {
       ..clientSize = max(width, height)
       ..clientHeight = height
       ..clientWidth = width
-      ..maxRadius = max(max(startPosition.distanceTo(new Point(0, 0)),
-          startPosition.distanceTo(new Point(width, 0))), max(
-          startPosition.distanceTo(new Point(width, height)),
-          startPosition.distanceTo(new Point(0, height))));
+      ..maxRadius = max(
+          max(startPosition.distanceTo(new Point(0, 0)),
+              startPosition.distanceTo(new Point(width, 0))),
+          max(startPosition.distanceTo(new Point(width, height)),
+              startPosition.distanceTo(new Point(0, height))));
     if (target.classes.contains('recenteringTouch')) {
       wave
         ..endPosition = new Point(rectangle.width / 2, rectangle.height / 2)
@@ -328,21 +324,11 @@ class ALaCarteCardView extends ALaCartePageCommon {
     }
   }
 
-  static String _cssColorWithAlpha(String cssColor, [double alpha = 1.0]) {
-    final cssColorRegex = new RegExp(r'^rgb\((\d+,\s*\d+,s*\d+)\)$');
-    final match = cssColorRegex.firstMatch(cssColor);
-    if (match == null) {
-      return 'rgba(255, 255, 255, $alpha)';
-    }
-    return 'rgba(${match.group(1)}, $alpha)';
-  }
-
   void _animate(num timeStamp) {
     final wavesToDelete = [];
     var shouldRenderNextFrame = false;
     var longestTouchDownDuration = 0.0;
     var longestTouchUpDuration = 0.0;
-    var lastWaveColor = null;
     timeStamp = window.performance.now();
 
     for (var waveyRow in _waves.keys) {
@@ -358,8 +344,6 @@ class ALaCarteCardView extends ALaCartePageCommon {
         var radius =
             _waveRadiusForTimes(wave.mouseDownMs, wave.mouseUpMs, wave);
         var waveAlpha = _waveOpacityForTimes(wave.mouseUpMs);
-        var waveColor = _cssColorWithAlpha(wave.fgColor, waveAlpha);
-        lastWaveColor = wave.fgColor;
         var x = wave.startPosition.x;
         var y = wave.startPosition.y;
         if (wave.endPosition != null) {
@@ -368,18 +352,18 @@ class ALaCarteCardView extends ALaCartePageCommon {
           x += translateFraction * (wave.endPosition.x - wave.startPosition.x);
           y += translateFraction * (wave.endPosition.y - wave.startPosition.y);
         }
-        var bgFillColor = null;
         var bgFillAlpha = null;
         if (_backgroundFill) {
           bgFillAlpha =
               _waveOuterOpacityForTime(wave.mouseDownMs, wave.mouseUpMs);
-          bgFillColor = _cssColorWithAlpha(wave.fgColor, bgFillAlpha);
         }
         _drawRipple(wave, x, y, radius, waveAlpha, bgFillAlpha, wave.fgColor);
         var maximumWave = _waveAtMaximum(wave, radius);
         var waveDissipated = _waveDidFinish(wave, radius);
         var shouldKeepWave = !waveDissipated;
-        if (!(wave.isTouchTriggered) && wave.mouseUpWallClock <= 0 && maximumWave) {
+        if (!(wave.isTouchTriggered) &&
+            wave.mouseUpWallClock <= 0 &&
+            maximumWave) {
           wave
             ..isMouseDown = false
             ..mouseUpWallClock = timeStamp
@@ -448,8 +432,15 @@ class _Wave {
   final List<Element> wave;
   final List<Element> wc;
 
-  _Wave({double this.maxRadius, String this.fgColor, List<Element> this.wave,
-      List<Element> this.wc, Point this.startPosition, Point this.endPosition,
-      int this.clientSize, int this.clientWidth, int this.clientHeight,
+  _Wave(
+      {double this.maxRadius,
+      String this.fgColor,
+      List<Element> this.wave,
+      List<Element> this.wc,
+      Point this.startPosition,
+      Point this.endPosition,
+      int this.clientSize,
+      int this.clientWidth,
+      int this.clientHeight,
       DivElement this.row});
 }

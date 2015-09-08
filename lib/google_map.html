@@ -1,0 +1,258 @@
+<!-- Copyright (c) 2014 Google Inc. All rights reserved. -->
+
+<link rel="import" href="../polymer/polymer.html">
+<link rel="import" href="../google-apis/google-maps-api.html">
+
+<!--
+The `google-map-marker` element represents a map marker. It is used as a
+child of `google-map`.
+
+<b>Example</b>:
+
+    <google-map latitude="37.77493" longitude="-122.41942">
+      <google-map-marker latitude="37.779" longitude="-122.3892"
+          title="Go Giants!"></google-map-marker>
+    </google-map>
+
+<b>Example</b> - marker with info window (children create the window content):
+
+    <google-map-marker latitude="37.77493" longitude="-122.41942">
+      <img src="image.png">
+    </google-map-marker>
+
+<b>Example</b> - a draggable marker:
+
+    <google-map-marker latitude="37.77493" longitude="-122.41942"
+         draggable="true"></google-map-marker>
+
+<b>Example</b> - hide a marker:
+
+    <google-map-marker latitude="37.77493" longitude="-122.41942"
+        hidden></google-map-marker>
+
+@element google-map-marker
+@status alpha
+@homepage http://googlewebcomponents.github.io/google-map
+-->
+<!--
+Fired when the marker icon was clicked. Requires the clickEvents attribute to be true.
+
+@event google-map-marker-click
+@param {google.maps.MouseEvent} event The mouse event.
+-->
+
+<!--
+Fired when the marker icon was double clicked. Requires the clickEvents attribute to be true.
+
+@event google-map-marker-dblclick
+@param {google.maps.MouseEvent} event The mouse event.
+-->
+
+<!--
+Fired for a mousedown on the marker. Requires the mouseEvents attribute to be true.
+
+@event google-map-marker-mousedown
+@param {google.maps.MouseEvent} event The mouse event.
+-->
+
+<!--
+Fired when the DOM `mousemove` event is fired on the marker. Requires the mouseEvents attribute to
+be true.
+
+@event google-map-marker-mousemove
+@param {google.maps.MouseEvent} event The mouse event.
+-->
+
+<!--
+Fired when the mouse leaves the area of the marker icon. Requires the mouseEvents attribute to be
+true.
+
+@event google-map-marker-mouseout
+@param {google.maps.MouseEvent} event The mouse event.
+-->
+
+<!--
+Fired when the mouse enters the area of the marker icon. Requires the mouseEvents attribute to be
+true.
+
+@event google-map-marker-mouseover
+@param {google.maps.MouseEvent} event The mouse event.
+-->
+
+<!--
+Fired for a mouseup on the marker. Requires the mouseEvents attribute to be true.
+
+@event google-map-marker-mouseup
+@param {google.maps.MouseEvent} event The mouse event.
+-->
+
+<!--
+Fired for a rightclick on the marker. Requires the clickEvents attribute to be true.
+
+@event google-map-marker-rightclick
+@param {google.maps.MouseEvent} event The mouse event.
+-->
+<polymer-element name="google-map-marker" attributes="clickEvents icon mouseEvents zIndex">
+<template>
+  <style>
+    :host {
+      display: none;
+    }
+  </style>
+</template>
+<script>
+</script>
+</polymer-element>
+
+<!--
+The `google-map` element renders a Google Map.
+
+<b>Example</b>:
+
+    <style>
+      google-map {
+        height: 600px;
+      }
+    </style>
+    <google-map latitude="37.77493" longitude="-122.41942"></google-map>
+
+<b>Example</b> - add markers to the map and ensure they're in view:
+
+    <google-map latitude="37.77493" longitude="-122.41942" fitToMarkers>
+      <google-map-marker latitude="37.779" longitude="-122.3892"
+          draggable="true" title="Go Giants!"></google-map-marker>
+      <google-map-marker latitude="37.777" longitude="-122.38911"></google-map-marker>
+    </google-map>
+
+<b>Example</b>:
+
+    <google-map disableDefaultUI showCenterMarker zoom="15"></google-map>
+    <script>
+      var map = document.querySelector('google-map');
+      map.latitude = 37.77493;
+      map.longitude = -122.41942;
+      map.addEventListener('google-map-ready', function(e) {
+        alert('Map loaded!');
+      });
+    </script>
+
+<b>Example</b> - with Google directions, using data-binding inside another Polymer element
+
+    <google-map map="{{map}}"></google-map>
+    <google-map-directions map="{{map}}"
+        startAddress="San Francisco" endAddress="Mountain View">
+    </google-map-directions>
+
+<b>Example</b> - not all map options are included as attributes out of the box.
+To add custom map options, you can extend this element:
+
+    <polymer-element name="my-google-map" extends="google-map">
+      <script>
+        Polymer({
+
+          getMapOptions: function() {
+            var mapOptions = this.super();
+            mapOptions["streetViewControl"] = false;
+            return mapOptions;
+          }
+
+        });
+      </script>
+    </polymer-element>
+
+@element google-map
+@homepage http://googlewebcomponents.github.io/google-map
+@blurb Element wrapper around Google Maps API.
+-->
+<!--
+Fired when the Maps API has fully loaded.
+
+@event google-map-ready
+-->
+<!--
+Fired when the when the user clicks on the map (but not when they click on a marker, infowindow, or
+other object). Requires the clickEvents attribute to be true.
+
+@event google-map-click
+@param {google.maps.MouseEvent} event The mouse event.
+-->
+<!--
+Fired when the user double-clicks on the map. Note that the google-map-click event will also fire,
+right before this one. Requires the clickEvents attribute to be true.
+
+@event google-map-dblclick
+@param {google.maps.MouseEvent} event The mouse event.
+-->
+<!--
+Fired repeatedly while the user drags the map. Requires the dragEvents attribute to be true.
+
+@event google-map-drag
+-->
+<!--
+Fired when the user stops dragging the map. Requires the dragEvents attribute to be true.
+
+@event google-map-dragend
+-->
+<!--
+Fired when the user starts dragging the map. Requires the dragEvents attribute to be true.
+
+@event google-map-dragstart
+-->
+<!--
+Fired whenever the user's mouse moves over the map container. Requires the mouseEvents attribute to
+be true.
+
+@event google-map-mousemove
+@param {google.maps.MouseEvent} event The mouse event.
+-->
+<!--
+Fired when the user's mouse exits the map container. Requires the mouseEvents attribute to be true.
+
+@event google-map-mouseout
+@param {google.maps.MouseEvent} event The mouse event.
+-->
+<!--
+Fired when the user's mouse enters the map container. Requires the mouseEvents attribute to be true.
+
+@event google-map-mouseover
+@param {google.maps.MouseEvent} event The mouse event.
+-->
+<!--
+Fired when the DOM `contextmenu` event is fired on the map container. Requires the clickEvents
+attribute to be true.
+
+@event google-map-rightclick
+@param {google.maps.MouseEvent} event The mouse event.
+-->
+
+<!-- TODO(ericbidelman):
+- Handle removals and support .innerHTML = ''.
+- Use <google-maps-api>.api instead of google.maps namespace.
+-->
+<polymer-element name="google-map" attributes="latitude longitude zoom">
+<template>
+
+  <style>
+
+    :host {
+      position: relative;
+      display: block;
+      height: 100%;
+    }
+
+    #map {
+      position: absolute;
+      top: 0;
+      right: 0;
+      bottom: 0;
+      left: 0;
+    }
+
+  </style>
+
+
+  <div id="map"></div>
+  <content id="markers" select="google-map-marker"></content>
+  <script type="application/dart" src="google_map.dart"></script>
+</template>
+</polymer-element>

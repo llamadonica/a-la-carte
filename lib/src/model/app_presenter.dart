@@ -16,7 +16,9 @@ abstract class Presenter {
   Future<String> getServiceAccountName();
 
   void connectTo(String uri, JsonEventRouter router,
-      {bool isImplicitArray: false});
+      {bool isImplicitArray: false, String method: 'GET'});
   void showAuthLogin(String uri);
   void receiveAuthenticationSessionData();
+  void clearAuthenticationSessionData();
+  void goToDefault();
 }

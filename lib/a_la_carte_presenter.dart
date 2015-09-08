@@ -38,7 +38,7 @@ class ALaCartePresenter extends PolymerElement implements Presenter {
 
   Map<String, List<Completer<Project>>> _pendingProjectRequest = new Map();
 
-  Future _receivingAuthenticationSessionData;
+  Completer _receivingAuthenticationSessionData;
 
   @ComputedProperty("projectsAreLoaded && projects.length == 0")
   bool get noProjectsFound => readValue(#noProjectsFound);
@@ -76,6 +76,8 @@ class ALaCartePresenter extends PolymerElement implements Presenter {
         '/_auth/session',
         (event, subscription) => _routeAuthSessionEvent(
             event, subscription, receivingAuthenticationSessionDataCompleter));
+    _receivingAuthenticationSessionData =
+        receivingAuthenticationSessionDataCompleter;
     window.onPopState.listen(_popState);
   }
 
@@ -156,7 +158,9 @@ class ALaCartePresenter extends PolymerElement implements Presenter {
     if (isFromPresortedList) {
       Project.addAtTail(projects, project);
     } else {
-      Project.insertIntoPresortedList(project, projects);
+      if (!projectsByUuid.containsKey(project.id)) {
+        Project.insertIntoPresortedList(project, projects);
+      }
     }
     projectsByUuid[project.id] = project;
     if (_pendingProjectRequest.containsKey(project.id)) {
@@ -242,9 +246,20 @@ class ALaCartePresenter extends PolymerElement implements Presenter {
           (event, subscription) => _routeAuthSessionEvent(event, subscription,
               receivingAuthenticationSessionDataCompleter));
       _receivingAuthenticationSessionData =
-          receivingAuthenticationSessionDataCompleter.future;
+          receivingAuthenticationSessionDataCompleter;
     }
-    return _receivingAuthenticationSessionData;
+    return _receivingAuthenticationSessionData.future;
+  }
+
+  @override
+  void clearAuthenticationSessionData() {
+    if (_receivingAuthenticationSessionData != null &&
+        !_receivingAuthenticationSessionData.isCompleted) {
+      _receivingAuthenticationSessionData.complete();
+    }
+    _receivingAuthenticationSessionData = null;
+    userEmail = userFullName = userPicture = null;
+    isLoggedIn = false;
   }
 
   void _routeAuthSessionEvent(
@@ -252,26 +267,35 @@ class ALaCartePresenter extends PolymerElement implements Presenter {
       Ref<StreamSubscription> subscription,
       Completer receivingAuthenticationSessionDataCompleter) {
     if (event.status == 200 && event.path.length == 0 && !isLoggedIn) {
-      userEmail = event.symbol['email'];
-      userFullName = event.symbol['fullName'];
-      userPicture = event.symbol['picture'];
-      if (userEmail != null) {
-        isLoggedIn = true;
-        receivingAuthenticationSessionDataCompleter.complete(userEmail);
-      } else {
-        isLoggedIn = false;
-        receivingAuthenticationSessionDataCompleter.complete(null);
+      if (!receivingAuthenticationSessionDataCompleter.isCompleted) {
+        userEmail = event.symbol['email'];
+        userFullName = event.symbol['fullName'];
+        userPicture = event.symbol['picture'];
+        if (userEmail != null) {
+          isLoggedIn = true;
+          receivingAuthenticationSessionDataCompleter.complete(userEmail);
+        } else {
+          isLoggedIn = false;
+          _receivingAuthenticationSessionData = null;
+          if (!receivingAuthenticationSessionDataCompleter.isCompleted) {
+            receivingAuthenticationSessionDataCompleter.complete(null);
+          }
+        }
       }
       subscription.value.cancel();
     } else if (event.path.length == 0) {
       subscription.value.cancel();
-      receivingAuthenticationSessionDataCompleter.completeError(event.symbol);
+      _receivingAuthenticationSessionData = null;
+      if (!receivingAuthenticationSessionDataCompleter.isCompleted) {
+        _receivingAuthenticationSessionData = null;
+        receivingAuthenticationSessionDataCompleter.completeError(event.symbol);
+      }
     }
   }
 
   @override
   void connectTo(String uri, JsonEventRouter router,
-      {bool isImplicitArray: false}) {
+      {bool isImplicitArray: false, String method: 'GET'}) {
     final jsonHandler = new JsonStreamingParser(isImplicitArray);
     final subscription = new Ref<StreamSubscription>();
     subscription.value = jsonHandler.onSymbolComplete
@@ -279,7 +303,7 @@ class ALaCartePresenter extends PolymerElement implements Presenter {
 
     if (fetch == null) {
       _request = new HttpRequest();
-      _request.open('GET', uri);
+      _request.open(method, uri);
       _request.setRequestHeader('Accept', 'application/json');
       if (!isLoggedIn) {
         _request.setRequestHeader('X-Can-Read-Push-Session-Data', 'true');
@@ -308,6 +332,7 @@ class ALaCartePresenter extends PolymerElement implements Presenter {
         headers['X-Can-Read-Push-Session-Data'] = 'true';
       }
       fetch(uri,
+          method: method,
           headers: headers,
           mode: RequestMode.sameOrigin,
           credentials: RequestCredentials.sameOrigin).then((Response object) {
@@ -337,6 +362,8 @@ class ALaCartePresenter extends PolymerElement implements Presenter {
       window.history.replaceState(null, title, url);
     }
   }
+
+  @override void goToDefault() => _goToUrl('/+new');
 
   Stream<List<String>> get onExternalNavigationEvent =>
       _onAppNavigationEvent.stream;

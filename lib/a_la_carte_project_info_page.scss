@@ -1,5 +1,10 @@
 @import 'dgs-pages-common';
 
+#project-metadata {
+    font-size: 0.6em;
+    color: rgba(0,0,0,0.35);
+}
+
 #contact-info {
     .contact-info-line {
         transition: height .25s linear 0, opacity .5s ease-in 0;
@@ -12,7 +17,7 @@
             top: 0;
         }
     }
-  
+
     &.inserting .contact-info-line.new {
         @include opacity(.33);
         height: 0;

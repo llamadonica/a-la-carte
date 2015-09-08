@@ -6,6 +6,7 @@ import 'dart:html';
 import 'package:a_la_carte/fetch_interop.dart';
 
 enum JsonStreamingBoxType { array, object, finalSymbol }
+
 class JsonStreamingEvent {
   final int status;
   final String statusText;
@@ -80,6 +81,7 @@ class JsonStreamingParser {
     _parseCurrentStatusForString(
         event.loaded, buffer, (buf_, i) => buf_.codeUnitAt(i));
   }
+
   void httpRequestFinalize(ProgressEvent event) {
     assert(_isSemiClosed);
   }
@@ -88,6 +90,7 @@ class JsonStreamingParser {
     _status = response.status;
     _statusText = response.statusText;
   }
+
   void streamFromByteStreamReader(ReadableByteStreamReader reader) {
     var overflowBuffer = new List<int>();
     void streamFromByteStreamReaderInternal() {
@@ -97,7 +100,9 @@ class JsonStreamingParser {
           reader.cancel();
           return;
         }
-        this._parseCurrentStatusForString(result.value.length, result.value,
+        this._parseCurrentStatusForString(
+            result.value.length,
+            result.value,
             (buf_, i) =>
                 (i < 0) ? overflowBuffer[overflowBuffer.length + i] : buf_[i]);
         if (_startOfLastSymbol >= 0) {
@@ -181,7 +186,6 @@ class JsonStreamingParser {
         if (_currentPath.length == 0) {
           _isSemiClosed = true;
         } else if (_currentPath.length == 1 && _isImplicitArray) {
-
           _weAreInObject = false;
           _requireComma = false;
           _requireKey = false;
@@ -377,35 +381,14 @@ class JsonStreamingParser {
             bufferGetter(buffer, i) == 108, "Expected l")) continue;
         _makeFinalSymbol(i, null);
         continue;
-      } else if (<int>[
-        45,
-        48,
-        49,
-        50,
-        51,
-        52,
-        53,
-        54,
-        55,
-        56,
-        57
-      ].contains(bufferGetter(buffer, i))) {
+      } else if (<int>[45, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57]
+          .contains(bufferGetter(buffer, i))) {
         final valueString = new StringBuffer();
         valueString.writeCharCode(bufferGetter(buffer, i));
         if (bufferGetter(buffer, i) == 45) {
           if (++i >= loaded) continue;
-          if (<int>[
-            48,
-            49,
-            50,
-            51,
-            52,
-            53,
-            54,
-            55,
-            56,
-            57
-          ].contains(bufferGetter(buffer, i))) {
+          if (<int>[48, 49, 50, 51, 52, 53, 54, 55, 56, 57]
+              .contains(bufferGetter(buffer, i))) {
             valueString.writeCharCode(bufferGetter(buffer, i));
           } else {
             _parserAssertNotReached("DIGIT");
@@ -451,35 +434,15 @@ class JsonStreamingParser {
                 bufferGetter(buffer, i) == 43) {
               valueString.writeCharCode(bufferGetter(buffer, i));
               if (++i >= loaded) continue stateParser;
-              if (<int>[
-                48,
-                49,
-                50,
-                51,
-                52,
-                53,
-                54,
-                55,
-                56,
-                57
-              ].contains(bufferGetter(buffer, i))) {
+              if (<int>[48, 49, 50, 51, 52, 53, 54, 55, 56, 57]
+                  .contains(bufferGetter(buffer, i))) {
                 valueString.writeCharCode(bufferGetter(buffer, i));
               } else {
                 _parserAssertNotReached("Expected DIGIT");
                 continue stateParser;
               }
-            } else if (<int>[
-              48,
-              49,
-              50,
-              51,
-              52,
-              53,
-              54,
-              55,
-              56,
-              57
-            ].contains(bufferGetter(buffer, i))) {
+            } else if (<int>[48, 49, 50, 51, 52, 53, 54, 55, 56, 57]
+                .contains(bufferGetter(buffer, i))) {
               valueString.writeCharCode(bufferGetter(buffer, i));
             } else {
               _parserAssertNotReached("Expected DIGIT, +, or -");
@@ -493,18 +456,8 @@ class JsonStreamingParser {
               bufferGetter(buffer, i) == 101) {
             _parserAssertNotReached('Expected digit');
             continue stateParser;
-          } else if (<int>[
-            48,
-            49,
-            50,
-            51,
-            52,
-            53,
-            54,
-            55,
-            56,
-            57
-          ].contains(bufferGetter(buffer, i))) {
+          } else if (<int>[48, 49, 50, 51, 52, 53, 54, 55, 56, 57]
+              .contains(bufferGetter(buffer, i))) {
             valueString.writeCharCode(bufferGetter(buffer, i));
             i++;
             continue;
@@ -521,8 +474,9 @@ class JsonStreamingParser {
   }
 
   JsonStreamingEvent addJsonStreamingEvent(JsonStreamingBoxType object,
-      List currentPath, Object currentContext) => new JsonStreamingEvent(
-      object, currentPath, currentContext, _status, _statusText);
+          List currentPath, Object currentContext) =>
+      new JsonStreamingEvent(
+          object, currentPath, currentContext, _status, _statusText);
 
   void _parserAssertNotReached(String message) {
     _onOpenContainer.addError(new StateError(message));
@@ -589,12 +543,14 @@ class JsonStreamingParser {
               thisString.writeCharCode(9);
               break;
             case 117:
-              int.parse(new AsciiDecoder().convert([
-                bufferGetter(buffer, i + 1),
-                bufferGetter(buffer, i + 2),
-                bufferGetter(buffer, i + 3),
-                bufferGetter(buffer, i + 4)
-              ]), radix: 16);
+              int.parse(
+                  new AsciiDecoder().convert([
+                    bufferGetter(buffer, i + 1),
+                    bufferGetter(buffer, i + 2),
+                    bufferGetter(buffer, i + 3),
+                    bufferGetter(buffer, i + 4)
+                  ]),
+                  radix: 16);
               i += 4;
               if (i >= loaded) return loaded;
               break;

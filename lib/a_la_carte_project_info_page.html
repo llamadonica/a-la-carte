@@ -19,7 +19,7 @@
 
 <polymer-element
         name="a-la-carte-project-info-page"
-        attributes="project appPager projectsByUuid projects appPresenter"
+        attributes="project appPager projectsByUuid projects appPresenter userName userEmail"
         vertical
         layout>
     <template bind>
@@ -58,10 +58,14 @@
                 </paper-input-decorator>
                 <core-label horizontal layout>
                     <paper-checkbox
-                            checked?="{{project.isActive}}">
+                            checked="{{project.isActive}}">
                     </paper-checkbox>
                     <h4>Active job?</h4>
                 </core-label>
+                <div id="project-metadata" showing?="{{projectIsCommitted}}">
+                  {{project.userDataName}} ({{project.userDataEmail}}) at
+                  {{formatTimeStamp(project.userDataTimestamp)}}
+                </div>
                 <paper-button id="deleteProjectButton" class="custom"
                               showing?="{{projectIsCommitted}}"
                               on-tap="{{deleteProject}}">

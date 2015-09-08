@@ -7,14 +7,10 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:shelf/shelf.dart' as shelf;
 import 'package:d17/d17.dart';
 
 import 'db_backend.dart';
-import 'authenticator.dart';
-import 'local_session_data.dart';
 import 'ref.dart';
-import 'shelf_utils.dart';
 
 class CouchError extends ServiceError {
   CouchError(Map result) : super(result);
@@ -37,9 +33,8 @@ class CouchDbBackend extends DbBackend {
   String _password;
 
   @Inject(name: 'a_la_carte.server.debugOverWire')
-  bool _debugOverWire;
-
-  @inject CouchDbBackend(
+  @inject
+  CouchDbBackend(
       @Named('a_la_carte.server.couch_db_backend.couchDbPort') int this.port);
 
   _validateSession() {
@@ -194,7 +189,9 @@ class CouchDbBackend extends DbBackend {
   }
 }
 
-Future<List> couchDbRetrievePermissions(DbBackend backend_, String email, String permissionPath, [state]) async {
+Future<List> couchDbRetrievePermissions(
+    DbBackend backend_, String email, String permissionPath,
+    [state]) async {
   assert(backend_ is CouchDbBackend);
   CouchDbBackend backend = backend_;
   final couchUri = new Uri(

@@ -10,6 +10,7 @@ dependencies:
   polymer: any
   sass: any
   oauth2: any
+  intl: any
   d17:
     git:
       ref: testing
@@ -23,7 +24,6 @@ transformers:
 - sass:
     compass: true
     style: compact
-    executable: "c:\\Ruby22-x64\\bin\\sass.bat"
 - polymer:
     entry_points: web/index.html
 - $dart2js:

@@ -8,6 +8,7 @@ import 'package:paper_elements/paper_autogrow_textarea.dart';
 import 'package:paper_elements/paper_input_decorator.dart';
 import 'package:paper_elements/paper_progress.dart';
 import 'package:paper_elements/paper_action_dialog.dart';
+import 'package:intl/intl.dart';
 import 'fetch_interop.dart';
 
 import 'package:a_la_carte/models.dart';
@@ -23,12 +24,15 @@ class ALaCarteProjectInfoPage extends ALaCartePageCommon {
   @published Presenter appPresenter;
   @published Map<String, Project> projectsByUuid;
   @published List<Project> projects;
+  @published String userEmail;
+  @published String userName;
   @observable bool projectIsCommitted;
   @observable bool showProgress = false;
 
+  final DateFormat formatter = new DateFormat.MMMEd().add_jm();
+
   StreamSubscription _projectChangeListener;
   bool _fabWillBeDisabled = false;
-  bool _projectMayBeCommitted = false;
   final Set<String> _cancelledAuthorizationSubscriptions = new Set<String>();
   StreamSubscription _activeAuthorizationSubscriptionDiscardListener = null;
 
@@ -41,15 +45,12 @@ class ALaCarteProjectInfoPage extends ALaCartePageCommon {
       ..addPath(this, 'project.jobNumber')
       ..addPath(this, 'project.name')
       ..addPath(this, 'project.serviceAccountName')
-      ..open((_) {
-        _projectMayBeCommitted = (project != null &&
-            project.jobNumber != null &&
-            project.jobNumber >= 0 &&
-            project.name != null &&
-            project.name != "" &&
-            project.serviceAccountName != null &&
-            project.serviceAccountName != "");
-      });
+      ..open((_) {});
+  }
+
+  formatTimeStamp(DateTime time) {
+    if (time == null) return '';
+    return formatter.format(time);
   }
 
   void projectChanged(oldProject) {
@@ -149,7 +150,7 @@ class ALaCarteProjectInfoPage extends ALaCartePageCommon {
     var jsonHandler = new JsonStreamingParser();
     final subscription = new Ref<StreamSubscription>();
     subscription.value = jsonHandler.onSymbolComplete.listen((event) =>
-        _routeProjectDeletingJsonReply(event, project, subscription, rev));
+        _routeProjectDeletingJsonReply(event, project, subscription, rev, id));
 
     if (fetch == null) {
       final _request = new HttpRequest();
@@ -177,7 +178,7 @@ class ALaCarteProjectInfoPage extends ALaCartePageCommon {
   }
 
   void _routeProjectDeletingJsonReply(JsonStreamingEvent event, Project project,
-      Ref<StreamSubscription> subscription, String rev) {
+      Ref<StreamSubscription> subscription, String rev, String id) {
     final Duration enableDelay = new Duration(milliseconds: 1020);
     if (event.status == 401 && event.path.length == 0) {
       if (event.symbol.containsKey('auth_uri') &&
@@ -234,11 +235,14 @@ class ALaCarteProjectInfoPage extends ALaCartePageCommon {
       new Timer(enableDelay, () {
         fabDisabled = _fabWillBeDisabled;
       });
-      projectsByUuid.remove(project.id);
-      Project.removeFromPresortedList(projects, project);
+      if (projectsByUuid.containsKey(project.id)) {
+        projectsByUuid.remove(project.id);
+        Project.removeFromPresortedList(projects, project);
+      }
       appPager.selected = 0;
       subscription.value.cancel();
       appPresenter.receiveAuthenticationSessionData();
+      appPresenter.goToDefault();
     }
   }
 
@@ -396,8 +400,10 @@ class ALaCarteProjectInfoPage extends ALaCartePageCommon {
         fabDisabled = _fabWillBeDisabled;
       });
       if (!project.committed) {
-        projectsByUuid[project.id] = project;
-        Project.insertIntoPresortedList(project, projects);
+        if (!projectsByUuid.containsKey(project.id)) {
+          projectsByUuid[project.id] = project;
+          Project.insertIntoPresortedList(project, projects);
+        }
       } else if (project.jobNumber != project.jobNumberInPresortedList) {
         Project.repositionInPresortedList(projects, project);
       }
@@ -405,6 +411,9 @@ class ALaCarteProjectInfoPage extends ALaCartePageCommon {
       project.committed = true;
       projectIsCommitted = true;
       project.isChanged = false;
+      project.userDataName = userName;
+      project.userDataEmail = userEmail;
+      project.userDataTimestamp = new DateTime.now();
       appPager.setProjectHasChanged(false);
       fabIcon = null;
       subscription.value.cancel();
