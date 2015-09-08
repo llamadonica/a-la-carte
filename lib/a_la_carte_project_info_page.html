@@ -16,6 +16,7 @@
 <link rel="import" href="../../packages/core_elements/core_label.html"/>
 <link rel="import" href="../../packages/core_elements/core_pages.html"/>
 <link rel="import" href="../../packages/paper_elements/paper_progress.html"/>
+<link rel="import" href="google_map.html"/>
 
 <polymer-element
         name="a-la-carte-project-info-page"
@@ -56,6 +57,7 @@
                         <textarea value="{{project.streetAddress}}"></textarea>
                     </paper-autogrow-textarea>
                 </paper-input-decorator>
+                <google-map id="location-map"></google-map>
                 <core-label horizontal layout>
                     <paper-checkbox
                             checked="{{project.isActive}}">
