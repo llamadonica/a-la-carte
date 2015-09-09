@@ -10,6 +10,7 @@ class Project extends JsonCanSync {
   @observable bool isActive;
   @observable String initials;
   @observable String streetAddress;
+  @observable String placeId;
   @observable String serviceAccountName;
   @observable String userDataName;
   @observable String userDataEmail;
@@ -117,6 +118,7 @@ class Project extends JsonCanSync {
     initials = values['initials'];
     streetAddress = values['streetAddress'];
     serviceAccountName = values['account'];
+    placeId = values['place_id'];
     if (values['isActive'] != null) {
       isActive = values['isActive'];
     }
@@ -146,7 +148,8 @@ class Project extends JsonCanSync {
       'streetAddress': streetAddress,
       'isActive': isActive,
       'account': serviceAccountName,
-      'type': 'project'
+      'type': 'project',
+      'place_id': placeId
     };
     if (committed) {
       map['_id'] = id;

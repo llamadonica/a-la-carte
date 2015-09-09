@@ -57,7 +57,7 @@
                         <textarea value="{{project.streetAddress}}"></textarea>
                     </paper-autogrow-textarea>
                 </paper-input-decorator>
-                <google-map id="location-map"></google-map>
+                <google-map id="location-map" placeId="{{project.placeId}}"></google-map>
                 <core-label horizontal layout>
                     <paper-checkbox
                             checked="{{project.isActive}}">

@@ -14,6 +14,7 @@ import 'fetch_interop.dart';
 import 'package:a_la_carte/models.dart';
 import 'package:a_la_carte/json_streaming.dart';
 import 'package:a_la_carte/a_la_carte_page_common.dart';
+import 'package:a_la_carte/google_map.dart';
 
 @CustomTag('a-la-carte-project-info-page')
 class ALaCarteProjectInfoPage extends ALaCartePageCommon {
@@ -46,6 +47,17 @@ class ALaCarteProjectInfoPage extends ALaCartePageCommon {
       ..addPath(this, 'project.name')
       ..addPath(this, 'project.serviceAccountName')
       ..open((_) {});
+    final PaperAutogrowTextarea streetAddressTextarea =
+        $['street-address-textarea'];
+    final TextAreaElement textAreaElement =
+        streetAddressTextarea.querySelector('textarea');
+    textAreaElement.onBlur.listen((event) {
+      final address = textAreaElement.value;
+      final GoogleMap locationMap = $['location-map'];
+      if (!locationMap.addressIsSet && address != null && address != '') {
+        locationMap.setAddress(address);
+      }
+    });
   }
 
   formatTimeStamp(DateTime time) {
