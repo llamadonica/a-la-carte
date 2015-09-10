@@ -62,7 +62,8 @@ class GoogleMap extends PolymerElement {
         if (styleText.startsWith('@-webkit-keyframes')) {
           var nodeToInsert = new StyleElement()
             ..type = 'text/css'
-            ..innerHtml = styleText + r'''
+            ..innerHtml = styleText +
+                r'''
 
   img[src="https://maps.gstatic.com/mapfiles/api-3/images/spotlight-poi.png"] {
     opacity: 1.0;
@@ -149,12 +150,12 @@ class GoogleMap extends PolymerElement {
         latitude = result.geometry.location.lat;
         longitude = result.geometry.location.lng;
         addressIsSet = true;
-          final markerOptions = new MarkerOptions()
-            ..map = map
-            ..raiseOnDrag = true
-            ..animation = google_maps.Animation.DROP
-            ..position = result.geometry.location;
-          _placeMarker = new Marker(markerOptions);
+        final markerOptions = new MarkerOptions()
+          ..map = map
+          ..raiseOnDrag = true
+          ..animation = google_maps.Animation.DROP
+          ..position = result.geometry.location;
+        _placeMarker = new Marker(markerOptions);
         completer.complete(placeId);
       } else {
         completer.completeError(new ArgumentError('Could not find location'));
@@ -178,11 +179,11 @@ class GoogleMap extends PolymerElement {
         longitude = result.geometry.location.lng;
         addressIsSet = true;
         final markerOptions = new MarkerOptions()
-            ..map = map
-            ..raiseOnDrag = true
-            ..animation = google_maps.Animation.DROP
-            ..position = result.geometry.location;
-          _placeMarker = new Marker(markerOptions);
+          ..map = map
+          ..raiseOnDrag = true
+          ..animation = google_maps.Animation.DROP
+          ..position = result.geometry.location;
+        _placeMarker = new Marker(markerOptions);
         completer.complete(placeId);
       } else {
         completer.completeError(new ArgumentError('Could not find location'));
