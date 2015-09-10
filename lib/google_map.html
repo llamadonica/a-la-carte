@@ -1,5 +1,5 @@
 
-<polymer-element name="google-map" attributes="latitude longitude">
+<polymer-element name="google-map" attributes="latitude longitude config">
 <template>
 
   <style>
@@ -8,6 +8,7 @@
       position: relative;
       display: block;
       height: 100%;
+      padding: 0.75em 0;
     }
 
     #map {
@@ -16,6 +17,9 @@
       right: 0;
       bottom: 0;
       left: 0;
+    }
+    img[src="https://maps.gstatic.com/mapfiles/api-3/images/spotlight-poi.png"] {
+      opacity: 0.0;
     }
 
   </style>
@@ -33,5 +37,4 @@ window.mapsApiPromise = new Promise( function (resolve, reject) {
     resolve();
   };
 });
- </script>
-<script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyDAXEIaRgyXtUKOXrSMq7X4UgJtG1-lkrY&amp;callback=initMap" defer async></script>
+</script>

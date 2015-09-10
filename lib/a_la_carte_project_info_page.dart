@@ -27,6 +27,7 @@ class ALaCarteProjectInfoPage extends ALaCartePageCommon {
   @published List<Project> projects;
   @published String userEmail;
   @published String userName;
+  @published Map config;
   @observable bool projectIsCommitted;
   @observable bool showProgress = false;
 

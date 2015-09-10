@@ -29,6 +29,7 @@ class ALaCarteMainView extends PolymerElement implements AppPager {
   @published String userPicture;
   @published String userName;
   @published String userEmail;
+  @published Map config;
   @observable String internalUserPicture;
 
   @observable String projectEditViewCaption = "Add a project";

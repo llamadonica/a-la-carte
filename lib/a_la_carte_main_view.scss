@@ -17,8 +17,10 @@ core-header-panel::shadow {
 
 #tap-sign-in-section {
   height: 100%;
-  position: relative;
+  position: absolute;
   min-width: 100px;
+  right: 7px;
+  top: 0;
 }
 
 paper-button#tap-sign-in {

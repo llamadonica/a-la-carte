@@ -1,0 +1,10 @@
+{
+  "map": {
+    "defaultLatitude": 38.5556,
+    "defaultLongitude": -121.4689,
+    "defaultZoomLevel": 8
+  },
+  "apis": {
+    "googleApiKey": "AIzaSyDAXEIaRgyXtUKOXrSMq7X4UgJtG1-lkrY"
+  }
+}

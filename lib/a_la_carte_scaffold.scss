@@ -30,11 +30,14 @@
 
 #menu-button {
   @include inline-block();
-  @include transition(margin .25s linear .25s, padding .25s linear .25s, transform .25s linear);
+  @include transition(left .25s linear 0s, padding .25s linear .25s, transform .25s linear);
   @include transform(scaleX(0));
   margin: 0;
-  padding: 0;
+  padding: 7px 0;
   z-index: 2;
+  position: absolute;
+  left: 0px;
+    `top: 13px;
 }
 
 #drawer-panel {
@@ -49,8 +52,11 @@
     #menu-button {
       @include inline-block();
       @include transform(none);
-      margin: 0 8px;
+      margin: 0;
       padding: 7px;
+      position: absolute;
+      left: 16px;
+      top: 13px;
     }
     &[selected="drawer"] {
       #scroll-track {

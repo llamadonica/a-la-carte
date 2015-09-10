@@ -38,7 +38,8 @@
           userPicture="{{userPicture}}"
           userName="{{userFullName}}"
           userEmail="{{userEmail}}"
-          appPresenter="{{this}}">
+          appPresenter="{{this}}"
+          config="{{config}}">
       </a-la-carte-main-view>
     </core-animated-pages>
     <paper-toast duration="600000" autoCloseDisabled id="toast-connectivity" text="{{connectivityErrorMessage}}">
@@ -51,6 +52,11 @@
         query="min-width: {{responsiveWidth}}px"
         queryMatches="{{wide}}">
     </core-media-query>
+    <core-ajax-dart
+            id="configuration-handler"
+            url="/config.json"
+            handleAs="json"
+            on-core-response="{{handleConfigResponse}}"></core-ajax-dart>
   </template>
   <script type="application/dart" src="a_la_carte_presenter.dart"></script>
 </polymer-element>

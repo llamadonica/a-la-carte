@@ -57,6 +57,9 @@ paper-progress {
     }
 }
 google-map {
+  width: 100%;
+  max-height: 50vw;
   height: 500px;
-  width: 500px;
+  min-height: 149px;
+  min-width: 275px;
 }

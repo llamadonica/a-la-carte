@@ -20,7 +20,7 @@
 
 <polymer-element
         name="a-la-carte-project-info-page"
-        attributes="project appPager projectsByUuid projects appPresenter userName userEmail"
+        attributes="project appPager projectsByUuid projects appPresenter userName userEmail config"
         vertical
         layout>
     <template bind>
@@ -57,7 +57,7 @@
                         <textarea value="{{project.streetAddress}}"></textarea>
                     </paper-autogrow-textarea>
                 </paper-input-decorator>
-                <google-map id="location-map" placeId="{{project.placeId}}"></google-map>
+                <google-map id="location-map" config="{{config}}" placeId="{{project.placeId}}"></google-map>
                 <core-label horizontal layout>
                     <paper-checkbox
                             checked="{{project.isActive}}">

@@ -72,7 +72,8 @@ $description
     'index.html.web_components.bootstrap.dart.js.map',
     'components',
     'packages',
-    '_static'
+    '_static',
+    'config.json'
   ];
 
   @inject

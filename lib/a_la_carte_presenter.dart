@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:html';
 
 import 'package:polymer/polymer.dart';
+import 'package:core_elements/core_ajax_dart.dart';
 import 'package:paper_elements/paper_toast.dart';
 import 'package:a_la_carte/json_streaming.dart';
 import 'package:a_la_carte/fetch_interop.dart';
@@ -23,6 +24,8 @@ class ALaCartePresenter extends PolymerElement implements Presenter {
   };
 
   @published String templateUrl;
+  @published Map config = null;
+
   @observable String selected = 'main-view';
   @observable String prevSelected = null;
   @observable String connectivityErrorMessage = null;
@@ -62,6 +65,8 @@ class ALaCartePresenter extends PolymerElement implements Presenter {
   }
 
   void _finishStartup() {
+    CoreAjax configurationHandler = $['configuration-handler'];
+    configurationHandler.go();
     if (window.location.hash == '') {
       setUrl('/+all', '');
       this.selected = 'all';
@@ -464,5 +469,9 @@ class ALaCartePresenter extends PolymerElement implements Presenter {
   @override void showAuthLogin(String uri) {
     window.open(uri, '_blank',
         'width=500,height=500,centerscreen=1,toolbar=0,navigation=0');
+  }
+
+  void handleConfigResponse(CustomEvent event) {
+    config = event.detail['response'];
   }
 }
