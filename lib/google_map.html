@@ -1,5 +1,5 @@
 
-<polymer-element name="google-map" attributes="latitude longitude config">
+<polymer-element name="google-map" attributes="latitude longitude config pinHasMovedFromPlace address">
 <template>
 
   <style>
@@ -20,6 +20,38 @@
     }
     img[src="https://maps.gstatic.com/mapfiles/api-3/images/spotlight-poi.png"] {
       opacity: 0.0;
+    }
+    .control-container {
+      margin-top: 5px;
+      cursor: pointer;
+    }
+    .control-button {
+      display: inline-block;
+      font-size: 11px;
+      padding: 1px 6px;
+      border: 1px solid rgba(0, 0, 0, 0.14902);
+      border-right: 0px none rgb(0,0,0);
+      background-color: rgb(255, 255, 255);
+      box-shadow: rgba(0, 0, 0, 0.298039) 0px 1px 4px -1px;
+    }
+    .control-button:hover {
+      background-color: rgb(235, 235, 235);
+    }
+    .control-button-right {
+      border-right: 1px solid rgba(0, 0, 0, 0.14902);
+      border-radius-top-right: 2px;
+      border-radius-bottom-right: 2px;
+    }
+    .control-button-left {
+      border-radius-top-left: 2px;
+      border-radius-bottom-left: 2px;
+    }
+    .control-button core-icon {
+      width: 14px;
+      height: 14px;
+    }
+    .info-buttons {
+      padding-top: 12px;
     }
 
   </style>

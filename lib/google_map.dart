@@ -1,9 +1,12 @@
+library a_la_carte.client.google_map;
+
 import 'dart:async';
 import 'dart:html';
 import 'dart:js';
 
-import 'package:google_maps/google_maps.dart' hide Animation;
+import 'package:google_maps/google_maps.dart' hide Animation, MouseEvent;
 import 'package:google_maps/google_maps.dart' as google_maps;
+import 'package:core_elements/core_icon.dart';
 import 'package:polymer/polymer.dart';
 
 @CustomTag('google-map')
@@ -13,11 +16,20 @@ class GoogleMap extends PolymerElement {
   @published double zoom;
   @published Map config;
   @published String placeId;
+  @published bool pinHasMovedFromPlace;
+  @published String address;
 
   @observable bool addressIsSet;
-  @observable String address;
+
   GMap map;
+
   Marker _placeMarker;
+  LatLngBounds _placeMarkerBounds;
+  double _placeMarkerLatDiff;
+  double _placeMarkerLongDiff;
+  String _geolocationAddress;
+  InfoWindow _infoWindowPopup;
+
   Geocoder geocoder;
   MutationObserver _animationStylingObserver;
 
@@ -28,10 +40,13 @@ class GoogleMap extends PolymerElement {
   var defaultZoom = 0;
 
   placeIdChanged(String oldPlaceId) {
+    if (pinHasMovedFromPlace == true) return;
     if (!addressIsSet && placeId != null) {
-      setPlace(placeId);
+      map.streetView.visible = false;
+      _setPlace(placeId);
     } else if (placeId == null && oldPlaceId != null) {
-      resetPlace();
+      map.streetView.visible = false;
+      _resetPlace();
     }
   }
 
@@ -81,10 +96,10 @@ class GoogleMap extends PolymerElement {
     super.attached();
     _animationStylingObserver = new MutationObserver(_headMutated)
       ..observe(document.head, childList: true);
-    initializeMap();
+    _initializeMap();
   }
 
-  Future initializeMap() async {
+  Future _initializeMap() async {
     await mapsApiLoaded;
     var latLng;
     var zoomLevel;
@@ -101,9 +116,12 @@ class GoogleMap extends PolymerElement {
       ..zoom = zoomLevel;
     final mapView = $['map'];
     map = new GMap(mapView, mapOptions);
-    map.onZoomChanged.listen((_) {
-      zoom = map.zoom;
-    });
+    _setUpAdditionalControls(map);
+    map
+      ..onZoomChanged.listen((_) {
+        zoom = map.zoom;
+      })
+      ..onRightclick.listen(_rightClickOnMap);
     geocoder = new Geocoder();
 
     // this allow to notify the map that the size of the canvas has changed.
@@ -111,33 +129,83 @@ class GoogleMap extends PolymerElement {
     event.trigger(map, 'resize', []);
   }
 
-  Future resetPlace() async {
+  void _setUpAdditionalControls(GMap map) {
+    var recenterButton = new DivElement()
+      ..classes.add('control-button')
+      ..classes.add('control-button-left')
+      ..innerHtml = 'Recenter'
+      ..onClick.listen(_recenterMap);
+    var geolocationIcon = new CoreIcon()..icon = 'device:gps-fixed';
+    var geolocationButton = new DivElement()
+      ..classes.add('control-button')
+      ..classes.add('control-button-right')
+      ..append(geolocationIcon)
+      ..onClick.listen(_geolocateMe);
+    var controlUi = new DivElement()
+      ..classes.add('control-container')
+      ..append(recenterButton)
+      ..append(geolocationButton);
+    map.controls[ControlPosition.TOP_CENTER].push(controlUi);
+  }
+
+  void _recenterMap(MouseEvent event) {
+    if (_placeMarker != null) {
+      map.fitBounds(_placeMarkerBounds);
+    }
+  }
+
+  void _geolocateMe(MouseEvent event) {
+    Future _geolocateMeAsync() async {
+      var geoposition = await window.navigator.geolocation.getCurrentPosition(
+          enableHighAccuracy: true, timeout: new Duration(seconds: 5));
+      latitude = geoposition.coords.latitude;
+      longitude = geoposition.coords.longitude;
+      await setPlaceIdFromLatitudeAndLongitude(
+          setInfo: true, relocatePin: true);
+    }
+    _geolocateMeAsync();
+  }
+
+  _clearPlaceMarker() {
     if (_placeMarker != null) {
       _placeMarker.map = null;
+      _placeMarker = null;
     }
+    if (_infoWindowPopup != null) {
+      _infoWindowPopup.close();
+      _infoWindowPopup = null;
+    }
+    addressIsSet = false;
+    placeId = null;
+    latitude = null;
+    longitude = null;
+  }
+
+  Future _resetPlace() async {
+    _clearPlaceMarker();
     latitude = null;
     longitude = null;
     addressIsSet = false;
-    await resetToInitialState();
+    await _resetToInitialState();
   }
 
-  Future resetToInitialState() async {
+  Future _resetToInitialState() async {
     await mapsApiLoaded;
     var latLng;
     var zoomLevel;
     if (latitude == null) {
-      latLng = new LatLng(38.5556, -121.4689);
-      zoomLevel = 8;
+      latLng = new LatLng(defaultLatitude, defaultLongitude);
+      zoomLevel = defaultZoom;
     } else {
       latLng = new LatLng(latitude, longitude);
-      zoomLevel = 14;
+      zoomLevel = defaultZoom;
     }
     map
       ..center = latLng
       ..zoom = zoomLevel;
   }
 
-  Future setPlace(String place_) async {
+  Future _setPlace(String place_) async {
     final completer = new Completer();
     final geocodeRequest = new GeocoderRequest()..$unsafe['placeId'] = place_;
     await mapsApiLoaded;
@@ -145,23 +213,68 @@ class GoogleMap extends PolymerElement {
         (List<GeocoderResult> results, GeocoderStatus status) {
       if (status == GeocoderStatus.OK) {
         final GeocoderResult result = results[0];
-        map.fitBounds(result.geometry.viewport);
-        placeId = result.$unsafe['place_id'];
-        latitude = result.geometry.location.lat;
-        longitude = result.geometry.location.lng;
-        addressIsSet = true;
-        final markerOptions = new MarkerOptions()
-          ..map = map
-          ..raiseOnDrag = true
-          ..animation = google_maps.Animation.DROP
-          ..position = result.geometry.location;
-        _placeMarker = new Marker(markerOptions);
+        _setPlaceMarker(result);
         completer.complete(placeId);
       } else {
         completer.completeError(new ArgumentError('Could not find location'));
       }
     });
     return await completer.future;
+  }
+
+  _setPlaceInfo(GeocoderResult result) {
+    placeId = result.$unsafe['place_id'];
+    latitude = result.geometry.location.lat;
+    longitude = result.geometry.location.lng;
+    _placeMarkerLatDiff =
+        _placeMarkerBounds.northEast.lat - _placeMarkerBounds.southWest.lat;
+    _placeMarkerLongDiff =
+        _placeMarkerBounds.northEast.lng - _placeMarkerBounds.southWest.lng;
+
+    addressIsSet = true;
+    _geolocationAddress = result.formattedAddress;
+
+    pinHasMovedFromPlace = false;
+  }
+
+  _setPlaceMarker(GeocoderResult result, {bool fitBounds: true}) {
+    if (fitBounds) {
+      map.fitBounds(_placeMarkerBounds = result.geometry.viewport);
+    }
+
+    _setPlaceInfo(result);
+    final markerOptions = new MarkerOptions()
+      ..map = map
+      ..raiseOnDrag = true
+      ..animation = google_maps.Animation.DROP
+      ..draggable = true
+      ..position = result.geometry.location;
+    _clearPlaceMarker();
+    _placeMarker = new Marker(markerOptions)
+      ..onDragstart
+          .listen((_) => _placeMarker.$unsafe.callMethod('setAnimation', [3]))
+      ..onDragend.listen((_) {
+        _placeMarker.$unsafe.callMethod('setAnimation', [4]);
+        latitude = _placeMarker.position.lat;
+        longitude = _placeMarker.position.lng;
+        pinHasMovedFromPlace = true;
+        _placeMarkerBounds = new LatLngBounds(
+            new LatLng(latitude - _placeMarkerLatDiff / 2,
+                longitude - _placeMarkerLatDiff / 2),
+            new LatLng(latitude + _placeMarkerLatDiff / 2,
+                longitude + _placeMarkerLatDiff / 2));
+        placeId = null;
+      })
+      ..onClick.listen((_) {
+        _createInfoPage().then((infoNode) {
+          var options = new InfoWindowOptions()..content = infoNode;
+          if (_infoWindowPopup != null) {
+            _infoWindowPopup.close();
+          }
+          _infoWindowPopup = new InfoWindow(options);
+          _infoWindowPopup.open(map, _placeMarker);
+        });
+      });
   }
 
   Future setAddress(String address_) {
@@ -173,23 +286,96 @@ class GoogleMap extends PolymerElement {
         (List<GeocoderResult> results, GeocoderStatus status) {
       if (status == GeocoderStatus.OK) {
         final GeocoderResult result = results[0];
-        map.fitBounds(result.geometry.viewport);
-        placeId = result.$unsafe['place_id'];
-        latitude = result.geometry.location.lat;
-        longitude = result.geometry.location.lng;
-        addressIsSet = true;
-        final markerOptions = new MarkerOptions()
-          ..map = map
-          ..raiseOnDrag = true
-          ..animation = google_maps.Animation.DROP
-          ..position = result.geometry.location;
-        _placeMarker = new Marker(markerOptions);
+        _setPlaceMarker(result);
         completer.complete(placeId);
       } else {
         completer.completeError(new ArgumentError('Could not find location'));
       }
     });
     return completer.future;
+  }
+
+  Future<String> setPlaceIdFromLatitudeAndLongitude(
+      {bool setInfo: false,
+      bool relocatePin: false,
+      bool fitBounds: true}) async {
+    await mapsApiLoaded;
+    final completer = new Completer<String>();
+    final geocodeRequest = new GeocoderRequest()
+      ..location = new LatLng(latitude, longitude);
+    geocoder.geocode(geocodeRequest,
+        (List<GeocoderResult> results, GeocoderStatus status) {
+      if (status == GeocoderStatus.OK) {
+        window.console.log('Got a specific place.');
+        final GeocoderResult result = results[0];
+        completer.complete(result.$unsafe['place_id']);
+        pinHasMovedFromPlace = false;
+        if (relocatePin) {
+          _setPlaceMarker(result, fitBounds: fitBounds);
+        } else if (setInfo) {
+          _setPlaceInfo(result);
+        }
+      } else {
+        window.console.log('Could not get a specific place.');
+        completer.completeError(new ArgumentError('Could not find location'));
+      }
+    });
+    return await completer.future;
+  }
+
+  Future<Node> _createInfoPage() async {
+    if (pinHasMovedFromPlace) {
+      await setPlaceIdFromLatitudeAndLongitude(setInfo: true);
+    }
+    final infoDiv = new DivElement()
+      ..classes.add('info-address')
+      ..innerHtml = this._geolocationAddress;
+    final addressButton = new AnchorElement()
+      ..href = '#'
+      ..innerHtml = 'Set address to this location'
+      ..onClick.listen(_setProjectAddressToThis);
+    final clearButton = new AnchorElement()
+      ..href = '#'
+      ..innerHtml = 'Delete pin'
+      ..onClick.listen(_deletePin);
+    final addressButtonDiv = new DivElement()
+      ..classes.add('info-button')
+      ..append(addressButton);
+    final clearButtonDiv = new DivElement()
+      ..classes.add('info-button')
+      ..append(clearButton);
+    final allButtons = new DivElement()
+      ..classes.add('info-buttons')
+      ..append(addressButtonDiv)
+      ..append(clearButtonDiv);
+    final popup = new DivElement()
+      ..classes.add('info-popup')
+      ..append(infoDiv)
+      ..append(allButtons);
+    return popup;
+  }
+
+  Node _createDropDialog(LatLng location) {
+    final dropButton = new AnchorElement()
+      ..href = '#'
+      ..innerHtml = 'Drop pin'
+      ..onClick.listen((_) => _newPin(location));
+    final dropButtonDiv = new DivElement()
+      ..classes.add('info-button')
+      ..append(dropButton);
+    final popup = new DivElement()
+      ..classes.add('info-popup')
+      ..append(dropButtonDiv);
+    return popup;
+  }
+
+  void _newPin(LatLng location) {
+    latitude = location.lat;
+    longitude = location.lng;
+    setPlaceIdFromLatitudeAndLongitude(
+        setInfo: true, relocatePin: true, fitBounds: true);
+    _infoWindowPopup.close();
+    _infoWindowPopup = null;
   }
 
   Future _mapsApiLoaded;
@@ -205,5 +391,26 @@ class GoogleMap extends PolymerElement {
       _mapsApiLoaded = completer.future;
     }
     return _mapsApiLoaded;
+  }
+
+  void _deletePin(MouseEvent event) {
+    _clearPlaceMarker();
+    event.preventDefault();
+  }
+
+  void _rightClickOnMap(google_maps.MouseEvent mouseEvent) {
+    if (addressIsSet) return;
+    var options = new InfoWindowOptions()
+      ..content = _createDropDialog(mouseEvent.latLng);
+    if (_infoWindowPopup != null) {
+      _infoWindowPopup.close();
+    }
+    _infoWindowPopup = new InfoWindow(options);
+    _infoWindowPopup.open(map, _placeMarker);
+  }
+
+  void _setProjectAddressToThis(MouseEvent event) {
+    address = _geolocationAddress;
+    event.preventDefault();
   }
 }

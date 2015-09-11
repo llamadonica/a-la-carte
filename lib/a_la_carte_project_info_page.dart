@@ -142,7 +142,15 @@ class ALaCarteProjectInfoPage extends ALaCartePageCommon {
     fabDisabled = true;
     //$['showProgress'].classes.add('showing');
     showProgress = true;
-    _putProjectDataToServer(project.id, project.json);
+    Future _asyncFabAction() async {
+      final GoogleMap locationMap = $['location-map'];
+      if (locationMap.pinHasMovedFromPlace) {
+        var placeId = await locationMap.setPlaceIdFromLatitudeAndLongitude();
+        project.placeId = placeId;
+      }
+      _putProjectDataToServer(project.id, project.json);
+    }
+    _asyncFabAction();
   }
 
   void deleteProject(MouseEvent event) {

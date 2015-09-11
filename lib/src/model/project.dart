@@ -11,10 +11,15 @@ class Project extends JsonCanSync {
   @observable String initials;
   @observable String streetAddress;
   @observable String placeId;
+  @observable double latitude;
+  @observable double longitude;
+  @observable String clientName;
   @observable String serviceAccountName;
   @observable String userDataName;
   @observable String userDataEmail;
   @observable DateTime userDataTimestamp;
+
+  @observable bool placeIdMustBeUpdated;
 
   String rev;
   bool committed = false;
@@ -119,6 +124,10 @@ class Project extends JsonCanSync {
     streetAddress = values['streetAddress'];
     serviceAccountName = values['account'];
     placeId = values['place_id'];
+    latitude = values['latitude'];
+    longitude = values['longitude'];
+    clientName = values['clientName'];
+
     if (values['isActive'] != null) {
       isActive = values['isActive'];
     }
@@ -149,7 +158,10 @@ class Project extends JsonCanSync {
       'isActive': isActive,
       'account': serviceAccountName,
       'type': 'project',
-      'place_id': placeId
+      'place_id': placeId,
+      'latitude': latitude,
+      'longitude': longitude,
+      'clientName': clientName
     };
     if (committed) {
       map['_id'] = id;
@@ -163,8 +175,11 @@ class Project extends JsonCanSync {
       _locallyChangedSymbols.add(record.name);
       if ((record.name != #jobNumber || record.oldValue != null) &&
           (record.name != #serviceAccountName || record.oldValue != null) &&
+          (record.name != #latitude || record.oldValue != null) &&
+          (record.name != #longitude || record.oldValue != null) &&
           record.name != #userDataName &&
           record.name != #userDataTimestamp &&
+          record.name != #placeIdMustBeUpdated &&
           record.name != #userDataEmail) {
         isChanged = true;
       }

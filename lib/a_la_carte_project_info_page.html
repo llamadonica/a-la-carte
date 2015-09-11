@@ -57,13 +57,26 @@
                         <textarea value="{{project.streetAddress}}"></textarea>
                     </paper-autogrow-textarea>
                 </paper-input-decorator>
-                <google-map id="location-map" config="{{config}}" placeId="{{project.placeId}}"></google-map>
+                <google-map id="location-map"
+                            config="{{config}}"
+                            placeId="{{project.placeId}}"
+                            latitude="{{project.latitude}}"
+                            longitude="{{project.longitude}}"
+                            address="{{project.streetAddress}}"
+                            pinHasMovedFromPlace="{{project.placeIdMustBeUpdated}}">
+                </google-map>
                 <core-label horizontal layout>
                     <paper-checkbox
                             checked="{{project.isActive}}">
                     </paper-checkbox>
                     <h4>Active job?</h4>
                 </core-label>
+                <paper-input-decorator
+                            label="Client Name"
+                            id="client-name">
+                        <input is="core-input"
+                                value="{{project.clientName}}">
+                </paper-input-decorator>
                 <div id="project-metadata" showing?="{{projectIsCommitted}}">
                   {{project.userDataName}} ({{project.userDataEmail}}) at
                   {{formatTimeStamp(project.userDataTimestamp)}}
