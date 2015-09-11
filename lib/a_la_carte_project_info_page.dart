@@ -98,6 +98,7 @@ class ALaCarteProjectInfoPage extends ALaCartePageCommon {
       projectIsCommitted = false;
       fabIcon = 'check';
     }
+    project.placeIdMustBeUpdated = false;
     _projectChangeListener = project.changes.listen(projectFieldsChanged);
   }
 
@@ -435,6 +436,7 @@ class ALaCarteProjectInfoPage extends ALaCartePageCommon {
       project.userDataName = userName;
       project.userDataEmail = userEmail;
       project.userDataTimestamp = new DateTime.now();
+      project.projectSyncWithServer();
       appPager.setProjectHasChanged(false);
       fabIcon = null;
       subscription.value.cancel();

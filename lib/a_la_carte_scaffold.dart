@@ -11,7 +11,7 @@ import 'package:polymer/polymer.dart';
 @CustomTag('a-la-carte-scaffold')
 class ALaCarteScaffold extends PolymerElement {
   static const EventStreamProvider<CustomEvent> dgsFabActionEvent =
-          const EventStreamProvider<CustomEvent>('dgs-fab-action');
+      const EventStreamProvider<CustomEvent>('dgs-fab-action');
   @observable String paperFabInternal;
   @observable bool docked;
   @observable bool fabShowing = true;
@@ -26,9 +26,9 @@ class ALaCarteScaffold extends PolymerElement {
   int scrollFrame = null;
   int trackStart;
   int track;
-  
+
   ALaCarteScaffold.created() : super.created();
-  
+
   CoreDrawerPanel get drawerPanel => $['drawer-panel'];
   Element get headerBg => $['header-bg'];
   CoreIconButton get menuButton => $['menu-button'];
@@ -48,23 +48,25 @@ class ALaCarteScaffold extends PolymerElement {
     drawerPanel.closeDrawer();
     transitonMenuButtonToMenu();
   }
-  
+
   void doMainFabAction(ev) {
     fire('dgs-fab-action');
   }
-  
+
   void dockedChanged(bool oldValue) {
     if ((docked != null) && docked && (oldValue != null) && !oldValue) {
       shadowRoot.querySelectorAll('paper-fab').forEach((Element e) {
         e.style
-            ..position = null
-            ..top = null;
+          ..position = null
+          ..top = null;
       });
     }
   }
-  
+
   void fabIconChanged(String oldValue) {
-    paperFabInternal = fabIcon;
+    if (fabIcon != null) {
+      paperFabInternal = fabIcon;
+    }
   }
 
   void headerTransform(CustomEvent e) {
@@ -72,27 +74,26 @@ class ALaCarteScaffold extends PolymerElement {
     var offset = headerPanel.querySelector('#main-container').scrollTop;
     if (headerPanel.condensedHeaderHeight == null ||
         headerPanel.headerHeight == null) return;
-    var height =
-        max(headerPanel.condensedHeaderHeight, headerPanel.headerHeight - offset);
+    var height = max(
+        headerPanel.condensedHeaderHeight, headerPanel.headerHeight - offset);
     headerPanel.querySelector('#header-container').style.height = '${height}px';
   }
 
   void narrowChanged(bool oldValue) {
     if (narrow != null && !narrow) {
-      shadowRoot.querySelector('#drawer-panel /deep/ #drawer')..style.transition =
-          null;
+      shadowRoot.querySelector('#drawer-panel /deep/ #drawer')
+        ..style.transition = null;
       menuButton.icon = 'menu-animation:menu-transition-to-arrow';
-      menuButton.attributes
-          ..remove('arrow')
-          ..remove('animate');
+      menuButton.attributes..remove('arrow')..remove('animate');
     } else {
       shadowRoot.querySelector('#drawer-panel /deep/ #drawer')
-          ..style.transition =
-              'transform ease-in-out 0.3s, width ease-in-out 0.3s, top 0s linear 0.3s'
-          ..onTransitionEnd.listen((TransitionEvent ev) {
-            if (ev.propertyName == 'top') (ev.target as Element).style.transition =
-                null;
-          });
+        ..style.transition =
+            'transform ease-in-out 0.3s, width ease-in-out 0.3s, top 0s linear 0.3s'
+        ..onTransitionEnd.listen((TransitionEvent ev) {
+          if (ev.propertyName == 'top') (ev.target as Element)
+              .style
+              .transition = null;
+        });
     }
   }
 
@@ -104,8 +105,8 @@ class ALaCarteScaffold extends PolymerElement {
   @override void ready() {
     scroller.onScroll.listen(scroll);
     window.onResize.listen(scroll);
-    drawerPanel.shadowRoot.querySelector(
-        '#scrim').addEventListener('tap', (ev) {
+    drawerPanel.shadowRoot.querySelector('#scrim').addEventListener('tap',
+        (ev) {
       toggleMenuButton();
     });
     scroll(null);
@@ -120,8 +121,7 @@ class ALaCarteScaffold extends PolymerElement {
         var containerHeight = scroller.scrollHeight;
 
         var height = max(condensedHeaderHeight, headerHeight - offsetY);
-        var delta =
-            (height - condensedHeaderHeight).toDouble() /
+        var delta = (height - condensedHeaderHeight).toDouble() /
             (headerHeight - condensedHeaderHeight).toDouble();
         docked = (delta != 0.0);
         if (!docked) {
@@ -145,10 +145,8 @@ class ALaCarteScaffold extends PolymerElement {
           var scrollbarHeight = scrollTrack.offsetHeight;
 
           var percentWindow =
-              windowHeight.toDouble() /
-              containerHeight.toDouble();
-          var windowPosition =
-              offsetY.toDouble() /
+              windowHeight.toDouble() / containerHeight.toDouble();
+          var windowPosition = offsetY.toDouble() /
               (containerHeight.toDouble() - windowHeight.toDouble());
 
           windowPosition = max(0, min(1, windowPosition));
@@ -157,12 +155,13 @@ class ALaCarteScaffold extends PolymerElement {
               scrollbarHeight,
               max(
                   6,
-                  max(scrollbarHeight / 3, max(20, scrollbarHeight * percentWindow)))).round();
+                  max(scrollbarHeight / 3,
+                      max(20, scrollbarHeight * percentWindow)))).round();
           var scrollbarTop =
               (windowPosition * (scrollbarHeight - scrollThumbHeight)).round();
           scrollThumb.style
-              ..height = '${scrollThumbHeight}px'
-              ..top = '${scrollbarTop}px';
+            ..height = '${scrollThumbHeight}px'
+            ..top = '${scrollbarTop}px';
         }
 
         new Future(() {
@@ -179,7 +178,7 @@ class ALaCarteScaffold extends PolymerElement {
       transitionMenuButtonToArrow();
     }
   }
-  
+
   void togglePanel() {
     drawerPanel.togglePanel();
     toggleMenuButton();
@@ -194,8 +193,7 @@ class ALaCarteScaffold extends PolymerElement {
     var dx = event['clientY'] - trackStart;
     Element thumb = scrollThumb;
 
-    var percentageFromTop =
-        (dx + track).toDouble() /
+    var percentageFromTop = (dx + track).toDouble() /
         (thumb.parent.clientHeight - thumb.offsetHeight).toDouble();
     percentageFromTop = min(1, max(0, percentageFromTop));
 
@@ -205,10 +203,10 @@ class ALaCarteScaffold extends PolymerElement {
 
     var windowHeight = scroller.offsetHeight;
     var containerHeight = scroller.scrollHeight;
-    scroller.scrollTop =
-        ((containerHeight - windowHeight).toDouble() * percentageFromTop).floor();
+    scroller.scrollTop = ((containerHeight - windowHeight).toDouble() *
+        percentageFromTop).floor();
   }
-  
+
   void trackStartScrollerThumb(ev) {
     var event = new JsObject.fromBrowserObject(ev);
     trackStart = event['clientY'];
@@ -216,27 +214,32 @@ class ALaCarteScaffold extends PolymerElement {
     track = thumb.offsetTop;
     thumb.attributes['dragging'] = '';
   }
-  
+
   void transitionMenuButtonToArrow() {
     menuButton.attributes
-        ..putIfAbsent('animate', () => '')
-        ..putIfAbsent('arrow', () => '');
-    menuButton.shadowRoot.querySelector(
-        '#top-bar').onTransitionEnd.first.then((_) {
+      ..putIfAbsent('animate', () => '')
+      ..putIfAbsent('arrow', () => '');
+    menuButton.shadowRoot
+        .querySelector('#top-bar')
+        .onTransitionEnd
+        .first
+        .then((_) {
       if (drawerPanel.selected == "drawer") menuButton.icon = 'arrow-back';
       menuButton.attributes.remove('animate');
     });
   }
-  
+
   void transitonMenuButtonToMenu() {
     menuButton.attributes
-        ..putIfAbsent('animate', () => '')
-        ..putIfAbsent('arrow', () => '');
+      ..putIfAbsent('animate', () => '')
+      ..putIfAbsent('arrow', () => '');
     menuButton.icon = 'menu-animation:menu-transition-to-arrow';
     new Future(() {
       menuButton.attributes.remove('arrow');
-      return menuButton.shadowRoot.querySelector(
-          '#top-bar').onTransitionEnd.first;
+      return menuButton.shadowRoot
+          .querySelector('#top-bar')
+          .onTransitionEnd
+          .first;
     }).then((_) {
       if (drawerPanel.selected == "drawer") menuButton.icon = 'arrow-back';
       menuButton.attributes.remove('animate');

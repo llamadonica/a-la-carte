@@ -32,6 +32,7 @@ class GoogleMap extends PolymerElement {
 
   Geocoder geocoder;
   MutationObserver _animationStylingObserver;
+  bool _placeIdChangeExpected = false;
 
   Set _localizedRules = new Set();
 
@@ -40,11 +41,15 @@ class GoogleMap extends PolymerElement {
   var defaultZoom = 0;
 
   placeIdChanged(String oldPlaceId) {
-    if (pinHasMovedFromPlace == true) return;
+    if (_placeIdChangeExpected) {
+      _placeIdChangeExpected = false;
+      return;
+    }
     if (!addressIsSet && placeId != null) {
       map.streetView.visible = false;
       _setPlace(placeId);
-    } else if (placeId == null && oldPlaceId != null) {
+    } else if (placeId == null &&
+        (oldPlaceId != null || pinHasMovedFromPlace)) {
       map.streetView.visible = false;
       _resetPlace();
     }
@@ -166,7 +171,7 @@ class GoogleMap extends PolymerElement {
     _geolocateMeAsync();
   }
 
-  _clearPlaceMarker() {
+  _clearPlaceMarker({bool clearOldPlace: false}) {
     if (_placeMarker != null) {
       _placeMarker.map = null;
       _placeMarker = null;
@@ -175,18 +180,21 @@ class GoogleMap extends PolymerElement {
       _infoWindowPopup.close();
       _infoWindowPopup = null;
     }
-    addressIsSet = false;
-    placeId = null;
-    latitude = null;
-    longitude = null;
+    if (clearOldPlace) {
+      addressIsSet = false;
+      _placeIdChangeExpected = true;
+      placeId = null;
+      latitude = null;
+      longitude = null;
+    }
   }
 
-  Future _resetPlace() async {
+  Future _resetPlace() {
     _clearPlaceMarker();
     latitude = null;
     longitude = null;
     addressIsSet = false;
-    await _resetToInitialState();
+    return _resetToInitialState();
   }
 
   Future _resetToInitialState() async {
@@ -222,8 +230,11 @@ class GoogleMap extends PolymerElement {
     return await completer.future;
   }
 
-  _setPlaceInfo(GeocoderResult result) {
-    placeId = result.$unsafe['place_id'];
+  _setPlaceInfo(GeocoderResult result, {bool setPlaceIdFromResult: false}) {
+    if (setPlaceIdFromResult) {
+      _placeIdChangeExpected = true;
+      placeId = result.$unsafe['place_id'];
+    }
     latitude = result.geometry.location.lat;
     longitude = result.geometry.location.lng;
     _placeMarkerLatDiff =
@@ -237,12 +248,13 @@ class GoogleMap extends PolymerElement {
     pinHasMovedFromPlace = false;
   }
 
-  _setPlaceMarker(GeocoderResult result, {bool fitBounds: true}) {
+  _setPlaceMarker(GeocoderResult result,
+      {bool fitBounds: true, bool setPlaceId: false}) {
     if (fitBounds) {
       map.fitBounds(_placeMarkerBounds = result.geometry.viewport);
     }
 
-    _setPlaceInfo(result);
+    _setPlaceInfo(result, setPlaceIdFromResult: setPlaceId);
     final markerOptions = new MarkerOptions()
       ..map = map
       ..raiseOnDrag = true
@@ -263,6 +275,7 @@ class GoogleMap extends PolymerElement {
                 longitude - _placeMarkerLatDiff / 2),
             new LatLng(latitude + _placeMarkerLatDiff / 2,
                 longitude + _placeMarkerLatDiff / 2));
+        _placeIdChangeExpected = true;
         placeId = null;
       })
       ..onClick.listen((_) {
@@ -286,7 +299,7 @@ class GoogleMap extends PolymerElement {
         (List<GeocoderResult> results, GeocoderStatus status) {
       if (status == GeocoderStatus.OK) {
         final GeocoderResult result = results[0];
-        _setPlaceMarker(result);
+        _setPlaceMarker(result, setPlaceId: true);
         completer.complete(placeId);
       } else {
         completer.completeError(new ArgumentError('Could not find location'));
@@ -313,7 +326,7 @@ class GoogleMap extends PolymerElement {
         if (relocatePin) {
           _setPlaceMarker(result, fitBounds: fitBounds);
         } else if (setInfo) {
-          _setPlaceInfo(result);
+          _setPlaceInfo(result, setPlaceIdFromResult: true);
         }
       } else {
         window.console.log('Could not get a specific place.');
@@ -394,14 +407,15 @@ class GoogleMap extends PolymerElement {
   }
 
   void _deletePin(MouseEvent event) {
-    _clearPlaceMarker();
+    _clearPlaceMarker(clearOldPlace: true);
     event.preventDefault();
   }
 
   void _rightClickOnMap(google_maps.MouseEvent mouseEvent) {
     if (addressIsSet) return;
     var options = new InfoWindowOptions()
-      ..content = _createDropDialog(mouseEvent.latLng);
+      ..content = _createDropDialog(mouseEvent.latLng)
+      ..position = mouseEvent.latLng;
     if (_infoWindowPopup != null) {
       _infoWindowPopup.close();
     }

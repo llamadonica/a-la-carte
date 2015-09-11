@@ -170,6 +170,10 @@ class Project extends JsonCanSync {
     return map;
   }
 
+  void projectSyncWithServer() {
+    _json = jsonGetter();
+  }
+
   @override notifyChange(ChangeRecord record) {
     if (committed && record is PropertyChangeRecord) {
       _locallyChangedSymbols.add(record.name);
