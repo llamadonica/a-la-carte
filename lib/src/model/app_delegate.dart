@@ -5,13 +5,14 @@ abstract class AppDelegate implements AppDelegateIFile {
   factory AppDelegate() => new HTML5AppDelegate();
   AppDelegate._();
 }
+
 abstract class AppDelegateIFile {
   Future<JsonCanSync> getEntity(String id, JsonCanSync entity) =>
       getJson(id).then((map) {
-    entity.initFromJSON(map);
-    entity.refCount.value = 1;
-    return entity;
-  });
+        entity.initFromJSON(map);
+        entity.refCount.value = 1;
+        return entity;
+      });
   Future<Map> getJson(String id, {defaultValue: null});
 
   Future writeJson(String id, json);
@@ -33,11 +34,13 @@ class HTML5AppDelegate extends AppDelegate {
     if (__storage == null) __storage = html.window.localStorage;
     return new Future.value(__storage);
   }
+
   Future<JsonCanSync> getEntity(String id, JsonCanSync entity) {
     if (_entitiesRead.containsKey(id)) {
-      return _entitiesRead[id]..then((newEntity) {
-            newEntity.refCount.value++;
-          });
+      return _entitiesRead[id]
+        ..then((newEntity) {
+          newEntity.refCount.value++;
+        });
     }
     entity.refCount.value = 0;
     var entityFuture = getJson(id, defaultValue: {}).then((map) {
@@ -54,7 +57,9 @@ class HTML5AppDelegate extends AppDelegate {
           var timerFunc = () {
             _entityTimers.remove(id);
             _entityTimeouts[id] = new DateTime.now().add(MIN_INTERVAL_TO_SAVE);
-            writeJson(id, entity.json).then((_) {entity.isSynced = true;});
+            writeJson(id, entity.json).then((_) {
+              entity.isSynced = true;
+            });
           };
           if (_entityTimeouts.containsKey(id) &&
               !_entityTimers.containsKey(id)) {
@@ -62,8 +67,7 @@ class HTML5AppDelegate extends AppDelegate {
 
             if (_entityTimeouts[id].isBefore(currentTime)) {
               _entityTimers[id] = new Timer(
-                  _entityTimeouts[id].difference(currentTime),
-                  timerFunc);
+                  _entityTimeouts[id].difference(currentTime), timerFunc);
             } else {
               _entityTimers[id] = new Timer(const Duration(), timerFunc);
             }
@@ -75,20 +79,21 @@ class HTML5AppDelegate extends AppDelegate {
     _entitiesRead[id] = entityFuture;
     return entityFuture;
   }
+
   Future<dynamic> getJson(String id, {defaultValue: null}) =>
       _storage.then((storage) {
-    return JSON.decode(storage[id]);
-  }).catchError((err) {
-    if (defaultValue == null) {
-      throw err;
-    } else {
-      return defaultValue;
-    }
-  });
+        return JSON.decode(storage[id]);
+      }).catchError((err) {
+        if (defaultValue == null) {
+          throw err;
+        } else {
+          return defaultValue;
+        }
+      });
   Future writeJson(String id, json) => _storage.then((storage) {
-    storage[id] = JSON.encode(json);
-  }).catchError((err) {
-    html.window.console.error(err.message);
-    throw err;
-  });
+        storage[id] = JSON.encode(json);
+      }).catchError((err) {
+        html.window.console.error(err.message);
+        throw err;
+      });
 }

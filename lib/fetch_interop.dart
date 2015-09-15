@@ -78,16 +78,24 @@ class FetchError extends Error {
   FetchError(String this.message);
 }
 
-typedef Future<Response> Fetcher(String url, {String method,
-    Map<String, Object> headers, Object body, RequestMode mode,
-    RequestCredentials credentials, RequestCache cache,
+typedef Future<Response> Fetcher(String url,
+    {String method,
+    Map<String, Object> headers,
+    Object body,
+    RequestMode mode,
+    RequestCredentials credentials,
+    RequestCache cache,
     RequestRedirect redirect});
 
 Fetcher get fetch => _fetch == null ? null : fetch_internal;
 
-Future<Response> fetch_internal(String url, {String method,
-    Map<String, Object> headers, Object body, RequestMode mode,
-    RequestCredentials credentials, RequestCache cache,
+Future<Response> fetch_internal(String url,
+    {String method,
+    Map<String, Object> headers,
+    Object body,
+    RequestMode mode,
+    RequestCredentials credentials,
+    RequestCache cache,
     RequestRedirect redirect}) {
   Map options = {};
   if (method != null) {
@@ -165,6 +173,7 @@ class ReadableByteStreamReader {
     ]);
     return completer.future;
   }
+
   Future cancel() {
     var completer = new Completer();
     JsObject promise = _jsObject.callMethod('cancel');

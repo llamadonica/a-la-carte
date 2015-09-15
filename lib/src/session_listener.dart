@@ -17,7 +17,8 @@ class SessionListener {
 
   SendPort myPort;
 
-  SessionListener(SendPort this.sessionMaster, int this.sessionIdNumber, Logger this._defaultLogger)
+  SessionListener(SendPort this.sessionMaster, int this.sessionIdNumber,
+      Logger this._defaultLogger)
       : _sessions = new Map<String, GlobalSessionData>(),
         _recentlyExpiredSessions = new Set<String>();
 
@@ -322,8 +323,8 @@ class SessionListener {
     session
       ..sendPorts.add(responsePort)
       ..expireSession = () {
-      _expireSession(session);
-    };
+        _expireSession(session);
+      };
 
     if (_waitingReplyPorts.containsKey(tsid)) {
       session.sendPorts.addAll(_waitingReplyPorts[tsid]);

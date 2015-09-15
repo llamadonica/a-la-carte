@@ -1,4 +1,5 @@
 library a_la_carte.server.session_client;
+
 import 'dart:isolate';
 import 'dart:async';
 
@@ -213,4 +214,3 @@ abstract class SessionClient {
       ..isAuthenticated = isAuthenticated;
   }
 }
-

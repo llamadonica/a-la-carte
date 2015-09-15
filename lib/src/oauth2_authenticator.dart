@@ -273,16 +273,29 @@ class OAuth2Authenticator extends Authenticator {
     }
   }
 
+  @override
   Future doOccassionalCleanup(DbBackend backend) async {
     var timestamp = new DateTime.now().millisecondsSinceEpoch;
     var latestAuthenticationAttempt = timestamp - 45 * 60 * 1000;
-    var authenticationAttemptsToDelete = await backend.makeServiceGet(Uri.parse(
-        '/a_la_carte/_design/authentication_attempts/_view/all_by_timestamp'
-        '?startkey=null&endkey=$latestAuthenticationAttempt'
-        '&include_docs=true'));
-    for (var row in authenticationAttemptsToDelete['rows']) {
-      backend.makeServiceDelete(
-          Uri.parse('/a_la_carte/${row["id"]}'), row['doc']['_rev']);
+    try {
+      var authenticationAttemptsToDelete = await backend.makeServiceGet(Uri.parse(
+          '/a_la_carte/_design/authentication_attempts/_view/all_by_timestamp'
+          '?startkey=null&endkey=$latestAuthenticationAttempt'
+          '&include_docs=true'));
+      for (var row in authenticationAttemptsToDelete['rows']) {
+        await backend.makeServiceDelete(
+            Uri.parse('/a_la_carte/${row["id"]}'), row['doc']['_rev']);
+      }
+      var persistentSessionsToDelete = await backend.makeServiceGet(Uri.parse(
+          '/a_la_carte/_design/persistent_sessions/_view/all_by_expiration'
+          '?startkey=null&endkey=$timestamp'
+          '&include_docs=true'));
+      for (var row in persistentSessionsToDelete['rows']) {
+        await backend.makeServiceDelete(
+            Uri.parse('/a_la_carte/${row["id"]}'), row['doc']['_rev']);
+      }
+    } catch (error) {
+      defaultLogger(error.toString(), priority: LoggerPriority.error);
     }
   }
 }

@@ -27,8 +27,5 @@ class ObservablePair extends ChangeNotifier implements JsonIInit, JsonIGet {
     });
   }
 
-  Map _jsonGetter() => {
-    'first': first,
-    'second': second
-  };
+  Map _jsonGetter() => {'first': first, 'second': second};
 }

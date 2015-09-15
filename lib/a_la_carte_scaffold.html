@@ -4,9 +4,11 @@
       href="../../packages/core_elements/core_scroll_header_panel.html">
 <link rel="import" href="../../packages/core_elements/core_icon_button.html">
 <link rel="import" href="../../packages/paper_elements/paper_fab.html">
+<link rel="import" href="../../packages/paper_elements/paper_ripple.html">
 <link rel="import" href="../../packages/a_la_carte/menu-animation.svg.html">
 
-<polymer-element name="a-la-carte-scaffold" attributes="fabIcon responsiveWidth narrow titleOverride">
+<polymer-element name="a-la-carte-scaffold"
+                 attributes="fabIcon responsiveWidth narrow titleOverride">
 <template>
   <link rel="stylesheet" href="a_la_carte_scaffold.css">
   <core-drawer-panel
@@ -23,7 +25,11 @@
       </div>
 
       <div id="header-container">
-
+        <div id="extra-ripple-container">
+          
+        </div>
+        <paper-ripple id="bg-container-ripple" style="pointer-events: none;"
+                      fit></paper-ripple>
         <div class="bg-container">
            <div fit id="condensed-header-bg"></div>
            <div fit id="header-bg"></div>

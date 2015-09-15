@@ -11,6 +11,7 @@ import 'package:a_la_carte/models.dart';
 import 'package:a_la_carte/json_streaming.dart';
 import 'package:a_la_carte/fetch_interop.dart';
 import 'package:a_la_carte/a_la_carte_page_common.dart';
+import 'package:a_la_carte/a_la_carte_scaffold.dart';
 
 /**
  * A Polymer click counter element.
@@ -39,8 +40,10 @@ class ALaCarteMainView extends PolymerElement implements AppPager {
   @observable int selectedPage = 0;
   @published Presenter appPresenter;
 
+  int _oldSelected = 0;
+
   List<String> allSelectable = <String>['+all', '+new'];
-  List<String> appAllSelectable = ['+all', '+new'];
+  List<String> appAllSelectable = ['+all', '+new', '+search'];
   Stream get onDiscardEdits => _onDiscardEditsController.stream;
 
   StreamSubscription<List<String>> _appRouterNavigationSubscription;
@@ -335,5 +338,32 @@ class ALaCarteMainView extends PolymerElement implements AppPager {
       subscription.value.cancel();
       return;
     }
+  }
+
+  void tapSearchButton(MouseEvent event) {
+    HtmlElement element = $['search-bar'];
+    element
+      ..attributes['showing'] = ''
+      ..attributes.remove('hiding');
+    ALaCarteScaffold scaffold = $['scaffold'];
+    scaffold.dockHeader();
+    $['tap-sign-in'].classes.add('utility');
+    _oldSelected = selected;
+    selected = 2;
+  }
+
+  void tapSearchClear(MouseEvent event) {
+    HtmlElement element = $['search-bar'];
+    element
+      ..attributes['hiding'] = ''
+      ..onTransitionEnd.first.then((_) {
+        if (element.attributes.containsKey('hiding')) {
+          element..attributes.remove('hiding')..attributes.remove('showing');
+        }
+      });
+    ALaCarteScaffold scaffold = $['scaffold'];
+    scaffold.undockHeader();
+    $['tap-sign-in'].classes.remove('utility');
+    selected = _oldSelected;
   }
 }

@@ -206,4 +206,8 @@ class HttpCouchDbBackendAdapter implements HttpDbBackendAdapter {
       }
     }
   }
+
+  @override
+  Future doOccassionalCleanup() =>
+      _policyHandler.doOccassionalCleanup(_dbConnection);
 }

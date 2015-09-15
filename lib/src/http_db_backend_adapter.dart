@@ -14,4 +14,5 @@ abstract class HttpDbBackendAdapter {
       bool canGetSessionData,
       LocalSessionData session,
       int timestamp);
+  Future doOccassionalCleanup();
 }

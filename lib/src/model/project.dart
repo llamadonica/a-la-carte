@@ -179,8 +179,8 @@ class Project extends JsonCanSync {
       _locallyChangedSymbols.add(record.name);
       if ((record.name != #jobNumber || record.oldValue != null) &&
           (record.name != #serviceAccountName || record.oldValue != null) &&
-          (record.name != #latitude || record.oldValue != null) &&
-          (record.name != #longitude || record.oldValue != null) &&
+          record.name != #latitude &&
+          record.name != #longitude &&
           record.name != #userDataName &&
           record.name != #userDataTimestamp &&
           record.name != #placeIdMustBeUpdated &&

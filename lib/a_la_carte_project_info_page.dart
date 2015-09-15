@@ -66,7 +66,7 @@ class ALaCarteProjectInfoPage extends ALaCartePageCommon {
     return formatter.format(time);
   }
 
-  void projectChanged(oldProject) {
+  void projectChanged(Project oldProject) {
     final PaperAutogrowTextarea streetAddressTextarea =
         $['street-address-textarea'];
     final String streetAddress =
@@ -97,6 +97,11 @@ class ALaCarteProjectInfoPage extends ALaCartePageCommon {
     } else {
       projectIsCommitted = false;
       fabIcon = 'check';
+    }
+    if ((oldProject == null || oldProject.placeId == null) &&
+        project.placeId == null) {
+      final GoogleMap locationMap = $['location-map'];
+      locationMap.resetToInitialExtents();
     }
     project.placeIdMustBeUpdated = false;
     _projectChangeListener = project.changes.listen(projectFieldsChanged);

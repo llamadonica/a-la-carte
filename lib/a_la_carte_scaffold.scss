@@ -98,8 +98,12 @@
     y: auto;
   }
   padding-top: 192px;
+  transition: padding 1s ease;
   &::-webkit-scrollbar {
     display: none;
+  }
+  &[docked] {
+    padding-top: 64px;
   }
 }
 
@@ -111,6 +115,14 @@
   left: 0;
   height: 192px;
   pointer-events: none;
+  max-height: 192px;
+  transition: max-height 1s ease;
+  &[docked] {
+    max-height: 64px;
+    #toolbar-title {
+      opacity: 0;
+    }
+  }
 }
 
 #scroll-track {
@@ -147,6 +159,9 @@
 #condensed-header-bg {
   @extend #header-bg;
   background-color: $primary-color;
+  &.utility {
+    background-color: #eee;
+  }
 }
 
 #condensed-header-bg-overlay {
@@ -173,12 +188,50 @@
   position: absolute;
   top: 152px;
   left: 8px;
-  z-index: 0;
-  transition: left 0.5s linear 0s;
+  z-index: 2;
+  transition: left 0.5s linear 0s, opacity 0.2s linear;
+  &.hidden {
+    display: none;
+  }
+  &.concealed {
+    transition: left 0.5s linear 0s, opacity 0.2s linear 0.8s;
+  }
 }
 
 #overlay-title {
   z-index: 2;
   font-size: 24px;
   color: $primary-color-text;
+}
+
+#bg-container-ripple {
+  color: #fff;
+  pointer-events: none;
+}
+
+#bg-container-ripple::shadow .wave-container {
+  z-index: 1;
+}
+
+#extra-ripple-container {
+  overflow: hidden;
+  position: absolute;
+  left: 0;
+  top: 0;
+  right: 0;
+  bottom: 0;
+}
+
+.color-change-ripple {
+  z-index: 1;
+  transform: scale(1);
+  opacity: 1;
+  &.start {
+    transform: scale(0);
+    opacity: 0;
+  }
+  transform-origin: 50% 50% 0px;
+  border-radius: 50%;
+  position: absolute;
+  background-color: rgb(238, 238, 238);
 }

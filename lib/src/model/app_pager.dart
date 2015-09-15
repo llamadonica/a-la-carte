@@ -8,5 +8,5 @@ abstract class AppPager {
 
   void setToNewProject();
   void openProject(String uuid);
-  void setProjectHasChanged([bool changed=true]);
+  void setProjectHasChanged([bool changed = true]);
 }

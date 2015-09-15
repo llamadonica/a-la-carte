@@ -1,13 +1,13 @@
 // Copyright (c) 2015, <your name>. All rights reserved. Use of this source code
 // is governed by a BSD-style license that can be found in the LICENSE file.
 library a_la_carte.server.global_session_data;
+
 import 'dart:isolate';
 import 'dart:async';
 import 'dart:collection';
 
 class GlobalSessionData {
   final String tsid;
-
 
   bool isLockedForPassiveAuthentication = false;
   bool isLockedForActiveAuthentication = false;
@@ -49,8 +49,8 @@ class GlobalSessionData {
   DateTime lastRefreshed;
   Timer removeTimer;
 
-  GlobalSessionData(String this.tsid, DateTime this._expires,
-      DateTime this.lastRefreshed,
+  GlobalSessionData(
+      String this.tsid, DateTime this._expires, DateTime this.lastRefreshed,
       [String this.psid = null, String this.identifier = null]);
 
   void _updateExpirationTimer() {
@@ -58,8 +58,8 @@ class GlobalSessionData {
       removeTimer.cancel();
     }
     if (_expires != null && _expireSession != null) {
-      removeTimer = new Timer(_expires.difference(lastRefreshed), expireSession);
+      removeTimer =
+          new Timer(_expires.difference(lastRefreshed), expireSession);
     }
   }
 }
-

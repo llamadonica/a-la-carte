@@ -14,6 +14,7 @@ abstract class ALaCartePageCommon extends PolymerElement {
   selectedChanged(int oldValue) {
     shadowRoot.querySelector('core-pages').classes.add('animate');
   }
+
   ALaCartePageCommon.created() : super.created();
 
   @observable String fabIcon;
@@ -48,6 +49,7 @@ abstract class ALaCartePageCommon extends PolymerElement {
     track = 0;
     lastTimestamp = event['timeStamp'];
   }
+
   void trackPage(ev) {
     var event = new JsObject.fromBrowserObject(ev);
     track = Math.min(400,
@@ -142,6 +144,7 @@ abstract class ALaCartePageCommon extends PolymerElement {
       lastTimestamp = event['timeStamp'].toDouble();
     }
   }
+
   void trackEndPage(ev) {
     shadowRoot.querySelector('core-pages').classes..remove('dragging');
 

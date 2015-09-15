@@ -97,6 +97,9 @@ $description
   final Map<String, DateTime> _refresh = new Map<String, DateTime>();
   final Map<String, Timer> _refreshTimeout = new Map<String, Timer>();
 
+  DateTime _lastPossibleCleanupTime;
+  Timer _currentCleanupTask;
+
   @inject HttpListenerIsolateImpl();
 
   shelf.Handler _addCookies(shelf.Handler innerHandler) =>
@@ -304,6 +307,7 @@ $description
         .add(_handleStaticFileRequest);
 
     var handler = const shelf.Pipeline()
+        .addMiddleware(_scheduleCleanup)
         .addMiddleware(_addTimestamp)
         .addMiddleware(shelf.logRequests())
         .addMiddleware(_addCookies)
@@ -476,6 +480,30 @@ $description
           'Asynchronous error on isolate ${Isolate.current.hashCode}.\n$error',
           stackTrace);
     });
+  }
+
+  shelf.Handler _scheduleCleanup(shelf.Handler innerHandler) {
+    dynamic _handlerFunction(shelf.Request request) {
+      if (_currentCleanupTask != null) {
+        _currentCleanupTask.cancel();
+      }
+      final now = new DateTime.now();
+      if (_lastPossibleCleanupTime == null) {
+        _lastPossibleCleanupTime = now.add(new Duration(minutes: 15));
+      }
+      var delay = new Duration(minutes: 1);
+      final defaultTime = now.add(delay);
+      if (_lastPossibleCleanupTime.isBefore(defaultTime)) {
+        delay = _lastPossibleCleanupTime.difference(now);
+      }
+      _currentCleanupTask = new Timer(delay, _doCleanupNow);
+      return innerHandler(request);
+    }
+    return _handlerFunction;
+  }
+
+  void _doCleanupNow() {
+    _dbHttpAdapter.doOccassionalCleanup();
   }
 }
 

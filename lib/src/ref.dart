@@ -1,4 +1,4 @@
-library  a_la_carte.server.ref;
+library a_la_carte.server.ref;
 
 class Ref<T> {
   T value;

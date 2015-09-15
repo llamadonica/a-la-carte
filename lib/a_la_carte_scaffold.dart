@@ -26,6 +26,7 @@ class ALaCarteScaffold extends PolymerElement {
   int scrollFrame = null;
   int trackStart;
   int track;
+  bool _isInDock = false;
 
   ALaCarteScaffold.created() : super.created();
 
@@ -40,8 +41,9 @@ class ALaCarteScaffold extends PolymerElement {
   Stream<CustomEvent> get onDgsFabAction => dgsFabActionEvent.forElement(this);
 
   void backgroundImageChanged(String oldValue) {
-    headerBg.style.backgroundImage =
-        backgroundImage == '' ? '' : "url('$backgroundImage')";
+    headerBg.style.backgroundImage = backgroundImage == null
+        ? null
+        : backgroundImage == '' ? '' : "url('$backgroundImage')";
   }
 
   void closeDrawer() {
@@ -66,6 +68,9 @@ class ALaCarteScaffold extends PolymerElement {
   void fabIconChanged(String oldValue) {
     if (fabIcon != null) {
       paperFabInternal = fabIcon;
+      fabShowing = true;
+    } else {
+      fabShowing = false;
     }
   }
 
@@ -77,6 +82,139 @@ class ALaCarteScaffold extends PolymerElement {
     var height = max(
         headerPanel.condensedHeaderHeight, headerPanel.headerHeight - offset);
     headerPanel.querySelector('#header-container').style.height = '${height}px';
+  }
+
+  void dockHeader() {
+    _isInDock = true;
+    $['header-container'].attributes['docked'] = '';
+    $['main-container'].attributes['docked'] = '';
+    var bgContainerRipple = $['bg-container-ripple'];
+    var width = bgContainerRipple.offsetWidth;
+    var height = bgContainerRipple.offsetHeight;
+    //    function waveRadiusFn(touchDownMs, touchUpMs, anim) {
+    //  // Convert from ms to s
+    //  var touchDown = touchDownMs / 1000;
+    //  var touchUp = touchUpMs / 1000;
+    //  var totalElapsed = touchDown + touchUp;
+    //  var ww = anim.width, hh = anim.height;
+    //  // use diagonal size of container to avoid floating point math sadness
+    //  var waveRadius = Math.min(Math.sqrt(ww * ww + hh * hh), waveMaxRadius) * 1.1 + 5;
+    //  var duration = 1.1 - .2 * (waveRadius / waveMaxRadius);
+    //  var tt = (totalElapsed / duration);
+
+    //  var size = waveRadius * (1 - Math.pow(80, -tt));
+    //  return Math.abs(size);
+    //}
+    // dSize = waveRadius *
+    // dtt = dElapsed / duration
+    //
+    var waveMaxRadius =
+        min(sqrt((width * width + height * height).toDouble()), 150.0);
+    var waveFRadius = waveMaxRadius * 1.1 + 5.0;
+    var duration = 1.1 - .2 * (waveFRadius / waveMaxRadius);
+    var sizeFactorAtMax = 1 - waveMaxRadius / waveFRadius;
+    var tFactor = -log(sizeFactorAtMax) / log(80);
+    var durationAtMax = tFactor * duration;
+
+    bgContainerRipple.jsElement.callMethod('downAction', [
+      new JsObject.jsify({'x': width - 116, 'y': 28})
+    ]);
+    new Timer(new Duration(milliseconds: (durationAtMax * 1000).floor()), () {
+      bgContainerRipple.jsElement.callMethod('upAction', [
+        new JsObject.jsify({'x': width - 116, 'y': 28})
+      ]);
+    });
+    var greaterRadius = sqrt(((height - 28) * (height - 28) +
+        (width - 116) * (width - 116)).toDouble());
+    var durationOfSubRipple = greaterRadius / waveFRadius * duration / log(80);
+
+    var baseWidth = greaterRadius * 2;
+    var baseHeight = greaterRadius * 2;
+    var baseLeft = width - 116 - greaterRadius;
+    var baseTop = 28 - greaterRadius;
+    DivElement extraRippleContainer = $['extra-ripple-container'];
+    var subRipple = new DivElement()
+      ..classes.add('color-change-ripple')
+      ..classes.add('start')
+      ..style.transition = 'opacity ${durationOfSubRipple}s linear,'
+          ' transform ${durationOfSubRipple}s linear'
+      ..style.width = '${baseWidth}px'
+      ..style.height = '${baseHeight}px'
+      ..style.left = '${baseLeft}px'
+      ..style.top = '${baseTop}px';
+    extraRippleContainer.append(subRipple);
+    window.animationFrame.then((_) => subRipple..classes.remove('start'));
+    subRipple.onTransitionEnd.first
+        .then((_) => _subRippleTransitionEnd(subRipple, _));
+  }
+
+  void _subRippleTransitionEnd(DivElement subRipple, Event _) {
+    subRipple.remove();
+    if (_isInDock) {
+      $['condensed-header-bg'].classes.add('utility');
+      $['toolbar-title'].classes..add('concealed')..add('hidden');
+    } else {
+      $['condensed-header-bg'].classes.remove('utility');
+      $['toolbar-title'].classes.remove('concealed');
+    }
+  }
+
+  void undockHeader() {
+    _isInDock = false;
+    $['header-container'].attributes.remove('docked');
+    $['main-container'].attributes.remove('docked');
+    var bgContainerRipple = $['bg-container-ripple'];
+    var width = bgContainerRipple.offsetWidth;
+    var height = bgContainerRipple.offsetHeight;
+    //    function waveRadiusFn(touchDownMs, touchUpMs, anim) {
+    //  // Convert from ms to s
+    //  var touchDown = touchDownMs / 1000;
+    //  var touchUp = touchUpMs / 1000;
+    //  var totalElapsed = touchDown + touchUp;
+    //  var ww = anim.width, hh = anim.height;
+    //  // use diagonal size of container to avoid floating point math sadness
+    //  var waveRadius = Math.min(Math.sqrt(ww * ww + hh * hh), waveMaxRadius) * 1.1 + 5;
+    //  var duration = 1.1 - .2 * (waveRadius / waveMaxRadius);
+    //  var tt = (totalElapsed / duration);
+
+    //  var size = waveRadius * (1 - Math.pow(80, -tt));
+    //  return Math.abs(size);
+    //}
+    // dSize = waveRadius *
+    // dtt = dElapsed / duration
+    //
+    var waveMaxRadius =
+        min(sqrt((width * width + height * height).toDouble()), 150.0);
+    var waveFRadius = waveMaxRadius * 1.1 + 5.0;
+    var duration = 1.1 - .2 * (waveFRadius / waveMaxRadius);
+    var sizeFactorAtMax = 1 - waveMaxRadius / waveFRadius;
+    var tFactor = -log(sizeFactorAtMax) / log(80);
+    var durationAtMax = tFactor * duration;
+
+    var greaterRadius = sqrt(((height - 28) * (height - 28) +
+        (width - 116) * (width - 116)).toDouble());
+    var durationOfSubRipple = greaterRadius / waveFRadius * duration / log(80);
+
+    var baseWidth = greaterRadius * 2;
+    var baseHeight = greaterRadius * 2;
+    var baseLeft = width - 116 - greaterRadius;
+    var baseTop = 28 - greaterRadius;
+    DivElement extraRippleContainer = $['extra-ripple-container'];
+    var subRipple = new DivElement()
+      ..classes.add('color-change-ripple')
+      ..classes.add('start')
+      ..style.transition = 'opacity ${durationOfSubRipple}s linear,'
+          ' transform ${durationOfSubRipple}s linear'
+      ..style.width = '${baseWidth}px'
+      ..style.height = '${baseHeight}px'
+      ..style.left = '${baseLeft}px'
+      ..style.backgroundColor = '#5677fc'
+      ..style.top = '${baseTop}px';
+    extraRippleContainer.append(subRipple);
+    window.animationFrame.then((_) => subRipple..classes.remove('start'));
+    $['toolbar-title'].classes.remove('hidden');
+    subRipple.onTransitionEnd.first
+        .then((_) => _subRippleTransitionEnd(subRipple, _));
   }
 
   void narrowChanged(bool oldValue) {

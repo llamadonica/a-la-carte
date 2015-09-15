@@ -5,6 +5,7 @@
 <link rel="import" href="../../packages/core_elements/core_menu.html">
 <link rel="import" href="../../packages/core_elements/core_pages.html">
 <link rel="import" href="../../packages/paper_elements/paper_fab.html">
+<link rel="import" href="../../packages/paper_elements/paper_icon_button.html">
 <link rel="import" href="../../packages/paper_elements/paper_dropdown.html">
 
 <link rel="import"
@@ -32,39 +33,76 @@
 <link rel="import"
       href="../../packages/a_la_carte/a_la_carte_project_info_page.html">
 <link rel="import" href="../../packages/a_la_carte/a_la_carte_card_view.html">
+<link rel="import" 
+      href="../../packages/a_la_carte/a_la_carte_search_page.html">
 
 <polymer-element name="a-la-carte-main-view"
-                 attributes="project projects wide appSelected prevAppSelected responsiveWidth projectsAreLoaded noProjectsFound selected appPresenter projectsByUuid isLoggedIn userPicture userName userEmail config"
+                 attributes="project projects wide appSelected prevAppSelected
+                   responsiveWidth projectsAreLoaded noProjectsFound selected
+                   appPresenter projectsByUuid isLoggedIn userPicture userName
+                   userEmail config"
                  vertical
                  layout>
     <template bind>
         <link rel="stylesheet" href="a_la_carte_main_view.css">
         <a-la-carte-scaffold
+                id="scaffold"
                 fabIcon="{{currentPage == null ?'': currentPage.fabIcon}}"
-                fabDisabled?="{{currentPage == null ? false : currentPage.fabDisabled}}"
+                fabDisabled?="{{
+                  currentPage == null ? false
+                                      : currentPage.fabDisabled}}"
                 titleOverride="A La Carte"
-                backgroundImage="{{currentPage == null ?'': currentPage.backgroundImage}}"
+                backgroundImage="{{
+                  currentPage == null ?''
+                                      : currentPage.backgroundImage}}"
                 cross-fade-delayed
                 narrow="{{!wide}}"
                 responsiveWidth="{{responsiveWidth}}"
                 on-dgs-fab-action="{{routeFabAction}}">
             <section id="tap-sign-in-section" class="tool">
-              <paper-button id="tap-sign-in" on-tap="{{tapSignIn}}" hiding?="{{isLoggedIn}}">sign in</paper-button>
-              <paper-fab id="tap-account-page" on-tap="{{tapAccountInfo}}" src="{{internalUserPicture}}" showing?="{{isLoggedIn}}" mini raised></paper-fab>
+              <paper-button id="tap-sign-in" on-tap="{{tapSignIn}}"
+                            hiding?="{{isLoggedIn}}">
+                  sign in
+              </paper-button>
+              <paper-fab id="tap-account-page" on-tap="{{tapAccountInfo}}"
+                         src="{{internalUserPicture}}" showing?="{{isLoggedIn}}"
+                         mini raised></paper-fab>
+            </section>
+            <section id="tap-to-search-section" class="tool">
+                <paper-icon-button id="tap-to-search" icon="search"
+                                   on-tap="{{tapSearchButton}}">
+                </paper-icon-button>
+            </section>
+            <section id="search-bar" class="tool">
+                <core-icon icon="search"></core-icon>
+                <input is="core-input" id="search-input">
+                <paper-icon-button id="tap-to-close-search" icon="close"
+                                   on-tap="{{tapSearchClear}}">
+                </paper-icon-button>
             </section>
             <core-header-panel navigation flex mode="seamed">
                 <div id="nav-menu-box">
                     <core-menu selected="{{selected}}" theme="core-light-theme">
-                        <core-item id="basic-info-menu-item" icon="settings" label="All projects" active></core-item>
-                        <core-item id="add-form-menu-item" icon="add-circle" label="{{projectEditViewCaption}}"></core-item>
+                        <core-item id="basic-info-menu-item" icon="settings"
+                                   label="All projects" active>
+                        </core-item>
+                        <core-item id="add-form-menu-item" icon="add-circle"
+                                   label="{{projectEditViewCaption}}">
+                        </core-item>
+                        <core-item id="search-item" icon="search"
+                                   label="Search projects"
+                                   hidden?="{{selected != 2}}">
+                        </core-item>
                     </core-menu>
                 </div>
             </core-header-panel>
             <core-pages class="content" selected="{{selectedPage}}">
-                <a-la-carte-card-view id="card-view" project="{{project}}" projects="{{projects}}"
+                <a-la-carte-card-view id="card-view" project="{{project}}"
+                                      projects="{{projects}}"
                                       projectsAreLoaded="{{projectsAreLoaded}}"
                                       noProjectsFound="{{noProjectsFound}}"
-                                      appPager="{{this}}"></a-la-carte-card-view>
+                                      appPager="{{this}}">
+                </a-la-carte-card-view>
                 <a-la-carte-project-info-page project="{{project}}"
                                               appPager="{{this}}"
                                               projectsByUuid="{{projectsByUuid}}"
@@ -72,17 +110,25 @@
                                               appPresenter="{{appPresenter}}"
                                               userName="{{userName}}"
                                               userEmail="{{userEmail}}"
-                                              config="{{config}}"
-                        ></a-la-carte-project-info-page>
+                                              config="{{config}}" >
+                </a-la-carte-project-info-page>
+                <a-la-carte-search-page></a-la-carte-search-page>
             </core-pages>
         </a-la-carte-scaffold>
-        <paper-action-dialog id="discardDialog" backdrop layered autoCloseDisabled>
+        <paper-action-dialog id="discardDialog" backdrop layered
+                             autoCloseDisabled>
             <p>Discard edits?</p>
-            <paper-button affirmative on-tap="{{confirmDiscardEdits}}">Discard</paper-button>
-            <paper-button affirmative on-tap="{{cancelDiscardEdits}}">Cancel</paper-button>
+            <paper-button affirmative on-tap="{{confirmDiscardEdits}}">
+                Discard
+            </paper-button>
+            <paper-button affirmative on-tap="{{cancelDiscardEdits}}">
+                Cancel
+            </paper-button>
         </paper-action-dialog>
           <div id="arrow-holder"><div class="arrow-up"></div></div>
-          <paper-dropdown halign="right" id="personal-info-dropdown" on-core-overlay-open="{{openArrow}}" on-core-overlay-close-completed="{{removeArrow}}">
+          <paper-dropdown halign="right" id="personal-info-dropdown"
+                          on-core-overlay-open="{{openArrow}}"
+                          on-core-overlay-close-completed="{{removeArrow}}">
           <div class="header-info"><h1>User Info</h1></div>
           <div class="user-and-email">
             <div id="personal-info-name">{{userName}}</div>

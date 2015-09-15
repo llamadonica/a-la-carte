@@ -46,4 +46,5 @@ abstract class Authenticator extends Object {
       {String code: null,
       String notifyOnAuth: null,
       bool alsoCheckPassivePath: true});
+  Future doOccassionalCleanup(DbBackend dbBackend);
 }

@@ -194,10 +194,10 @@ class GoogleMap extends PolymerElement {
     latitude = null;
     longitude = null;
     addressIsSet = false;
-    return _resetToInitialState();
+    return resetToInitialState();
   }
 
-  Future _resetToInitialState() async {
+  Future resetToInitialState() async {
     await mapsApiLoaded;
     var latLng;
     var zoomLevel;
@@ -324,7 +324,7 @@ class GoogleMap extends PolymerElement {
         completer.complete(result.$unsafe['place_id']);
         pinHasMovedFromPlace = false;
         if (relocatePin) {
-          _setPlaceMarker(result, fitBounds: fitBounds);
+          _setPlaceMarker(result, fitBounds: fitBounds, setPlaceId: setInfo);
         } else if (setInfo) {
           _setPlaceInfo(result, setPlaceIdFromResult: true);
         }

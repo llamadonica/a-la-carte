@@ -9,6 +9,52 @@ core-header-panel::shadow {
   }
 }
 
+#tap-to-search-section {
+  position: absolute;
+  right: 88px;
+  top: 12px;
+}
+
+#search-bar {
+  position: absolute;
+  right: 88px;
+  top: 12px;
+  overflow: hidden;
+  &[showing]:not([hiding]) {
+    width: calc(100% - 30px - 88px);
+    height: 40px;
+    opacity: 1.0;
+    background-color: #fff;
+    border-radius: 5px;
+    color: rgba(0,0,0,.45);
+  }
+  transition: width 1s ease, opacity 0.5s linear, border-radius 1s ease;
+  width: 32px;
+  border-radius: 20px;
+  background-color: #fff;
+  opacity: 0.0;
+  core-icon {
+    display: inline-block;
+    position: absolute;
+    top: 9px;
+    left: 8px;
+  }
+  input {
+    display: inline-block;
+    position: absolute;
+    left: 40px;
+    top: 10px;
+    width: calc(100% - 80px);
+    color: rgba(0,0,0,0.54);
+  }
+  paper-icon-button {
+    display: inline-block;
+    position: absolute;
+    right: 0;
+    top: 0;
+  }
+}
+
 #nav-menu-box {
   @extend %fit-box;
   background-color: #fff;
@@ -18,7 +64,7 @@ core-header-panel::shadow {
 #tap-sign-in-section {
   height: 100%;
   position: absolute;
-  min-width: 100px;
+  min-width: 74px;
   right: 7px;
   top: 0;
 }
@@ -27,8 +73,11 @@ paper-button#tap-sign-in {
   min-width: 0;
   width: initial;
   color: white;
+  &.utility::shadow .button-content {
+    color: rgba(0,0,0,0.54);
+  }
   margin-top: 14px;
-  @include transition(transform 0.3s);
+  @include transition(transform 0.3s, color 500ms linear);
   position: absolute;
   top: 0;
   right: 0;
@@ -157,4 +206,8 @@ paper-fab#tap-account-page {
     border-left-color: rgba(0,0,0,0);
     border-width: 0 18px 18px 18px;
     border-style: solid;
+}
+
+.tool {
+  z-index: 1;
 }

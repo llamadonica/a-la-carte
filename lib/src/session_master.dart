@@ -1,4 +1,5 @@
 library a_la_carte.server.session_master;
+
 import 'dart:collection';
 import 'dart:isolate';
 
@@ -130,10 +131,12 @@ class SessionMasterImpl extends SessionMaster {
   }
 
   static void _createSessionDelegate(List args) {
-    void _interprocessLog(String message, {LoggerPriority priority: LoggerPriority.info}) {
+    void _interprocessLog(String message,
+        {LoggerPriority priority: LoggerPriority.info}) {
       args[0].send(['interprocessLog', message, priority.index]);
     }
-    var sessionDelegate = new SessionListener(args[0], args[1], _interprocessLog);
+    var sessionDelegate =
+        new SessionListener(args[0], args[1], _interprocessLog);
     sessionDelegate.listen();
   }
 }

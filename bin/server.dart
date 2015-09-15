@@ -17,7 +17,8 @@ void main(List<String> args) {
     ..addOption('listeners',
         abbr: 'l', help: 'Number of isolates to spawn', defaultsTo: '3')
     ..addFlag('debug-over-wire',
-        help: 'Send additional debugging information from the server if available.')
+        help:
+            'Send additional debugging information from the server if available.')
     ..addOption('couchPort',
         abbr: 'c',
         help: 'Port for the related CouchDB instance',
