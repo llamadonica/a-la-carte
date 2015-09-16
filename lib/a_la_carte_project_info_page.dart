@@ -1,3 +1,5 @@
+library a_la_carte.client.a_la_carte_project_info_page;
+
 import 'dart:async';
 import 'dart:convert';
 import 'dart:html';

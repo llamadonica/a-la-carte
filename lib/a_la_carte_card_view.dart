@@ -1,3 +1,5 @@
+library a_la_carte.client.a_la_carte_card_view;
+
 import 'dart:html';
 import 'dart:math';
 

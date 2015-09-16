@@ -1,3 +1,5 @@
+library a_la_carte.client.a_la_carte_scaffold;
+
 import 'dart:async';
 import 'dart:html';
 import 'dart:js';

@@ -1,11 +1,18 @@
+library a_la_carte.client.a_la_carte_search_page;
+
+import 'package:core_elements/core_input.dart';
 import 'package:polymer/polymer.dart';
 import 'package:a_la_carte/a_la_carte_page_common.dart';
+import 'package:a_la_carte/models.dart';
 
 /**
  * A Polymer a-la-carte-search-page element.
  */
 @CustomTag('a-la-carte-search-page')
 class ALaCarteSearchPage extends ALaCartePageCommon {
+  @published CoreInput searchInput;
+  @published Presenter appPresenter;
+
   /// Constructor used to create instance of ALaCarteSearchPage.
   ALaCarteSearchPage.created() : super.created() {}
 
@@ -35,4 +42,12 @@ class ALaCarteSearchPage extends ALaCartePageCommon {
    
   */
 
+
+  // TODO: implement backgroundImage
+  @override
+  String get backgroundImage => null;
+
+  @override
+  void fabAction() {
+  }
 }

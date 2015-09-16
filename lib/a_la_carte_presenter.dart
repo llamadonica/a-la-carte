@@ -1,3 +1,5 @@
+library a_la_carte.client.a_la_carte_presenter;
+
 import 'dart:async';
 import 'dart:html';
 

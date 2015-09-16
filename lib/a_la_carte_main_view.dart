@@ -1,7 +1,10 @@
+library a_la_carte.client.a_la_carte_main_view;
+
 import 'dart:html';
 import 'dart:async';
 
 import 'package:core_elements/core_animated_pages.dart';
+import 'package:core_elements/core_input.dart';
 import 'package:paper_elements/paper_action_dialog.dart';
 import 'package:paper_elements/paper_input.dart';
 import 'package:polymer/polymer.dart';
@@ -36,6 +39,7 @@ class ALaCarteMainView extends PolymerElement implements AppPager {
   @observable String projectEditViewCaption = "Add a project";
   @observable ALaCartePageCommon currentPage;
   @observable ObservableList<ALaCartePageCommon> pages;
+  @observable CoreInput searchInput;
   @PublishedProperty(reflect: true) int selected = 0;
   @observable int selectedPage = 0;
   @published Presenter appPresenter;
@@ -83,6 +87,7 @@ class ALaCarteMainView extends PolymerElement implements AppPager {
   ALaCarteMainView.created() : super.created();
 
   ready() {
+    searchInput = $['search-input'];
     pages = new ObservableList.from(shadowRoot
         .querySelectorAll('core-pages.content > *')
         .where((e) => e is ALaCartePageCommon));
