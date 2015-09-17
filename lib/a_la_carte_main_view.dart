@@ -116,6 +116,19 @@ class ALaCarteMainView extends PolymerElement implements AppPager {
     } else {
       appPresenter.setUrl('/${appAllSelectable[selected]}', '');
     }
+    if (oldValue == 3) {
+      HtmlElement element = $['search-bar'];
+      element
+        ..attributes['hiding'] = ''
+        ..onTransitionEnd.first.then((_) {
+        if (element.attributes.containsKey('hiding')) {
+          element..attributes.remove('hiding')..attributes.remove('showing');
+        }
+      });
+      ALaCarteScaffold scaffold = $['scaffold'];
+      scaffold.undockHeader();
+      $['tap-sign-in'].classes.remove('utility');
+    }
     if (selected >= pages.length) {
       currentPage = null;
     } else {
@@ -358,17 +371,6 @@ class ALaCarteMainView extends PolymerElement implements AppPager {
   }
 
   void tapSearchClear(MouseEvent event) {
-    HtmlElement element = $['search-bar'];
-    element
-      ..attributes['hiding'] = ''
-      ..onTransitionEnd.first.then((_) {
-        if (element.attributes.containsKey('hiding')) {
-          element..attributes.remove('hiding')..attributes.remove('showing');
-        }
-      });
-    ALaCarteScaffold scaffold = $['scaffold'];
-    scaffold.undockHeader();
-    $['tap-sign-in'].classes.remove('utility');
     selected = _oldSelected;
   }
 }
