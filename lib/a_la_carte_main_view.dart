@@ -116,7 +116,7 @@ class ALaCarteMainView extends PolymerElement implements AppPager {
     } else {
       appPresenter.setUrl('/${appAllSelectable[selected]}', '');
     }
-    if (oldValue == 3) {
+    if (oldValue == 2) {
       HtmlElement element = $['search-bar'];
       element
         ..attributes['hiding'] = ''
