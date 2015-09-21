@@ -26,15 +26,11 @@ class GoogleMap extends PolymerElement {
   Marker _placeMarker;
   LatLngBounds _placeMarkerBounds;
   double _placeMarkerLatDiff;
-  double _placeMarkerLongDiff;
   String _geolocationAddress;
   InfoWindow _infoWindowPopup;
 
   Geocoder geocoder;
-  MutationObserver _animationStylingObserver;
   bool _placeIdChangeExpected = false;
-
-  Set _localizedRules = new Set();
 
   var defaultLatitude = 0;
   var defaultLongitude = 0;
@@ -45,14 +41,18 @@ class GoogleMap extends PolymerElement {
       _placeIdChangeExpected = false;
       return;
     }
-    if (!addressIsSet && placeId != null) {
-      map.streetView.visible = false;
-      _setPlace(placeId);
-    } else if (placeId == null &&
-        (oldPlaceId != null || pinHasMovedFromPlace)) {
-      map.streetView.visible = false;
-      _resetPlace();
+    Future _asyncPart() async {
+      await mapsApiLoaded;
+      if (!addressIsSet && placeId != null) {
+        map.streetView.visible = false;
+        _setPlace(placeId);
+      } else if (placeId == null &&
+      (oldPlaceId != null || pinHasMovedFromPlace)) {
+        map.streetView.visible = false;
+        _resetPlace();
+      }
     }
+    _asyncPart();
   }
 
   configChanged(Map oldValue) {
@@ -99,7 +99,7 @@ class GoogleMap extends PolymerElement {
 
   attached() {
     super.attached();
-    _animationStylingObserver = new MutationObserver(_headMutated)
+    new MutationObserver(_headMutated)
       ..observe(document.head, childList: true);
     _initializeMap();
   }
@@ -239,8 +239,6 @@ class GoogleMap extends PolymerElement {
     longitude = result.geometry.location.lng;
     _placeMarkerLatDiff =
         _placeMarkerBounds.northEast.lat - _placeMarkerBounds.southWest.lat;
-    _placeMarkerLongDiff =
-        _placeMarkerBounds.northEast.lng - _placeMarkerBounds.southWest.lng;
 
     addressIsSet = true;
     _geolocationAddress = result.formattedAddress;

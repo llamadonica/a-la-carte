@@ -1,10 +1,30 @@
 <!-- import polymer-element's definition -->
 <link rel="import" href="../../packages/polymer/polymer.html">
 
+<link rel="import" href="../../packages/core_elements/core_animated_pages.html">
+<link rel="import" href="../../packages/core_elements/src/core-animated-pages/transitions/list-cascade.html">
+<link rel="import" href="../../packages/core_elements/src/core-animated-pages/transitions/slide-up.html">
+
+<link rel="import" href="google_map.html">
+
 <polymer-element name="a-la-carte-search-page" attributes="searchInput appPresenter">
   <template>
     <link rel="stylesheet" href="a_la_carte_search_page.css">
-    <!-- Template content here -->
+    <core-animated-pages transitions="cross-fade slide-up list-cascade">
+      <section id="waiting-page">
+        <div cross-fade>Searching</div>
+      </section>
+      <section>
+        <div slide-up list-cascade>
+          <h4>Places</h4>
+          <google-map></google-map>
+        </div>
+        <div slide-up list-cascade>
+          <h4>Projects</h4>
+        </div>
+      </section>
+
+    </core-animated-pages>
   </template>
   <script type="application/dart" src="a_la_carte_search_page.dart"></script>
 </polymer-element>

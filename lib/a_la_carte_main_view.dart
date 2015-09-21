@@ -3,10 +3,8 @@ library a_la_carte.client.a_la_carte_main_view;
 import 'dart:html';
 import 'dart:async';
 
-import 'package:core_elements/core_animated_pages.dart';
 import 'package:core_elements/core_input.dart';
 import 'package:paper_elements/paper_action_dialog.dart';
-import 'package:paper_elements/paper_input.dart';
 import 'package:polymer/polymer.dart';
 import 'package:uuid/uuid.dart';
 
@@ -46,8 +44,10 @@ class ALaCarteMainView extends PolymerElement implements AppPager {
 
   int _oldSelected = 0;
 
-  List<String> allSelectable = <String>['+all', '+new'];
-  List<String> appAllSelectable = ['+all', '+new', '+search'];
+  List<String> allSelectable = <String>['a', 'n'];
+  List<String> appAllSelectable = ['a', 'n', 's'];
+
+  bool _isInSearchMode = false;
   Stream get onDiscardEdits => _onDiscardEditsController.stream;
 
   StreamSubscription<List<String>> _appRouterNavigationSubscription;
@@ -81,7 +81,8 @@ class ALaCarteMainView extends PolymerElement implements AppPager {
     if (_appRouterNavigationSubscription != null) {
       _appRouterNavigationSubscription.cancel();
     }
-    appPresenter.onExternalNavigationEvent.listen(_onAppNavigationEvent);
+    _appRouterNavigationSubscription =
+      appPresenter.onExternalNavigationEvent.listen(_onAppNavigationEvent);
   }
 
   ALaCarteMainView.created() : super.created();
@@ -96,6 +97,7 @@ class ALaCarteMainView extends PolymerElement implements AppPager {
     } else {
       currentPage = pages[selected];
     }
+    _appRouterNavigationSubscription = appPresenter.onExternalNavigationEvent.listen(_onAppNavigationEvent);
   }
 
   routeFabAction(CustomEvent ev) {
@@ -103,31 +105,38 @@ class ALaCarteMainView extends PolymerElement implements AppPager {
     currentPage.fabAction();
   }
 
+  _clearSearchMode() {
+    HtmlElement element = $['search-bar'];
+    element
+      ..attributes['hiding'] = ''
+      ..onTransitionEnd.first.then((_) {
+      if (element.attributes.containsKey('hiding')) {
+        element
+          ..attributes.remove('hiding')
+          ..attributes.remove('showing');
+      }
+    });
+    ALaCarteScaffold scaffold = $['scaffold'];
+    scaffold.undockHeader();
+    $['tap-sign-in'].classes.remove('utility');
+    _isInSearchMode = false;
+  }
+
   selectedChanged(int oldValue) {
     if (selected == 1 &&
         project != null &&
         project.isChanged &&
         project.committed) {
-      appPresenter.setUrl('/+edit/${project.id}', '');
+      appPresenter.setUrl('#/e/${project.id}', '');
     } else if (selected == 1 && project == null) {
-      appPresenter.setUrl('/+view/${_projectLookupId}', '');
+      appPresenter.setUrl('#/v/${_projectLookupId}', '');
     } else if (selected == 1 && project.committed) {
-      appPresenter.setUrl('/+view/${project.id}', '');
+      appPresenter.setUrl('#/v/${project.id}', '');
     } else {
-      appPresenter.setUrl('/${appAllSelectable[selected]}', '');
+      appPresenter.setUrl('#/${appAllSelectable[selected]}', '');
     }
-    if (oldValue == 2) {
-      HtmlElement element = $['search-bar'];
-      element
-        ..attributes['hiding'] = ''
-        ..onTransitionEnd.first.then((_) {
-          if (element.attributes.containsKey('hiding')) {
-            element..attributes.remove('hiding')..attributes.remove('showing');
-          }
-        });
-      ALaCarteScaffold scaffold = $['scaffold'];
-      scaffold.undockHeader();
-      $['tap-sign-in'].classes.remove('utility');
+    if (_isInSearchMode) {
+      _clearSearchMode();
     }
     if (selected >= pages.length) {
       currentPage = null;
@@ -186,19 +195,19 @@ class ALaCarteMainView extends PolymerElement implements AppPager {
 
   void _onAppNavigationEvent(List<String> event) {
     if (event.length < 1) {
-      appPresenter.setUrl('/+all', '');
+      appPresenter.setUrl('#/all', '');
       return;
     }
     switch (event[0]) {
-      case '+all':
+      case 'a':
         selected = 0;
         break;
-      case '+new':
+      case 'n':
         selected = 1;
         setToNewProject();
         break;
-      case '+edit':
-      case '+view':
+      case 'e':
+      case 'v':
         selected = 1;
         openProject(_projectLookupId = event[1]);
         break;
@@ -225,18 +234,18 @@ class ALaCarteMainView extends PolymerElement implements AppPager {
       projectEditViewCaption = "View this project";
       window.console.log('Found project $uuid');
     }, onError: (err) {
-      appPresenter.setUrl('/+new', '');
-      _onAppNavigationEvent(['+new']);
+      appPresenter.setUrl('#/n', '');
+      _onAppNavigationEvent(['n']);
       window.console.log('Could not find project $uuid');
     });
   }
 
   @override void setProjectHasChanged([bool changed = true]) {
     if (selected == 1 && changed && project.committed) {
-      appPresenter.setUrl('/+edit/${project.id}', '');
+      appPresenter.setUrl('#/e/${project.id}', '');
       projectEditViewCaption = "Edit this project";
     } else if (selected == 1 && project.committed) {
-      appPresenter.setUrl('/+view/${project.id}', '');
+      appPresenter.setUrl('#/v/${project.id}', '');
       projectEditViewCaption = "View this project";
     }
   }
@@ -359,6 +368,7 @@ class ALaCarteMainView extends PolymerElement implements AppPager {
   }
 
   void tapSearchButton(MouseEvent event) {
+    _isInSearchMode = true;
     HtmlElement element = $['search-bar'];
     element
       ..attributes['showing'] = ''
@@ -366,8 +376,14 @@ class ALaCarteMainView extends PolymerElement implements AppPager {
     ALaCarteScaffold scaffold = $['scaffold'];
     scaffold.dockHeader();
     $['tap-sign-in'].classes.add('utility');
-    _oldSelected = selected;
-    selected = 2;
+    if (currentPage != null && currentPage.id != 'search-page') {
+      var currentPageClickSubscriber = new Ref();
+      currentPageClickSubscriber.value = currentPage.onMouseDown.listen(() {
+
+      });
+    }
+    //_oldSelected = selected;
+    //selected = 2;
   }
 
   void tapSearchClear(MouseEvent event) {

@@ -57,25 +57,21 @@ class ALaCartePresenter extends PolymerElement implements Presenter {
       new StreamController<List<String>>();
   HttpRequest _request;
   DateTime readyTime;
-  bool _useFragment = true;
   int _currentChangeSeq = 0;
   String _serviceAccountName = null;
   Future _serviceAccountFuture;
 
   ALaCartePresenter.created() : super.created() {
-    _useFragment = !History.supportsState;
   }
 
   void _finishStartup() {
     CoreAjax configurationHandler = $['configuration-handler'];
     configurationHandler.go();
     if (window.location.hash == '') {
-      setUrl('/+all', '');
-      this.selected = 'all';
+      setUrl('#/a', '');
+      this.selected = 'a';
     } else {
-      var regExp = new RegExp(r'^#');
-      var url = window.location.hash.replaceFirst(regExp, '/');
-      _goToUrl(url, setPathFromFragment: true);
+      _goToUrl(window.location.hash, setPathFromFragment: true);
     }
     final Completer receivingAuthenticationSessionDataCompleter =
         new Completer();
@@ -89,7 +85,7 @@ class ALaCartePresenter extends PolymerElement implements Presenter {
   }
 
   void _popState(PopStateEvent e) {
-    _goToUrl(window.location.pathname);
+    _goToUrl(window.location.hash);
   }
 
   @override ready() {
@@ -358,19 +354,14 @@ class ALaCartePresenter extends PolymerElement implements Presenter {
   }
 
   setUrl(String url, String title, {bool pushNewState: true}) {
-    if (_useFragment) {
-      final regExp = new RegExp(r'^/');
-      url = url.replaceFirst(regExp, '#');
-      window.location.assign(url);
-      (window.document as HtmlDocument).title = title;
-    } else if (pushNewState) {
+    if (pushNewState) {
       window.history.pushState(null, title, url);
     } else {
       window.history.replaceState(null, title, url);
     }
   }
 
-  @override void goToDefault() => _goToUrl('/+new');
+  @override void goToDefault() => _goToUrl('#/n');
 
   Stream<List<String>> get onExternalNavigationEvent =>
       _onAppNavigationEvent.stream;

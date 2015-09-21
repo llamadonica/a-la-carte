@@ -94,9 +94,6 @@ $description
   @Inject(name: 'a_la_carte.server.http_server_listener.sessionMasterSendPort')
   SendPort sessionMasterSendPort;
 
-  final Map<String, DateTime> _refresh = new Map<String, DateTime>();
-  final Map<String, Timer> _refreshTimeout = new Map<String, Timer>();
-
   DateTime _lastPossibleCleanupTime;
   Timer _currentCleanupTask;
 
@@ -172,8 +169,6 @@ $description
 
     var responseHeaders = {'Access-Control-Allow-Credentials': 'true'};
 
-    var policy;
-    final psidUri = Uri.parse('/a_la_carte/${Uri.encodeComponent(psid)}');
     if (response.context.containsKey('logout')) {
       final DateTime expires = new DateTime.fromMillisecondsSinceEpoch(0);
       responseHeaders['Set-Cookie'] = [];
@@ -524,7 +519,6 @@ shelf.Handler _staticFileServer(String path,
       }
 
       DateTime lastModified;
-      int fileLength;
       dynamic body;
 
       final serveUri = new Uri(scheme: 'file', path: filePath);
@@ -544,7 +538,6 @@ shelf.Handler _staticFileServer(String path,
         lastModified = stat.modified;
         //Since lastModified might be more precise than 1 second.
         lastModified = lastModified;
-        fileLength = stat.size;
       }
       body = serveFile;
 

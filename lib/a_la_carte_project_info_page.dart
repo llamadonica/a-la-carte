@@ -5,10 +5,8 @@ import 'dart:convert';
 import 'dart:html';
 
 import 'package:polymer/polymer.dart';
-import 'package:polymer_expressions/eval.dart';
 import 'package:paper_elements/paper_autogrow_textarea.dart';
 import 'package:paper_elements/paper_input_decorator.dart';
-import 'package:paper_elements/paper_progress.dart';
 import 'package:paper_elements/paper_action_dialog.dart';
 import 'package:intl/intl.dart';
 import 'fetch_interop.dart';
@@ -103,7 +101,7 @@ class ALaCarteProjectInfoPage extends ALaCartePageCommon {
     if ((oldProject == null || oldProject.placeId == null) &&
         project.placeId == null) {
       final GoogleMap locationMap = $['location-map'];
-      locationMap.resetToInitialExtents();
+      locationMap.resetToInitialState();
     }
     project.placeIdMustBeUpdated = false;
     _projectChangeListener = project.changes.listen(projectFieldsChanged);

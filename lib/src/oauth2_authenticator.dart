@@ -168,7 +168,7 @@ class OAuth2Authenticator extends Authenticator {
 
     if (client != null) {
       if (clientIsNew) {
-        final Map psidState = await getPsidState();
+        await getPsidState();
         Map credentials =
             new JsonDecoder().convert(client.credentials.toJson());
         credentials['type'] = 'persistent_session';

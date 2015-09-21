@@ -9,6 +9,7 @@ dependencies:
   paper_elements: any
   polymer: any
   sass: any
+  google_maps: '^2.0.0'
   oauth2: any
   intl: any
   d17:
@@ -24,6 +25,7 @@ transformers:
 - sass:
     compass: true
     style: compact
+    executable: "C:\\Ruby22-x64\\bin\\sass.bat"
 - polymer:
     entry_points: web/index.html
 - $dart2js:
