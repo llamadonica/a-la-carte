@@ -42,12 +42,10 @@ class ALaCarteSearchPage extends ALaCartePageCommon {
    
   */
 
-
   // TODO: implement backgroundImage
   @override
   String get backgroundImage => null;
 
   @override
-  void fabAction() {
-  }
+  void fabAction() {}
 }

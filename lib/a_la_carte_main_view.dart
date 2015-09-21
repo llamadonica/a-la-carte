@@ -121,10 +121,10 @@ class ALaCarteMainView extends PolymerElement implements AppPager {
       element
         ..attributes['hiding'] = ''
         ..onTransitionEnd.first.then((_) {
-        if (element.attributes.containsKey('hiding')) {
-          element..attributes.remove('hiding')..attributes.remove('showing');
-        }
-      });
+          if (element.attributes.containsKey('hiding')) {
+            element..attributes.remove('hiding')..attributes.remove('showing');
+          }
+        });
       ALaCarteScaffold scaffold = $['scaffold'];
       scaffold.undockHeader();
       $['tap-sign-in'].classes.remove('utility');
