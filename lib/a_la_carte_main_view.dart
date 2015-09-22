@@ -38,6 +38,7 @@ class ALaCarteMainView extends PolymerElement implements AppPager {
   @observable ALaCartePageCommon currentPage;
   @observable ObservableList<ALaCartePageCommon> pages;
   @observable CoreInput searchInput;
+  @observable String searchText;
   @PublishedProperty(reflect: true) int selected = 0;
   @observable int selectedPage = 0;
   @published Presenter appPresenter;
@@ -85,6 +86,13 @@ class ALaCarteMainView extends PolymerElement implements AppPager {
     }
     _appRouterNavigationSubscription =
         appPresenter.onExternalNavigationEvent.listen(_onAppNavigationEvent);
+  }
+
+  void searchTextChanged(String oldSearchText) {
+    if (selected != 2) {
+      _oldSelected = selected;
+      selected = 2;
+    }
   }
 
   ALaCarteMainView.created() : super.created();
@@ -140,7 +148,7 @@ class ALaCarteMainView extends PolymerElement implements AppPager {
     } else {
       appPresenter.setUrl('#/${appAllSelectable[selected]}', '');
     }
-    if (_isInSearchMode) {
+    if (_isInSearchMode && selected != 2) {
       _clearSearchMode();
     }
     if (selected >= pages.length) {
@@ -237,11 +245,9 @@ class ALaCarteMainView extends PolymerElement implements AppPager {
     appPresenter.ensureProjectIsLoaded(uuid).then((foundProject) {
       project = foundProject;
       projectEditViewCaption = "View this project";
-      window.console.log('Found project $uuid');
     }, onError: (err) {
       appPresenter.setUrl('#/n', '');
       _onAppNavigationEvent(['n']);
-      window.console.log('Could not find project $uuid');
     });
   }
 
@@ -361,7 +367,6 @@ class ALaCarteMainView extends PolymerElement implements AppPager {
       return;
     }
     if (event.path.length == 1 && event.symbol.containsKey('seq')) {
-      window.console.log(event.symbol);
       if (event.symbol.containsKey('deleted')) {
         appPresenter.receiveAuthenticationSessionData();
         subscription.value.cancel();
@@ -383,15 +388,12 @@ class ALaCarteMainView extends PolymerElement implements AppPager {
     $['tap-sign-in'].classes.add('utility');
     if (currentPage != null && currentPage.id != 'search-page') {
       _currentPageClickSubscriber = new Ref();
-      _currentPageClickSubscriber.value = currentPage.onMouseDown.listen(() {
-        _clearSearchMode();
-      });
+      _currentPageClickSubscriber.value = currentPage.onMouseDown.listen((_) =>
+        _clearSearchMode());
     }
-    //_oldSelected = selected;
-    //selected = 2;
   }
 
   void tapSearchClear(MouseEvent event) {
-    selected = _oldSelected;
+    _clearSearchMode();
   }
 }

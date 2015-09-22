@@ -316,7 +316,6 @@ class GoogleMap extends PolymerElement {
     geocoder.geocode(geocodeRequest,
         (List<GeocoderResult> results, GeocoderStatus status) {
       if (status == GeocoderStatus.OK) {
-        window.console.log('Got a specific place.');
         final GeocoderResult result = results[0];
         completer.complete(result.$unsafe['place_id']);
         pinHasMovedFromPlace = false;
@@ -326,7 +325,6 @@ class GoogleMap extends PolymerElement {
           _setPlaceInfo(result, setPlaceIdFromResult: true);
         }
       } else {
-        window.console.log('Could not get a specific place.');
         completer.completeError(new ArgumentError('Could not find location'));
       }
     });

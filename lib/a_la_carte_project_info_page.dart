@@ -362,7 +362,6 @@ class ALaCarteProjectInfoPage extends ALaCartePageCommon {
       Ref<StreamSubscription> subscription,
       String authorizationSubscriptionDocId,
       void _functionToDoAgain()) {
-    window.console.log(event.symbol);
     if (event.status >= 300) {
       subscription.value.cancel();
       _cancelSavingWithErrorFromEvent(originalEvent);

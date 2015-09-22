@@ -45,9 +45,9 @@ class HttpCouchDbBackendAdapter implements HttpDbBackendAdapter {
         pathSegments: uri.pathSegments,
         queryParameters: uri.queryParameters,
         fragment: uri.fragment);
-    await _dbConnection.ensureHasValidated();
     try {
       try {
+        await _dbConnection.ensureHasValidated();
         await _policyHandler.validateMethodIsPermittedOnResource(
             method, uri, _dbConnection, session, timestamp);
       } catch (error) {

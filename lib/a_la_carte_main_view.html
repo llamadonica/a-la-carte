@@ -55,8 +55,7 @@
                 backgroundImage="{{
                   currentPage == null ?''
                                       : currentPage.backgroundImage}}"
-                cross-fade-delayed
-                narrow="{{!wide}}"
+                cross-fade-delayed fit narrow="{{!wide}}"
                 responsiveWidth="{{responsiveWidth}}"
                 on-dgs-fab-action="{{routeFabAction}}">
             <section id="tap-sign-in-section" class="tool">
@@ -75,7 +74,7 @@
             </section>
             <section id="search-bar" class="tool">
                 <core-icon icon="search"></core-icon>
-                <input is="core-input" id="search-input">
+                <input is="core-input" id="search-input" value="{{searchText}}">
                 <paper-icon-button id="tap-to-close-search" icon="close"
                                    on-tap="{{tapSearchClear}}">
                 </paper-icon-button>
@@ -96,14 +95,17 @@
                     </core-menu>
                 </div>
             </core-header-panel>
-            <core-pages class="content" selected="{{selectedPage}}">
+            <core-pages id="page-collector" class="content"
+                        selected="{{selectedPage}}">
                 <a-la-carte-card-view id="card-view" project="{{project}}"
+                                      class="selectable-page"
                                       projects="{{projects}}"
                                       projectsAreLoaded="{{projectsAreLoaded}}"
                                       noProjectsFound="{{noProjectsFound}}"
                                       appPager="{{this}}">
                 </a-la-carte-card-view>
                 <a-la-carte-project-info-page
+                        class="selectable-page"
                         project="{{project}}"
                         appPager="{{this}}"
                         projectsByUuid="{{projectsByUuid}}"
@@ -111,11 +113,13 @@
                         appPresenter="{{appPresenter}}"
                         userName="{{userName}}"
                         userEmail="{{userEmail}}"
-                        config="{{config}}" >
+                        config="{{config}}">
                 </a-la-carte-project-info-page>
-                <a-la-carte-search-page id="search-page"
+                <a-la-carte-search-page id="search-page" fit
+                                        class="selectable-page"
                                         searchInput="{{searchInput}}"
-                                        appPresenter="{{appPresenter}}">
+                                        appPresenter="{{appPresenter}}"
+                                        searchText="{{searchText}}">
                 </a-la-carte-search-page>
             </core-pages>
         </a-la-carte-scaffold>

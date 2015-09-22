@@ -11,6 +11,7 @@ import 'package:a_la_carte/models.dart';
 @CustomTag('a-la-carte-search-page')
 class ALaCarteSearchPage extends ALaCartePageCommon {
   @published CoreInput searchInput;
+  @published String searchText;
   @published Presenter appPresenter;
 
   /// Constructor used to create instance of ALaCarteSearchPage.

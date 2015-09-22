@@ -2,17 +2,21 @@
 <link rel="import" href="../../packages/polymer/polymer.html">
 
 <link rel="import" href="../../packages/core_elements/core_animated_pages.html">
+<link rel="import" href="../../packages/paper_elements/paper_spinner.html">
 <link rel="import" href="../../packages/core_elements/src/core-animated-pages/transitions/list-cascade.html">
 <link rel="import" href="../../packages/core_elements/src/core-animated-pages/transitions/slide-up.html">
 
 <link rel="import" href="google_map.html">
 
-<polymer-element name="a-la-carte-search-page" attributes="searchInput appPresenter">
+<polymer-element name="a-la-carte-search-page"
+                 attributes="searchInput appPresenter searchText">
   <template>
     <link rel="stylesheet" href="a_la_carte_search_page.css">
-    <core-animated-pages transitions="cross-fade slide-up list-cascade">
-      <section id="waiting-page">
-        <div cross-fade>Searching</div>
+    <core-animated-pages transitions="cross-fade slide-up list-cascade" fit>
+      <section id="waiting-page" fit>
+        <div fit cross-fade>
+          <paper-spinner active></paper-spinner>
+        </div>
       </section>
       <section>
         <div slide-up list-cascade>

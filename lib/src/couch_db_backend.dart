@@ -37,50 +37,47 @@ class CouchDbBackend extends DbBackend {
   CouchDbBackend(
       @Named('a_la_carte.server.couch_db_backend.couchDbPort') int this.port);
 
-  _validateSession() {
+  Future _validateSession() async {
     final couchUri = new Uri(
         scheme: 'http',
         host: '127.0.0.1',
         port: port,
         pathSegments: ['_session']);
-    return _httpClient.openUrl('POST', couchUri).then((request) {
-      String requestBody = JSON.encode({'name': _user, 'password': _password});
-      request.headers.add(HttpHeaders.HOST, 'localhost:5984');
-      request.headers.add(HttpHeaders.ACCEPT, 'application/json');
-      request.headers.add(HttpHeaders.CONTENT_TYPE, 'application/json');
-      request.headers.add(HttpHeaders.CONTENT_LENGTH, requestBody.length);
-      request.add(ASCII.encode(requestBody));
-      return request.close();
-    }).then((HttpClientResponse response) {
-      final setCookie = response.headers[HttpHeaders.SET_COOKIE];
-      if (response.statusCode == 200 && setCookie != null) {
-        _authCookie = new List<String>();
-        if (setCookie is String) {
-          _authCookie.add(setCookie.split(';')[0]);
-        } else {
-          assert(setCookie is List);
-          for (var setCookiePart in setCookie) {
-            _authCookie.add(setCookiePart.split(';')[0]);
-          }
-          _hasValidated = true;
+    var request = await _httpClient.openUrl('POST', couchUri);
+    String requestBody = JSON.encode({'name': _user, 'password': _password});
+    request.headers.add(HttpHeaders.HOST, 'localhost:5984');
+    request.headers.add(HttpHeaders.ACCEPT, 'application/json');
+    request.headers.add(HttpHeaders.CONTENT_TYPE, 'application/json');
+    request.headers.add(HttpHeaders.CONTENT_LENGTH, requestBody.length);
+    request.add(ASCII.encode(requestBody));
+    HttpClientResponse response = await request.close();
+    final setCookie = response.headers[HttpHeaders.SET_COOKIE];
+    if (response.statusCode == 200 && setCookie != null) {
+      _authCookie = new List<String>();
+      if (setCookie is String) {
+        _authCookie.add(setCookie.split(';')[0]);
+      } else {
+        assert(setCookie is List);
+        for (var setCookiePart in setCookie) {
+          _authCookie.add(setCookiePart.split(';')[0]);
+        }
+        _hasValidated = true;
+        return null;
+      }
+    } else {
+      var contentLength = new Ref<int>.withValue(
+          int.parse(response.headers[HttpHeaders.CONTENT_LENGTH][0]));
+      List<int> content = new List<int>();
+      await for (var inputList in response) {
+        if (contentLength.value <= 0) {
           return null;
         }
-      } else {
-        var contentLength = new Ref<int>.withValue(
-            int.parse(response.headers[HttpHeaders.CONTENT_LENGTH][0]));
-        List<int> content = new List<int>();
-        return response.asyncMap((inputList) {
-          if (contentLength.value <= 0) {
-            return null;
-          }
-          content.addAll(inputList);
-          contentLength.value -= inputList.length;
-          return null;
-        }).last.then((_) {
-          throw new StateError(new Utf8Codec().decode(content));
-        });
+        content.addAll(inputList);
+        contentLength.value -= inputList.length;
+        return null;
       }
-    });
+      throw new StateError(new Utf8Codec().decode(content));
+    }
   }
 
   Future ensureHasValidated() {

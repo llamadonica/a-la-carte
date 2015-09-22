@@ -25,7 +25,7 @@ class ALaCarteScaffold extends PolymerElement {
   @PublishedProperty(reflect: true) String mode = 'seamed';
   @published int headerHeight = 192;
   @published int condensedHeaderHeight = 64;
-  int scrollFrame = null;
+  int _scrollFrame = null;
   int trackStart;
   int track;
   bool _isInDock = false;
@@ -88,8 +88,9 @@ class ALaCarteScaffold extends PolymerElement {
 
   void dockHeader() {
     _isInDock = true;
-    $['header-container'].attributes['docked'] = '';
-    $['main-container'].attributes['docked'] = '';
+
+    headerContainer.attributes['docked'] = '';
+    scroller.attributes['docked'] = '';
     var bgContainerRipple = $['bg-container-ripple'];
     var width = bgContainerRipple.offsetWidth;
     var height = bgContainerRipple.offsetHeight;
@@ -163,8 +164,12 @@ class ALaCarteScaffold extends PolymerElement {
 
   void undockHeader() {
     _isInDock = false;
-    $['header-container'].attributes.remove('docked');
-    $['main-container'].attributes.remove('docked');
+    headerContainer.attributes.remove('docked');
+    scroller.classes.add('undocking');
+    scroller.attributes.remove('docked');
+    scroller.onTransitionEnd.first.then((_) {
+      scroller.classes.remove('undocking');
+    });
     var bgContainerRipple = $['bg-container-ripple'];
     var width = bgContainerRipple.offsetWidth;
     var height = bgContainerRipple.offsetHeight;
@@ -196,6 +201,7 @@ class ALaCarteScaffold extends PolymerElement {
     var greaterRadius = sqrt(((height - 28) * (height - 28) +
         (width - 116) * (width - 116)).toDouble());
     var durationOfSubRipple = greaterRadius / waveFRadius * duration / log(80);
+    durationOfSubRipple = max(durationOfSubRipple, 0.7);
 
     var baseWidth = greaterRadius * 2;
     var baseHeight = greaterRadius * 2;
@@ -215,8 +221,9 @@ class ALaCarteScaffold extends PolymerElement {
     extraRippleContainer.append(subRipple);
     window.animationFrame.then((_) => subRipple..classes.remove('start'));
     $['toolbar-title'].classes.remove('hidden');
-    subRipple.onTransitionEnd.first
-        .then((_) => _subRippleTransitionEnd(subRipple, _));
+    subRipple.onTransitionEnd.first.then((_) {
+      _subRippleTransitionEnd(subRipple, _);
+    });
   }
 
   void narrowChanged(bool oldValue) {
@@ -252,9 +259,9 @@ class ALaCarteScaffold extends PolymerElement {
     scroll(null);
   }
 
-  void scroll(Event e) {
-    if (scrollFrame == null) {
-      scrollFrame = window.requestAnimationFrame((time) {
+  void scroll(_) {
+    if (_scrollFrame == null) {
+      _scrollFrame = window.requestAnimationFrame((time) {
         var offsetY = max(scroller.scrollTop, 0);
 
         var windowHeight = scroller.offsetHeight;
@@ -275,8 +282,9 @@ class ALaCarteScaffold extends PolymerElement {
         if (toolbarTitle != null) {
           toolbarTitle.style.transform = 'scale(${delta*0.4 + 0.6})';
         }
-        //mainContainer.style.top =
+        scroller.style.top =
         headerContainer.style.height = '${height}px';
+
         if (containerHeight <= windowHeight) {
           scrollTrack.attributes['disabled'] = '';
         } else {
@@ -303,10 +311,7 @@ class ALaCarteScaffold extends PolymerElement {
             ..height = '${scrollThumbHeight}px'
             ..top = '${scrollbarTop}px';
         }
-
-        new Future(() {
-          scrollFrame = null;
-        });
+        _scrollFrame = null;
       });
     }
   }
@@ -345,6 +350,7 @@ class ALaCarteScaffold extends PolymerElement {
     var containerHeight = scroller.scrollHeight;
     scroller.scrollTop = ((containerHeight - windowHeight).toDouble() *
         percentageFromTop).floor();
+    scroll(null);
   }
 
   void trackStartScrollerThumb(ev) {
