@@ -47,7 +47,7 @@ class GoogleMap extends PolymerElement {
         map.streetView.visible = false;
         _setPlace(placeId);
       } else if (placeId == null &&
-      (oldPlaceId != null || pinHasMovedFromPlace)) {
+          (oldPlaceId != null || pinHasMovedFromPlace)) {
         map.streetView.visible = false;
         _resetPlace();
       }
@@ -99,8 +99,7 @@ class GoogleMap extends PolymerElement {
 
   attached() {
     super.attached();
-    new MutationObserver(_headMutated)
-      ..observe(document.head, childList: true);
+    new MutationObserver(_headMutated)..observe(document.head, childList: true);
     _initializeMap();
   }
 

@@ -61,8 +61,7 @@ class ALaCartePresenter extends PolymerElement implements Presenter {
   String _serviceAccountName = null;
   Future _serviceAccountFuture;
 
-  ALaCartePresenter.created() : super.created() {
-  }
+  ALaCartePresenter.created() : super.created() {}
 
   void _finishStartup() {
     CoreAjax configurationHandler = $['configuration-handler'];

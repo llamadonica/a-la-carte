@@ -48,6 +48,8 @@ class ALaCarteMainView extends PolymerElement implements AppPager {
   List<String> appAllSelectable = ['a', 'n', 's'];
 
   bool _isInSearchMode = false;
+
+  Ref _currentPageClickSubscriber;
   Stream get onDiscardEdits => _onDiscardEditsController.stream;
 
   StreamSubscription<List<String>> _appRouterNavigationSubscription;
@@ -82,7 +84,7 @@ class ALaCarteMainView extends PolymerElement implements AppPager {
       _appRouterNavigationSubscription.cancel();
     }
     _appRouterNavigationSubscription =
-      appPresenter.onExternalNavigationEvent.listen(_onAppNavigationEvent);
+        appPresenter.onExternalNavigationEvent.listen(_onAppNavigationEvent);
   }
 
   ALaCarteMainView.created() : super.created();
@@ -97,7 +99,8 @@ class ALaCarteMainView extends PolymerElement implements AppPager {
     } else {
       currentPage = pages[selected];
     }
-    _appRouterNavigationSubscription = appPresenter.onExternalNavigationEvent.listen(_onAppNavigationEvent);
+    _appRouterNavigationSubscription =
+        appPresenter.onExternalNavigationEvent.listen(_onAppNavigationEvent);
   }
 
   routeFabAction(CustomEvent ev) {
@@ -110,16 +113,18 @@ class ALaCarteMainView extends PolymerElement implements AppPager {
     element
       ..attributes['hiding'] = ''
       ..onTransitionEnd.first.then((_) {
-      if (element.attributes.containsKey('hiding')) {
-        element
-          ..attributes.remove('hiding')
-          ..attributes.remove('showing');
-      }
-    });
+        if (element.attributes.containsKey('hiding')) {
+          element..attributes.remove('hiding')..attributes.remove('showing');
+        }
+      });
     ALaCarteScaffold scaffold = $['scaffold'];
     scaffold.undockHeader();
     $['tap-sign-in'].classes.remove('utility');
     _isInSearchMode = false;
+    if (_currentPageClickSubscriber.value != null) {
+      _currentPageClickSubscriber.value.cancel();
+      _currentPageClickSubscriber.value = null;
+    }
   }
 
   selectedChanged(int oldValue) {
@@ -377,9 +382,9 @@ class ALaCarteMainView extends PolymerElement implements AppPager {
     scaffold.dockHeader();
     $['tap-sign-in'].classes.add('utility');
     if (currentPage != null && currentPage.id != 'search-page') {
-      var currentPageClickSubscriber = new Ref();
-      currentPageClickSubscriber.value = currentPage.onMouseDown.listen(() {
-
+      _currentPageClickSubscriber = new Ref();
+      _currentPageClickSubscriber.value = currentPage.onMouseDown.listen(() {
+        _clearSearchMode();
       });
     }
     //_oldSelected = selected;
