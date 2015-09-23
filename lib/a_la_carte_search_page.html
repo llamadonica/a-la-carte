@@ -12,10 +12,15 @@
                  attributes="searchInput appPresenter searchText">
   <template>
     <link rel="stylesheet" href="a_la_carte_search_page.css">
-    <core-animated-pages transitions="cross-fade slide-up list-cascade" fit>
+    <core-animated-pages transitions="cross-fade slide-up list-cascade" fit
+                         selected="{{isSearching ? 0 : 1}}">
       <section id="waiting-page" fit>
-        <div fit cross-fade>
-          <paper-spinner active></paper-spinner>
+        <div fit cross-fade layout vertical>
+          <div flex></div>
+          <div class="center-text">
+            <paper-spinner active?="{{isSearching}}"></paper-spinner>
+          </div>
+          <div flex></div>
         </div>
       </section>
       <section>

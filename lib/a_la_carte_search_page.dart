@@ -13,6 +13,7 @@ class ALaCarteSearchPage extends ALaCartePageCommon {
   @published CoreInput searchInput;
   @published String searchText;
   @published Presenter appPresenter;
+  @observable bool isSearching = true;
 
   /// Constructor used to create instance of ALaCarteSearchPage.
   ALaCarteSearchPage.created() : super.created() {}
@@ -40,7 +41,7 @@ class ALaCarteSearchPage extends ALaCartePageCommon {
   /// property observers set up, event listeners attached).
   ready() {
   }
-   
+
   */
 
   // TODO: implement backgroundImage

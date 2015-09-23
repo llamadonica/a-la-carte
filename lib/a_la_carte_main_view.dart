@@ -388,8 +388,8 @@ class ALaCarteMainView extends PolymerElement implements AppPager {
     $['tap-sign-in'].classes.add('utility');
     if (currentPage != null && currentPage.id != 'search-page') {
       _currentPageClickSubscriber = new Ref();
-      _currentPageClickSubscriber.value = currentPage.onMouseDown.listen((_) =>
-        _clearSearchMode());
+      _currentPageClickSubscriber.value =
+          currentPage.onMouseDown.listen((_) => _clearSearchMode());
     }
   }
 

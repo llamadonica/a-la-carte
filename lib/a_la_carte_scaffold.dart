@@ -282,8 +282,7 @@ class ALaCarteScaffold extends PolymerElement {
         if (toolbarTitle != null) {
           toolbarTitle.style.transform = 'scale(${delta*0.4 + 0.6})';
         }
-        scroller.style.top =
-        headerContainer.style.height = '${height}px';
+        scroller.style.top = headerContainer.style.height = '${height}px';
 
         if (containerHeight <= windowHeight) {
           scrollTrack.attributes['disabled'] = '';
