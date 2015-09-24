@@ -4,9 +4,9 @@ import 'dart:async';
 
 import 'shelf_utils.dart';
 
-class ServiceError {
+class DbServiceError {
   final Map result;
-  ServiceError(Map this.result);
+  DbServiceError(Map this.result);
 }
 
 abstract class DbBackend {

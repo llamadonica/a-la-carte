@@ -13,7 +13,10 @@ class ALaCarteSearchPage extends ALaCartePageCommon {
   @published CoreInput searchInput;
   @published String searchText;
   @published Presenter appPresenter;
+
   @observable bool isSearching = true;
+  @observable String searchUrl = '/search';
+
 
   /// Constructor used to create instance of ALaCarteSearchPage.
   ALaCarteSearchPage.created() : super.created() {}

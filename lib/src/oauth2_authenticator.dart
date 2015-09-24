@@ -62,7 +62,7 @@ class OAuth2Authenticator extends Authenticator {
           watchMessage,
           revId);
     } catch (error) {
-      if (error is ServiceError) {
+      if (error is DbServiceError) {
         error.result['message'] =
             'I couldn\'t log in a user because I couldn\'t get the list of'
             ' authorized users from the database.';
@@ -124,7 +124,7 @@ class OAuth2Authenticator extends Authenticator {
         assert(psidState['type'] == 'persistent_session');
         return psidState;
       } catch (error) {
-        if (error is ServiceError && error.result['error'] == 'not_found') {
+        if (error is DbServiceError && error.result['error'] == 'not_found') {
           return null;
         } else {
           throw error;

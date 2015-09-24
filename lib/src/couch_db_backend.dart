@@ -12,7 +12,7 @@ import 'package:d17/d17.dart';
 import 'db_backend.dart';
 import 'ref.dart';
 
-class CouchError extends ServiceError {
+class CouchError extends DbServiceError {
   CouchError(Map result) : super(result);
 }
 
@@ -33,6 +33,8 @@ class CouchDbBackend extends DbBackend {
   String _password;
 
   @Inject(name: 'a_la_carte.server.debugOverWire')
+  bool debugOverWire;
+
   @inject
   CouchDbBackend(
       @Named('a_la_carte.server.couch_db_backend.couchDbPort') int this.port);

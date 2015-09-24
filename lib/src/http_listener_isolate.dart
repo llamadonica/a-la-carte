@@ -17,6 +17,8 @@ import 'shelf_utils.dart';
 import 'db_backend.dart';
 import 'local_session_data.dart';
 import 'http_db_backend_adapter.dart';
+import 'http_search_backend_adapter.dart';
+import 'search_backend.dart';
 import 'logger.dart';
 
 abstract class HttpListenerIsolate extends SessionClient {
@@ -81,6 +83,12 @@ $description
 
   @InjectAdapter(from: #_dbConnection)
   HttpDbBackendAdapter _dbHttpAdapter;
+
+  @inject
+  SearchBackend _searchConnection;
+
+  @InjectAdapter(from: #_searchConnection)
+  HttpSearchBackendAdapter _searchHttpAdapter;
 
   @inject
   Authenticator _authenticationModule;
@@ -344,16 +352,26 @@ $description
     if (!_isJsonRequest(request)) {
       return new shelf.Response(_responseShouldCascade);
     }
-    return request.hijack((input, output) => _dbHttpAdapter.hijackRequest(
-        input,
-        output,
-        request.method,
-        request.requestedUri,
-        request.headers,
-        request.context['tsid'],
-        request.context['askForPushSession'],
-        request.context['session'],
-        request.context['timestamp']));
+    if (request.url.pathSegments[0] == 'a_la_carte') {
+      return request.hijack((input, output) => _dbHttpAdapter.hijackRequest(
+          input,
+          output,
+          request.method,
+          request.requestedUri,
+          request.headers,
+          request.context['tsid'],
+          request.context['askForPushSession'],
+          request.context['session'],
+          request.context['timestamp']));
+    } else if (request.url.pathSegments[0] == 'search') {
+      return request.hijack((input, output) => _searchHttpAdapter.hijackRequest(
+          input,
+          output,
+          request.method,
+          request.requestedUri,
+          request.headers));
+    }
+    return new shelf.Response(_responseShouldCascade);
   }
 
   dynamic _authLandingHandler(shelf.Request request) async {
