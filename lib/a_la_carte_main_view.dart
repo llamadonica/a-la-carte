@@ -317,7 +317,7 @@ class ALaCarteMainView extends PolymerElement implements AppPager {
 
   void _routeLoginReply(
       JsonStreamingEvent event, Ref<StreamSubscription> subscription) {
-    if (event.status == 401 && event.path.length == 0) {
+    if (event.httpStatus == 401 && event.path.length == 0) {
       if (event.symbol.containsKey('auth_uri') &&
           event.symbol.containsKey('auth_watcher_id')) {
         appPresenter.showAuthLogin(event.symbol['auth_uri']);
@@ -333,7 +333,7 @@ class ALaCarteMainView extends PolymerElement implements AppPager {
           appPresenter.showAuthLogin(event.symbol['auth_uri']);
         }
       }
-    } else if (event.status == 200 && event.path.length == 0) {
+    } else if (event.httpStatus == 200 && event.path.length == 0) {
       appPresenter.receiveAuthenticationSessionData();
     } else if (event.path.length == 0) {
       appPresenter.reportError(ErrorReportModule.login, 'Could not log in.');
@@ -343,9 +343,9 @@ class ALaCarteMainView extends PolymerElement implements AppPager {
 
   void _routeLogoutReply(
       JsonStreamingEvent event, Ref<StreamSubscription> subscription) {
-    if (event.status == 401 || event.status == 404 && event.path.length == 0) {
-    } else if (event.status == 200 ||
-        event.status == 201 && event.path.length == 0) {
+    if (event.httpStatus == 401 || event.httpStatus == 404 && event.path.length == 0) {
+    } else if (event.httpStatus == 200 ||
+        event.httpStatus == 201 && event.path.length == 0) {
       _finalizeLogout();
       subscription.value.cancel();
     } else if (event.path.length == 0) {
@@ -362,7 +362,7 @@ class ALaCarteMainView extends PolymerElement implements AppPager {
       JsonStreamingEvent event,
       Ref<StreamSubscription> subscription,
       String activeAuthorizationSubscription) {
-    if (event.status >= 300) {
+    if (event.httpStatus >= 300) {
       subscription.value.cancel();
       return;
     }

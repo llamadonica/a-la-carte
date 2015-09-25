@@ -138,7 +138,7 @@ class ALaCartePresenter extends PolymerElement implements Presenter {
 
   void _routeSessionEvent(JsonStreamingEvent event,
       Ref<StreamSubscription> subscription, Completer completer) {
-    if (event.status == 200 && event.path.length == 0) {
+    if (event.httpStatus == 200 && event.path.length == 0) {
       _serviceAccountName = event.symbol['userCtx']['name'];
       subscription.value.cancel();
       completer.complete();
@@ -190,7 +190,7 @@ class ALaCartePresenter extends PolymerElement implements Presenter {
       connectivityErrorMessage = event.symbol;
       return;
     } else if (event.path.length == 0) {
-      if (event.status >= 400 && !projectsAreLoaded) {
+      if (event.httpStatus >= 400 && !projectsAreLoaded) {
         final PaperToast connectivityToast = $['toast-connectivity'];
         connectivityToast.show();
         projectsAreLoaded = true;
@@ -268,7 +268,7 @@ class ALaCartePresenter extends PolymerElement implements Presenter {
       JsonStreamingEvent event,
       Ref<StreamSubscription> subscription,
       Completer receivingAuthenticationSessionDataCompleter) {
-    if (event.status == 200 && event.path.length == 0 && !isLoggedIn) {
+    if (event.httpStatus == 200 && event.path.length == 0 && !isLoggedIn) {
       if (!receivingAuthenticationSessionDataCompleter.isCompleted) {
         userEmail = event.symbol['email'];
         userFullName = event.symbol['fullName'];

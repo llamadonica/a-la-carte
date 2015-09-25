@@ -13,4 +13,5 @@ abstract class DbBackend {
   Future<Map> makeServiceGet(Uri uri);
   Future<Map> makeServicePut(Uri uri, Map message, [String revId = null]);
   Future makeServiceDelete(Uri uri, String revId);
+  Stream<Map> subscribeToChanges(String schema, [int since]);
 }

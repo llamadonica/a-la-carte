@@ -186,6 +186,41 @@ class CouchDbBackend extends DbBackend {
       throw new CouchError(map);
     }
   }
+
+  @override
+  Stream<Map> subscribeToChanges(String schema, [int since]) async* {
+    var queryParameters = {
+      'feed': 'continuous',
+      'include_docs': 'true',
+      'filter': 'projects/projects',
+      'account': _user
+    };
+    if (since != null) {
+      queryParameters['since'] = since.toString();
+    }
+    final couchUri = new Uri(
+        scheme: 'http',
+        host: '127.0.0.1',
+        port: port,
+        pathSegments: [schema, '_changes'],
+        queryParameters: queryParameters);
+    await ensureHasValidated();
+    HttpClientRequest request = await _httpClient.openUrl('DELETE', couchUri);
+    for (var cookie in _authCookie) {
+      request.headers.add(HttpHeaders.COOKIE, cookie);
+    }
+    request.headers.add(HttpHeaders.CONTENT_TYPE, 'application/json');
+    final HttpClientResponse response = await request.close();
+    await for (var streamSegment in response) {
+      if (chunkedResponse) {
+        output.add(encoder.convert('${data.length.toRadixString(16)}\r\n'));
+      }
+      output.add(data);
+      if (chunkedResponse) {
+        output.add([13, 10]);
+      }
+    }
+  }
 }
 
 Future<List> couchDbRetrievePermissions(

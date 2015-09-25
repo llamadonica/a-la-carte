@@ -24,30 +24,6 @@ class ElasticSearchBackend extends SearchBackend {
   ElasticSearchBackend(
       @Named('a_la_carte.server.couch_db_backend.elasticSearchPort') int this.port);
 
-  Future<Map> makeServiceSearch(String type, Map<String, String> queryParts) async {
-    StringBuffer q = new StringBuffer();
-    q.writeAll(queryParts.keys.map((key) => key + ':' + queryParts[key]), '%20');
-    final elasticUri = new Uri(
-        scheme: 'http',
-        host: '127.0.0.1',
-        port: port,
-        pathSegments: [type, '_search'],
-        queryParameters: {'q': q.toString()});
-    final HttpClientRequest request = await _httpClient.openUrl('GET', elasticUri);
-    final HttpClientResponse response = await request.close();
-    final data = await response.toList();
-    final utfDecoder = new Utf8Decoder();
-    final statusCode = response.statusCode;
-    final json = utfDecoder.convert(new List.from(data.expand((e) => e)));
-    final jsonDecoder = new JsonDecoder();
-    final map = jsonDecoder.convert(json);
-    if (statusCode >= 200 && statusCode < 300) {
-      return map;
-    } else {
-      throw new ElasticSearchServiceError(map);
-    }
-  }
-
   Future updatesToIndex(List<Map> documents) async {
     final elasticUri = new Uri(
         scheme: 'http',

@@ -12,6 +12,10 @@ dependencies:
   google_maps: '^2.0.0'
   oauth2: any
   intl: any
+  geohash:
+    git:
+      ref: master
+      url: https://github.com/llamadonica/dart-geohash.git
   d17:
     git:
       ref: testing

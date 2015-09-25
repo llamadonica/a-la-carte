@@ -19,6 +19,8 @@ class Project extends JsonCanSync {
   @observable String userDataEmail;
   @observable DateTime userDataTimestamp;
 
+  String get geohash => Geohash.encode(latitude, longitude);
+
   @observable bool placeIdMustBeUpdated;
 
   String rev;
@@ -161,7 +163,8 @@ class Project extends JsonCanSync {
       'place_id': placeId,
       'latitude': latitude,
       'longitude': longitude,
-      'clientName': clientName
+      'clientName': clientName,
+      'geohash': geohash
     };
     if (committed) {
       map['_id'] = id;

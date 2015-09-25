@@ -19,6 +19,7 @@ void main(List<String> args) {
     ..addFlag('debug-over-wire',
         help:
             'Send additional debugging information from the server if available.')
+    ..addFlag('no-db-to-search', help: 'Don\'t sent DB changes to search.')
     ..addOption('couchPort',
         abbr: 'c',
         help: 'Port for the related CouchDB instance',
@@ -39,9 +40,10 @@ void main(List<String> args) {
     exit(1);
   });
   var debugOverWire = result['debug-over-wire'];
+  var noDbToSearch = result['no-db-to-search'];
 
-  var server =
-      new Server(port, couchPort, listeners, debugOverWire: debugOverWire);
+  var server = new Server(port, couchPort, listeners,
+      debugOverWire: debugOverWire, runDbToSearch: !noDbToSearch);
 
   ProcessSignal.SIGINT.watch().listen((sig) {
     print('Got SIGINT');

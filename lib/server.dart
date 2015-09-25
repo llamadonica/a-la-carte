@@ -6,6 +6,7 @@ import 'package:d17/d17.dart';
 
 import 'src/http_listener_isolate.dart';
 import 'src/session_master.dart';
+import 'src/change_subscriber.dart';
 import 'src/a_la_carte_module.dart';
 
 class Server {
@@ -13,9 +14,10 @@ class Server {
   final int couchPort;
   final int listeners;
   final bool debugOverWire;
+  final bool runDbToSearch;
 
   Server(int this.port, int this.couchPort, int this.listeners,
-      {this.debugOverWire: false});
+      {this.debugOverWire: false, this.runDbToSearch: true});
   void serve() {
     var sessionResponse = new ReceivePort();
     sessionResponse.first.then((SendPort sessionPort) {
@@ -33,6 +35,10 @@ class Server {
     });
     Isolate.spawn(_sessionMasterIsolate,
         [port, null, couchPort, null, debugOverWire, sessionResponse.sendPort]);
+    if (runDbToSearch) {
+      Isolate.spawn(_changesSenderIsolate,
+      [port, null, couchPort, null, debugOverWire]);
+    }
   }
 }
 
@@ -53,4 +59,11 @@ void _sessionMasterIsolate(List args) {
   final SessionMaster sessionListener = injector.getInstance(SessionMaster);
   sessionListener.spinUpConnectors();
   (args[5] as SendPort).send(sessionListener.httpSendPort);
+}
+
+void _changesSenderIsolate(List args) {
+  final injector = new Injector(
+      new ALaCarteModule(httpServerPort: args[0], debugOverWire: args[4]));
+  final ChangeSubscriberIsolate listener = injector.getInstance(ChangeSubscriberIsolate);
+  listener.listen();
 }

@@ -84,10 +84,10 @@ $description
   @InjectAdapter(from: #_dbConnection)
   HttpDbBackendAdapter _dbHttpAdapter;
 
-  @inject
+  //@inject
   SearchBackend _searchConnection;
 
-  @InjectAdapter(from: #_searchConnection)
+  //@InjectAdapter(from: #_searchConnection)
   HttpSearchBackendAdapter _searchHttpAdapter;
 
   @inject
@@ -352,7 +352,9 @@ $description
     if (!_isJsonRequest(request)) {
       return new shelf.Response(_responseShouldCascade);
     }
-    if (request.url.pathSegments[0] == 'a_la_carte') {
+    if (request.url.pathSegments.length > 0 &&
+        (request.url.pathSegments[0] == 'a_la_carte' ||
+            request.url.pathSegments[0] == '_session')) {
       return request.hijack((input, output) => _dbHttpAdapter.hijackRequest(
           input,
           output,

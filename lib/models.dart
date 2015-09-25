@@ -3,6 +3,8 @@ library a_la_carte_models;
 import 'dart:convert';
 import 'dart:async';
 import 'dart:html' as html;
+
+import 'package:geohash/geohash.dart';
 import 'package:a_la_carte/json_streaming.dart';
 
 import 'package:polymer/polymer.dart';

@@ -207,7 +207,7 @@ class ALaCarteProjectInfoPage extends ALaCartePageCommon {
   void _routeProjectDeletingJsonReply(JsonStreamingEvent event, Project project,
       Ref<StreamSubscription> subscription, String rev, String id) {
     final Duration enableDelay = new Duration(milliseconds: 1020);
-    if (event.status == 401 && event.path.length == 0) {
+    if (event.httpStatus == 401 && event.path.length == 0) {
       if (event.symbol.containsKey('auth_uri') &&
           event.symbol.containsKey('auth_watcher_id')) {
         appPresenter.showAuthLogin(event.symbol['auth_uri']);
@@ -236,8 +236,8 @@ class ALaCarteProjectInfoPage extends ALaCartePageCommon {
         _cancelSavingWithErrorFromEvent(event);
         subscription.value.cancel();
       }
-    } else if (event.status >= 400 &&
-        event.status < 599 &&
+    } else if (event.httpStatus >= 400 &&
+        event.httpStatus < 599 &&
         event.path.length == 0) {
       _fabWillBeDisabled = false;
       //$['showProgress'].classes.remove('showing');
@@ -255,7 +255,7 @@ class ALaCarteProjectInfoPage extends ALaCartePageCommon {
       }
       appPresenter.reportError(ErrorReportModule.projectSaver, message);
       subscription.value.cancel();
-    } else if (event.status == 200 && event.path.length == 0) {
+    } else if (event.httpStatus == 200 && event.path.length == 0) {
       _fabWillBeDisabled = false;
       //$['showProgress'].classes.remove('showing');
       showProgress = false;
@@ -362,7 +362,7 @@ class ALaCarteProjectInfoPage extends ALaCartePageCommon {
       Ref<StreamSubscription> subscription,
       String authorizationSubscriptionDocId,
       void _functionToDoAgain()) {
-    if (event.status >= 300) {
+    if (event.httpStatus >= 300) {
       subscription.value.cancel();
       _cancelSavingWithErrorFromEvent(originalEvent);
       return;
@@ -383,7 +383,7 @@ class ALaCarteProjectInfoPage extends ALaCartePageCommon {
 
   void _routeProjectSavingJsonReply(JsonStreamingEvent event, Project project,
       Ref<StreamSubscription> subscription, String id, Map data) {
-    if (event.status == 401 && event.path.length == 0) {
+    if (event.httpStatus == 401 && event.path.length == 0) {
       if (event.symbol.containsKey('auth_uri') &&
           event.symbol.containsKey('auth_watcher_id')) {
         appPresenter.showAuthLogin(event.symbol['auth_uri']);
@@ -412,12 +412,12 @@ class ALaCarteProjectInfoPage extends ALaCartePageCommon {
         _cancelSavingWithErrorFromEvent(event);
         subscription.value.cancel();
       }
-    } else if (event.status >= 400 &&
-        event.status < 599 &&
+    } else if (event.httpStatus >= 400 &&
+        event.httpStatus < 599 &&
         event.path.length == 0) {
       _cancelSavingWithErrorFromEvent(event);
       subscription.value.cancel();
-    } else if (event.status == 201 && event.path.length == 0) {
+    } else if (event.httpStatus == 201 && event.path.length == 0) {
       final Duration enableDelay = new Duration(milliseconds: 1020);
       _fabWillBeDisabled = false;
       //$['showProgress'].classes.remove('showing');
