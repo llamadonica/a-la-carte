@@ -5,17 +5,22 @@ import 'dart:convert';
 import 'dart:html';
 import 'package:a_la_carte/fetch_interop.dart';
 
-enum JsonStreamingBoxType { array, object, finalSymbol }
+enum JsonStreamingBox { array, object, na }
+enum JsonStreamingEvent { open, close, token }
 
 class JsonStreamingEvent {
-  final int status;
+  final int httpStatus;
+
   final String statusText;
-  final JsonStreamingBoxType boxType;
+  final JsonStreamingBox boxType;
+  final JsonStreamingEvent eventType;
   final List path;
   final symbol;
-  JsonStreamingEvent(JsonStreamingBoxType this.boxType, Iterable _path,
-      dynamic this.symbol, int this.status, String this.statusText)
+
+  JsonStreamingEvent(JsonStreamingBox this.boxType, Iterable _path,
+      dynamic this.symbol, int this.httpStatus, String this.statusText)
       : path = new List.from(_path);
+
   String toString() {
     var output = new StringBuffer('addJsonStreamingEvent(');
     output.write(boxType);
@@ -39,7 +44,6 @@ class JsonStreamingParser {
   bool _requireComma = false;
   bool _requireColon = false;
   bool _requireKey = false;
-  int _startOfLastSymbol = 0;
   int _currentKey = 0;
   String _lastKeyString = null;
   String _lastValueString = null;
@@ -48,13 +52,6 @@ class JsonStreamingParser {
 
   List _currentPath;
   final bool _isImplicitArray;
-
-  final StreamController<JsonStreamingEvent> _onOpenContainer =
-      new StreamController<JsonStreamingEvent>();
-  final StreamController<JsonStreamingEvent> _onCloseContainer =
-      new StreamController<JsonStreamingEvent>();
-  final StreamController<JsonStreamingEvent> _onSymbolComplete =
-      new StreamController<JsonStreamingEvent>();
 
   int _status;
   String _statusText;
@@ -66,10 +63,6 @@ class JsonStreamingParser {
     }
   }
 
-  Stream<JsonStreamingEvent> get onOpenContainer => _onOpenContainer.stream;
-  Stream<JsonStreamingEvent> get onCloseContainer => _onCloseContainer.stream;
-  Stream<JsonStreamingEvent> get onSymbolComplete => _onSymbolComplete.stream;
-
   void httpRequestListener(ProgressEvent event) {
     HttpRequest request = event.currentTarget;
 
@@ -78,7 +71,7 @@ class JsonStreamingParser {
 
     String buffer = request.response;
     if (buffer == null) return;
-    _parseCurrentStatusForString(
+    streamTransform(
         event.loaded, buffer, (buf_, i) => buf_.codeUnitAt(i));
   }
 
@@ -100,7 +93,7 @@ class JsonStreamingParser {
           reader.cancel();
           return;
         }
-        this._parseCurrentStatusForString(
+        this.streamTransform(
             result.value.length,
             result.value,
             (buf_, i) =>
@@ -141,97 +134,81 @@ class JsonStreamingParser {
     }
   }
 
-  void _parseCurrentStatusForString(int loaded, buffer, Function bufferGetter) {
-    stateParser: for (var i = _startOfLastSymbol; i < loaded; i++) {
+  static Stream<JsonStreamingEvent> streamTransform(Stream<int> symbolBuffer, [bool isImplicitArray = false]) async* {
+    final parser = new JsonStreamingParser();
+    stateParser: await for (var ch in symbolBuffer) {
       if (_isWhitespace(bufferGetter(buffer, i))) continue;
-      if (_isSemiClosed) {
-        _onOpenContainer.addError(new StateError("Expected WHITESPACE"));
-        _onCloseContainer.addError(new StateError("Expected WHITESPACE"));
-        _onSymbolComplete.addError(new StateError("Expected WHITESPACE"));
-        continue;
+      if (parser._isSemiClosed) {
+        throw new StateError("Expected WHITESPACE");
       }
-      if (_weAreAtStart && bufferGetter(buffer, i) == 123) {
+      if (parser._weAreAtStart && ch == 123) {
         // Open brace {
-        if (!_weAreInImplicitArray) {
-          _currentPath = new List();
+        if (!parser._weAreInImplicitArray) {
+          parser._currentPath = new List();
         } else {
-          _weAreInImplicitArray = false;
+          parser._weAreInImplicitArray = false;
         }
-        _currentContext = new Map();
-        _currentContexts.add(_currentContext);
+        parser._currentContext = new Map();
+        parser._currentContexts.add(_currentContext);
 
-        _onOpenContainer.add(addJsonStreamingEvent(
-            JsonStreamingBoxType.object, _currentPath, _currentContext));
-        _weAreAtStart = false;
-        _weAreInObject = true;
-        _requireKey = true;
-        _startOfLastSymbol = i + 1;
+        yield addJsonStreamingEvent(JsonStreamingBox.object, _currentPath, _currentContext);
+        parser._weAreAtStart = false;
+        parser._weAreInObject = true;
+        parser._requireKey = true;
         continue;
-      } else if (_weAreInImplicitArray) {
-        _onOpenContainer.addError(new StateError("Expected WHITESPACE or { "));
-        _onCloseContainer.addError(new StateError("Expected WHITESPACE or { "));
-        _onSymbolComplete.addError(new StateError("Expected WHITESPACE or { "));
-        continue;
-      } else if (_weAreAtStart) {
-        this._parserAssertNotReached("Expected {");
-        continue;
-      } else if (_weAreInObject &&
-          (_requireComma || _requireKey) &&
-          bufferGetter(buffer, i) == 125) {
+      } else if (parser._weAreInImplicitArray) {
+        throw new StateError("Expected WHITESPACE or { ");
+      } else if (parser._weAreAtStart) {
+        parser._parserAssertNotReached("Expected {");
+      } else if (parser._weAreInObject &&
+          (parser._requireComma || parser._requireKey) &&
+          ch == 125) {
         //Close brace }
-        _onSymbolComplete.add(addJsonStreamingEvent(
-            JsonStreamingBoxType.object, _currentPath, _currentContext));
-        _onCloseContainer.add(addJsonStreamingEvent(
-            JsonStreamingBoxType.object, _currentPath, _currentContext));
-        if (_currentPath.length == 0) {
-          _isSemiClosed = true;
-        } else if (_currentPath.length == 1 && _isImplicitArray) {
-          _weAreInObject = false;
-          _requireComma = false;
-          _requireKey = false;
+        yield addJsonStreamingEvent(
+            JsonStreamingBox.object, _currentPath, _currentContext);
+        if (parser._currentPath.length == 0) {
+          parser._isSemiClosed = true;
+        } else if (parser._currentPath.length == 1 && parser._isImplicitArray) {
+          parser._weAreInObject = false;
+          parser._requireComma = false;
+          parser._requireKey = false;
 
-          _weAreInImplicitArray = true;
-          _weAreAtStart = true;
-          _startOfLastSymbol = i + 1;
-          _currentPath[0]++;
+          parser._weAreInImplicitArray = true;
+          parser._weAreAtStart = true;
+          parser._currentPath[0]++;
         } else {
-          var lastKey = _currentPath.removeLast();
+          var lastKey = parser._currentPath.removeLast();
           if (lastKey is int) {
-            _weAreInObject = false;
-            _weAreInArray = true;
+            parser._weAreInObject = false;
+            parser._weAreInArray = true;
           } else {
             assert(lastKey is String);
-            _weAreInObject = true;
-            _weAreInArray = false;
+            parser._weAreInObject = true;
+            parser._weAreInArray = false;
           }
-          _requireComma = true;
-          _currentContexts.removeLast();
-          _currentContext = _currentContexts.last;
+          parser._requireComma = true;
+          parser._currentContexts.removeLast();
+          parser._currentContext = parser._currentContexts.last;
         }
-        _startOfLastSymbol = i + 1;
         continue;
-      } else if (_weAreInObject &&
-          _requireComma &&
-          bufferGetter(buffer, i) == 44) {
-        _requireComma = false;
-        _requireKey = true;
-        _startOfLastSymbol = i + 1;
+      } else if (parser._weAreInObject &&
+                 parser._requireComma &&
+          ch == 44) {
+        parser._requireComma = false;
+        parser._requireKey = true;
         continue;
-      } else if (_weAreInObject && _requireComma) {
-        this._parserAssertNotReached("Expected } or ,");
+      } else if (parser._weAreInObject && parser._requireComma) {
+        parser._parserAssertNotReached("Expected } or ,");
+      } else if (parser._weAreInObject &&
+          parser._requireColon &&
+          ch == 58) {
+        parser._requireColon = false;
         continue;
-      } else if (_weAreInObject &&
-          _requireColon &&
-          bufferGetter(buffer, i) == 58) {
-        _requireColon = false;
-        _startOfLastSymbol = i + 1;
-        continue;
-      } else if (_weAreInObject && _requireColon) {
+      } else if (parser._weAreInObject && parser._requireColon) {
         this._parserAssertNotReached("Expected :");
-        continue;
-      } else if (_weAreInObject &&
-          _requireKey &&
-          bufferGetter(buffer, i) == 34) {
+      } else if (parser._weAreInObject &&
+      parser._requireKey &&
+          ch == 34) {
         i++;
         i = _parseString(i, loaded, buffer, bufferGetter);
         if (_startOfLastSymbol > i) {
@@ -246,9 +223,9 @@ class JsonStreamingParser {
       } else if (_weAreInArray && bufferGetter(buffer, i) == 93) {
         //Close bracket ]
         _onSymbolComplete.add(addJsonStreamingEvent(
-            JsonStreamingBoxType.array, _currentPath, _currentContext));
+            JsonStreamingBox.array, _currentPath, _currentContext));
         _onCloseContainer.add(addJsonStreamingEvent(
-            JsonStreamingBoxType.array, _currentPath, _currentContext));
+            JsonStreamingBox.array, _currentPath, _currentContext));
         var lastKey = _currentPath.removeLast();
         if (lastKey is int) {
           _weAreInObject = false;
@@ -288,7 +265,7 @@ class JsonStreamingParser {
         }
         _currentContext = tempContext;
         _onOpenContainer.add(addJsonStreamingEvent(
-            JsonStreamingBoxType.object, _currentPath, _currentContext));
+            JsonStreamingBox.object, _currentPath, _currentContext));
         _weAreAtStart = false;
         _weAreInObject = true;
         _weAreInArray = false;
@@ -312,7 +289,7 @@ class JsonStreamingParser {
         }
         _currentContext = tempContext;
         _onOpenContainer.add(addJsonStreamingEvent(
-            JsonStreamingBoxType.array, _currentPath, _currentContext));
+            JsonStreamingBox.array, _currentPath, _currentContext));
         _weAreAtStart = false;
         _weAreInObject = false;
         _weAreInArray = true;
@@ -473,15 +450,13 @@ class JsonStreamingParser {
     }
   }
 
-  JsonStreamingEvent addJsonStreamingEvent(JsonStreamingBoxType object,
+  static JsonStreamingEvent addJsonStreamingEvent(JsonStreamingBox object,
           List currentPath, Object currentContext) =>
       new JsonStreamingEvent(
           object, currentPath, currentContext, _status, _statusText);
 
   void _parserAssertNotReached(String message) {
-    _onOpenContainer.addError(new StateError(message));
-    _onCloseContainer.addError(new StateError(message));
-    _onSymbolComplete.addError(new StateError(message));
+    throw new StateError(message);
     _isSemiClosed = true;
   }
 
@@ -497,7 +472,7 @@ class JsonStreamingParser {
       (_currentContext as List).add(value);
     }
     _onSymbolComplete.add(addJsonStreamingEvent(
-        JsonStreamingBoxType.finalSymbol, _currentPath, value));
+        JsonStreamingBox.na, _currentPath, value));
     _currentPath.removeLast();
     _requireComma = true;
     _startOfLastSymbol = i + 1;
