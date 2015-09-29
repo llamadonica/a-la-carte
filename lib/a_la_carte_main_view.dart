@@ -4,6 +4,7 @@ import 'dart:html';
 import 'dart:async';
 
 import 'package:core_elements/core_input.dart';
+import 'package:json_stream_parser/json_stream_parser.dart';
 import 'package:paper_elements/paper_action_dialog.dart';
 import 'package:polymer/polymer.dart';
 import 'package:uuid/uuid.dart';
@@ -269,29 +270,17 @@ class ALaCarteMainView extends PolymerElement implements AppPager {
   void _connectToWithOptionalBody(
       String uri, JsonEventRouter router, Function callOnCompleteWithNoBody,
       {bool isImplicitArray: false, String method: 'GET'}) {
-    final jsonHandler = new JsonStreamingParser(isImplicitArray);
+    HttpResponseJsonStreamingParser jsonHandler;
     final subscription = new Ref<StreamSubscription>();
-    subscription.value = jsonHandler.onSymbolComplete
-        .listen((event) => router(event, subscription));
 
     if (fetch == null) {
       var _request = new HttpRequest();
       _request.open(method, uri);
       _request.setRequestHeader('Accept', 'application/json');
       _request.withCredentials = true;
+      jsonHandler =
+          new HttpResponseJsonStreamingParser.fromHttpRequest(_request, isImplicitArray);
 
-      _request.onLoad.listen(jsonHandler.httpRequestListener);
-      var previouslyGotHeaders = new Ref.withValue(false);
-      _request.onProgress.listen((ProgressEvent event) {
-        if (previouslyGotHeaders.value && _request.readyState >= 2) {
-          previouslyGotHeaders.value = true;
-          if (_request.status == 201) {
-            callOnCompleteWithNoBody();
-            subscription.value.cancel();
-          }
-        }
-        jsonHandler.httpRequestListener(event);
-      });
 
       _request.send();
     } else {
@@ -300,24 +289,27 @@ class ALaCarteMainView extends PolymerElement implements AppPager {
       if (!isLoggedIn) {
         headers['X-Can-Read-Push-Session-Data'] = 'true';
       }
-      fetch(uri,
+      jsonHandler = new HttpResponseJsonStreamingParser.fromFetch(fetch(uri,
           method: method,
           headers: headers,
           mode: RequestMode.sameOrigin,
-          credentials: RequestCredentials.sameOrigin).then((Response object) {
-        if (object.status == 201) {
-          callOnCompleteWithNoBody();
-          subscription.value.cancel();
-        }
-        jsonHandler.setStreamStateFromResponse(object);
-        jsonHandler.streamFromByteStreamReader(object.body.getReader());
-      });
+          credentials: RequestCredentials.sameOrigin), isImplicitArray);
     }
+
+    subscription.value = jsonHandler.listen((event) => router(event, subscription), onError: (error) {
+      if (error is NoBody) {
+        callOnCompleteWithNoBody();
+        return;
+      }
+      window.console.error("Couldn't parse stream for '$uri'");
+      throw error;
+    });
   }
 
   void _routeLoginReply(
-      JsonStreamingEvent event, Ref<StreamSubscription> subscription) {
-    if (event.httpStatus == 401 && event.path.length == 0) {
+      HttpResponseJsonStreamingEvent event, Ref<StreamSubscription> subscription) {
+    if (event.eventType != JsonStreamingEventType.close) return;
+    if (event.httpStatusCode == 401 && event.path.length == 0) {
       if (event.symbol.containsKey('auth_uri') &&
           event.symbol.containsKey('auth_watcher_id')) {
         appPresenter.showAuthLogin(event.symbol['auth_uri']);
@@ -333,7 +325,7 @@ class ALaCarteMainView extends PolymerElement implements AppPager {
           appPresenter.showAuthLogin(event.symbol['auth_uri']);
         }
       }
-    } else if (event.httpStatus == 200 && event.path.length == 0) {
+    } else if (event.httpStatusCode == 200 && event.path.length == 0) {
       appPresenter.receiveAuthenticationSessionData();
     } else if (event.path.length == 0) {
       appPresenter.reportError(ErrorReportModule.login, 'Could not log in.');
@@ -342,10 +334,12 @@ class ALaCarteMainView extends PolymerElement implements AppPager {
   }
 
   void _routeLogoutReply(
-      JsonStreamingEvent event, Ref<StreamSubscription> subscription) {
-    if (event.httpStatus == 401 || event.httpStatus == 404 && event.path.length == 0) {
-    } else if (event.httpStatus == 200 ||
-        event.httpStatus == 201 && event.path.length == 0) {
+      HttpResponseJsonStreamingEvent event, Ref<StreamSubscription> subscription) {
+    if (event.eventType != JsonStreamingEventType.close) return;
+    if (event.httpStatusCode == 401 ||
+        event.httpStatusCode == 404 && event.path.length == 0) {
+    } else if (event.httpStatusCode == 200 ||
+        event.httpStatusCode == 201 && event.path.length == 0) {
       _finalizeLogout();
       subscription.value.cancel();
     } else if (event.path.length == 0) {
@@ -359,10 +353,11 @@ class ALaCarteMainView extends PolymerElement implements AppPager {
   }
 
   void _routeProjectAuthorizationReply(
-      JsonStreamingEvent event,
+      HttpResponseJsonStreamingEvent event,
       Ref<StreamSubscription> subscription,
       String activeAuthorizationSubscription) {
-    if (event.httpStatus >= 300) {
+    if (event.eventType != JsonStreamingEventType.close) return;
+    if (event.httpStatusCode >= 300) {
       subscription.value.cancel();
       return;
     }

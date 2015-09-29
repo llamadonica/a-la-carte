@@ -5,6 +5,7 @@ import 'dart:html';
 
 import 'package:polymer/polymer.dart';
 import 'package:core_elements/core_ajax_dart.dart';
+import 'package:json_stream_parser/json_stream_parser.dart';
 import 'package:paper_elements/paper_toast.dart';
 import 'package:a_la_carte/json_streaming.dart';
 import 'package:a_la_carte/fetch_interop.dart';
@@ -136,9 +137,10 @@ class ALaCartePresenter extends PolymerElement implements Presenter {
     return completer.future;
   }
 
-  void _routeSessionEvent(JsonStreamingEvent event,
+  void _routeSessionEvent(HttpResponseJsonStreamingEvent event,
       Ref<StreamSubscription> subscription, Completer completer) {
-    if (event.httpStatus == 200 && event.path.length == 0) {
+    if (event.eventType != JsonStreamingEventType.close) return;
+    if (event.httpStatusCode == 200 && event.path.length == 0) {
       _serviceAccountName = event.symbol['userCtx']['name'];
       subscription.value.cancel();
       completer.complete();
@@ -175,7 +177,8 @@ class ALaCartePresenter extends PolymerElement implements Presenter {
   }
 
   void _routeProjectLoadingEvent(
-      JsonStreamingEvent event, Ref<StreamSubscription> subscription) {
+      HttpResponseJsonStreamingEvent event, Ref<StreamSubscription> subscription) {
+    if (event.eventType != JsonStreamingEventType.close) return;
     if (event.path.length == 1 && event.path[0] == 'error') {
       isError = true;
       if (connectivityErrorMessage == null) {
@@ -190,7 +193,7 @@ class ALaCartePresenter extends PolymerElement implements Presenter {
       connectivityErrorMessage = event.symbol;
       return;
     } else if (event.path.length == 0) {
-      if (event.httpStatus >= 400 && !projectsAreLoaded) {
+      if (event.httpStatusCode >= 400 && !projectsAreLoaded) {
         final PaperToast connectivityToast = $['toast-connectivity'];
         connectivityToast.show();
         projectsAreLoaded = true;
@@ -225,8 +228,9 @@ class ALaCartePresenter extends PolymerElement implements Presenter {
     return completer.future;
   }
 
-  void _processNextJobNumber(JsonStreamingEvent event, Completer<int> completer,
+  void _processNextJobNumber(HttpResponseJsonStreamingEvent event, Completer<int> completer,
       int year, Ref<StreamSubscription> subscription) {
+    if (event.eventType != JsonStreamingEventType.close) return;
     if (event.path.length != 0) {
       return;
     }
@@ -265,10 +269,11 @@ class ALaCartePresenter extends PolymerElement implements Presenter {
   }
 
   void _routeAuthSessionEvent(
-      JsonStreamingEvent event,
+      HttpResponseJsonStreamingEvent event,
       Ref<StreamSubscription> subscription,
       Completer receivingAuthenticationSessionDataCompleter) {
-    if (event.httpStatus == 200 && event.path.length == 0 && !isLoggedIn) {
+    if (event.eventType != JsonStreamingEventType.close) return;
+    if (event.httpStatusCode == 200 && event.path.length == 0 && !isLoggedIn) {
       if (!receivingAuthenticationSessionDataCompleter.isCompleted) {
         userEmail = event.symbol['email'];
         userFullName = event.symbol['fullName'];
@@ -298,33 +303,16 @@ class ALaCartePresenter extends PolymerElement implements Presenter {
   @override
   void connectTo(String uri, JsonEventRouter router,
       {bool isImplicitArray: false, String method: 'GET'}) {
-    final jsonHandler = new JsonStreamingParser(isImplicitArray);
+    HttpResponseJsonStreamingParser jsonHandler;
     final subscription = new Ref<StreamSubscription>();
-    subscription.value = jsonHandler.onSymbolComplete
-        .listen((event) => router(event, subscription));
 
     if (fetch == null) {
-      _request = new HttpRequest();
+      var _request = new HttpRequest();
       _request.open(method, uri);
       _request.setRequestHeader('Accept', 'application/json');
-      if (!isLoggedIn) {
-        _request.setRequestHeader('X-Can-Read-Push-Session-Data', 'true');
-        //_request.setRequestHeader('Cookie', window.document.cookie);
-      }
       _request.withCredentials = true;
-
-      _request.onLoad.listen(jsonHandler.httpRequestListener);
-      var previouslyGotHeaders = new Ref.withValue(false);
-      _request.onProgress.listen((ProgressEvent event) {
-        if (previouslyGotHeaders.value && _request.readyState >= 2) {
-          if (_request.responseHeaders.containsKey('X-Push-Session-Data') &&
-              !isLoggedIn) {
-            receiveAuthenticationSessionData();
-          }
-          previouslyGotHeaders.value = true;
-        }
-        jsonHandler.httpRequestListener(event);
-      });
+      jsonHandler =
+          new HttpResponseJsonStreamingParser.fromHttpRequest(_request, isImplicitArray);
 
       _request.send();
     } else {
@@ -333,19 +321,17 @@ class ALaCartePresenter extends PolymerElement implements Presenter {
       if (!isLoggedIn) {
         headers['X-Can-Read-Push-Session-Data'] = 'true';
       }
-      fetch(uri,
+      jsonHandler = new HttpResponseJsonStreamingParser.fromFetch(fetch(uri,
           method: method,
           headers: headers,
           mode: RequestMode.sameOrigin,
-          credentials: RequestCredentials.sameOrigin).then((Response object) {
-        if (object.headers.callMethod('has', ['X-Push-Session-Data']) &&
-            !isLoggedIn) {
-          receiveAuthenticationSessionData();
-        }
-        jsonHandler.setStreamStateFromResponse(object);
-        jsonHandler.streamFromByteStreamReader(object.body.getReader());
-      });
+          credentials: RequestCredentials.sameOrigin), isImplicitArray);
     }
+
+    subscription.value = jsonHandler.listen((event) => router(event, subscription), onError: (error) {
+      window.console.error("Couldn't parse stream for '$uri'");
+      throw error;
+    });
   }
 
   void selectedChanged(String oldSelected) {
@@ -414,7 +400,8 @@ class ALaCartePresenter extends PolymerElement implements Presenter {
   }
 
   void _routeChangeEvent(
-      JsonStreamingEvent event, Ref<StreamSubscription> subscription) {
+      HttpResponseJsonStreamingEvent event, Ref<StreamSubscription> subscription) {
+    if (event.eventType != JsonStreamingEventType.close) return;
     if (event.path.length == 1) {
       if (event.symbol.containsKey('seq') &&
           event.symbol.containsKey('id') &&

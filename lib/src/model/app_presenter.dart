@@ -3,7 +3,7 @@ part of a_la_carte_models;
 enum ErrorReportModule { projectSaver, login }
 
 typedef void JsonEventRouter(
-    JsonStreamingEvent event, Ref<StreamSubscription> subscription);
+    HttpResponseJsonStreamingEvent event, Ref<StreamSubscription> subscription);
 
 abstract class Presenter {
   void setUrl(String url, String title);

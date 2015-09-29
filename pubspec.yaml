@@ -13,7 +13,10 @@ dependencies:
   oauth2: any
   intl: any
   geohash: any
-  json_stream_parser: any
+  json_stream_parser:
+    git:
+      ref: master
+      url: https://github.com/llamadonica/dart-json-stream-parser.git
   d17:
     git:
       ref: testing
@@ -27,6 +30,7 @@ transformers:
 - sass:
     compass: true
     style: compact
+    executable: "C:\\Ruby22-x64\\bin\\sass.bat"
 - polymer:
     entry_points: web/index.html
 - $dart2js:
