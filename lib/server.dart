@@ -35,10 +35,10 @@ class Server {
     });
     Isolate.spawn(_sessionMasterIsolate,
         [port, null, couchPort, null, debugOverWire, sessionResponse.sendPort]);
-    if (runDbToSearch) {
+    /* if (runDbToSearch) {
       Isolate.spawn(_changesSenderIsolate,
       [port, null, couchPort, null, debugOverWire]);
-    }
+    } */
   }
 }
 
@@ -64,6 +64,7 @@ void _sessionMasterIsolate(List args) {
 void _changesSenderIsolate(List args) {
   final injector = new Injector(
       new ALaCarteModule(httpServerPort: args[0], debugOverWire: args[4]));
-  final ChangeSubscriberIsolate listener = injector.getInstance(ChangeSubscriberIsolate);
+  final ChangeSubscriberIsolate listener =
+      injector.getInstance(ChangeSubscriberIsolate);
   listener.listen();
 }
