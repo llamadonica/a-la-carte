@@ -229,7 +229,7 @@ class ALaCarteMainView extends PolymerElement implements AppPager {
   }
 
   @override void setToNewProject() {
-    project = new Project(new Uuid().v4());
+    project = new Project('p:' + new Uuid().v4());
     projectEditViewCaption = "Add a project";
     DateTime currentTime = new DateTime.now();
     appPresenter.nextJobNumber(currentTime.year).then((nextNumber) {

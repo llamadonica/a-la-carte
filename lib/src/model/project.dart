@@ -19,7 +19,7 @@ class Project extends JsonCanSync {
   @observable String userDataEmail;
   @observable DateTime userDataTimestamp;
 
-  String get geohash => Geohash.encode(latitude, longitude);
+  String get geohash => latitude == null ? null : Geohash.encode(latitude, longitude);
 
   @observable bool placeIdMustBeUpdated;
 

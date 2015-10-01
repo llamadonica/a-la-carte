@@ -72,7 +72,7 @@ class HttpResponseJsonStreamingParser
   HttpResponseJsonStreamingParser.fromFetch(Future<Response> fetch, [bool isImplicitArray = false])
       : _request = null {
     fetch.then((response) async {
-      if (response.status == 201) {
+      if (response.status == 204) {
         _characterStream.addError(noBody);
       }
       status = response.status;

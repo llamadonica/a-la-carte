@@ -23,7 +23,7 @@ class ChangeSubscriberIsolateImpl extends ChangeSubscriberIsolate {
     Future listenInternal() async {
 
       await for (var change in _dbConnection.subscribeToChanges('a_la_carte')) {
-
+        print(change);
       }
     }
     print('${new DateTime.now()}\tListening for changes...');

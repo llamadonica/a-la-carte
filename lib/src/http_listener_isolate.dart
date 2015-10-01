@@ -454,8 +454,7 @@ $description
           headers: {'Content-Type': 'application/json'});
     } else if (request.url.path == '_auth/session' &&
         request.method == 'DELETE') {
-      return new shelf.Response(201,
-          headers: {'Content-Type': 'application/json'},
+      return new shelf.Response(204,
           context: {'logout': true});
     } else {
       return new shelf.Response(_responseShouldCascade);

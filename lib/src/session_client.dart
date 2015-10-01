@@ -62,7 +62,7 @@ abstract class SessionClient {
       final ReceivePort secondaryResponse = new ReceivePort();
       //_defaultLogger('$tsid: Session $tsid. Creating.', false);
       if (psid == null) {
-        psid = new Uuid().v1();
+        psid = 's:' + new Uuid().v1();
       }
       data[0].send([
         'addNewCookie',

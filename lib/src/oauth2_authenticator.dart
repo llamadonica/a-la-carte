@@ -43,7 +43,7 @@ class OAuth2Authenticator extends Authenticator {
 
   @override
   Future prepareUnauthorizedRequest(DbBackend dataStore, int timestamp) async {
-    final watchMessage = new Uuid().v4();
+    final watchMessage = 'a:' + new Uuid().v4();
     try {
       var replyMap = await dataStore.makeServicePut(
           Uri.parse('/a_la_carte/$watchMessage'),

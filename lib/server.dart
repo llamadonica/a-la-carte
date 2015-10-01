@@ -35,10 +35,10 @@ class Server {
     });
     Isolate.spawn(_sessionMasterIsolate,
         [port, null, couchPort, null, debugOverWire, sessionResponse.sendPort]);
-    /* if (runDbToSearch) {
+    if (runDbToSearch) {
       Isolate.spawn(_changesSenderIsolate,
       [port, null, couchPort, null, debugOverWire]);
-    } */
+    }
   }
 }
 

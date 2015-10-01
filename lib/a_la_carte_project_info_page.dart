@@ -356,6 +356,7 @@ class ALaCarteProjectInfoPage extends ALaCartePageCommon {
       Ref<StreamSubscription> subscription,
       String authorizationSubscriptionDocId,
       void _functionToDoAgain()) {
+    if (event.eventType != JsonStreamingEventType.close) return;
     if (event.httpStatusCode >= 300) {
       subscription.value.cancel();
       _cancelSavingWithErrorFromEvent(originalEvent);
@@ -381,6 +382,7 @@ class ALaCarteProjectInfoPage extends ALaCartePageCommon {
       Ref<StreamSubscription> subscription,
       String id,
       Map data) {
+    if (event.eventType != JsonStreamingEventType.close) return;
     if (event.httpStatusCode == 401 && event.path.length == 0) {
       if (event.symbol.containsKey('auth_uri') &&
           event.symbol.containsKey('auth_watcher_id')) {

@@ -8,7 +8,8 @@ class SearchServiceError {
 }
 
 abstract class SearchBackend {
-  Future updatesToIndex(List<Map> documents);
+  Future<int> get mostRecentSequence;
+  Future updateToIndex(Map documents);
 /** The updates come through as a json entity as described by CouchDB
  * { "seq":975,
  *   "id":"p:83536f1d-9b52-4d37-af40-2f1060268cdd",

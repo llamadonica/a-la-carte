@@ -24,7 +24,7 @@ class ElasticSearchBackend extends SearchBackend {
   ElasticSearchBackend(
       @Named('a_la_carte.server.couch_db_backend.elasticSearchPort') int this.port);
 
-  Future updatesToIndex(List<Map> documents) async {
+  Future updateToIndex(Map document) async {
     final elasticUri = new Uri(
         scheme: 'http',
         host: '127.0.0.1',
@@ -35,15 +35,13 @@ class ElasticSearchBackend extends SearchBackend {
     final List<int> encodedMessage = new List();
 
     final jsonEncoder = new JsonEncoder().fuse(new Utf8Encoder());
-    for (var document in documents) {
-      var tempDocument = new Map();
-      tempDocument['_type'] = document['type'];
-      tempDocument['_index'] = 'a_la_carte';
-      tempDocument['_id'] = document['_id'];
-      encodedMessage.addAll(jsonEncoder.convert(tempDocument));
-      encodedMessage.add(10);
-      encodedMessage.addAll(jsonEncoder.convert(document));
-    }
+    var tempDocument = new Map();
+    tempDocument['_type'] = document['type'];
+    tempDocument['_index'] = 'a_la_carte';
+    tempDocument['_id'] = document['_id'];
+    encodedMessage.addAll(jsonEncoder.convert(tempDocument));
+    encodedMessage.add(10);
+    encodedMessage.addAll(jsonEncoder.convert(document));
     request.headers
       ..add(HttpHeaders.CONTENT_LENGTH, encodedMessage.length.toString())
       ..add(HttpHeaders.CONTENT_TYPE, 'application/json');
@@ -60,5 +58,11 @@ class ElasticSearchBackend extends SearchBackend {
     } else {
       throw new ElasticSearchServiceError(map);
     }
+  }
+
+  // TODO: implement mostRecentSequence
+  @override
+  Future<int> get mostRecentSequence {
+
   }
 }
